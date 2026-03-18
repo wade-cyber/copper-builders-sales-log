@@ -1,0 +1,337 @@
+/* Global styles — Copper Builders branded theme */
+/* Custom CSS only, no UI library */
+
+:root {
+  --gold: #B09245;
+  --gold-light: #d4b870;
+  --slate: #566263;
+  --slate-dark: #3a4344;
+  --sage: #BFD1CB;
+  --sage-light: #d8e8e3;
+  --cream: #F5F5EF;
+  --sand: #E3BAA2;
+  --white: #ffffff;
+  --border: #d4cfc6;
+  --border-light: #e8e4dd;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--slate-dark);
+  background-color: var(--cream);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 0 16px 40px;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Libre Baskerville', serif;
+  font-weight: 700;
+  color: var(--slate-dark);
+}
+
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.2rem; }
+h3 { font-size: 1rem; }
+
+/* --- Inputs --- */
+
+input, select, textarea {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--slate-dark);
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--gold);
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  text-align: center;
+  width: 56px;
+  padding: 6px 4px;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23566263' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+/* --- Buttons --- */
+
+button {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s, opacity 0.15s;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--gold);
+  color: var(--white);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--gold-light);
+}
+
+.btn-secondary {
+  background-color: var(--sage);
+  color: var(--slate-dark);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--sage-light);
+}
+
+.btn-small {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.btn-sold {
+  background-color: #4a9e6f;
+  color: var(--white);
+}
+
+.btn-sold:hover:not(:disabled) {
+  background-color: #3d8a5e;
+}
+
+.btn-remove {
+  background-color: #999;
+  color: var(--white);
+}
+
+.btn-remove:hover:not(:disabled) {
+  background-color: #777;
+}
+
+/* --- Cards --- */
+
+.card {
+  background: var(--white);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card.sold {
+  background: #e8f5ee;
+  opacity: 0.7;
+}
+
+.card.removed {
+  background: #f0f0ee;
+  opacity: 0.6;
+}
+
+/* --- Collapsible --- */
+
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 12px 0;
+  user-select: none;
+}
+
+.collapsible-header h3 {
+  margin: 0;
+}
+
+.chevron {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  transition: transform 0.2s;
+  color: var(--slate);
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+}
+
+.collapsible-body {
+  overflow: hidden;
+}
+
+/* --- Grid --- */
+
+.grid-3x3 {
+  display: grid;
+  grid-template-columns: auto repeat(3, 1fr);
+  gap: 6px;
+  align-items: center;
+}
+
+.grid-3x3 .row-label {
+  font-size: 12px;
+  color: var(--slate);
+  text-align: right;
+  padding-right: 6px;
+  white-space: nowrap;
+}
+
+.grid-3x3 .col-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--slate);
+  text-align: center;
+}
+
+/* --- Ranking colors --- */
+
+.ranking-a { color: var(--gold); }
+.ranking-b { color: #6a9e87; }
+.ranking-c { color: var(--slate); }
+
+.ranking-badge {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  text-align: center;
+  border-radius: 50%;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--white);
+}
+
+.ranking-badge.a { background-color: var(--gold); }
+.ranking-badge.b { background-color: #6a9e87; }
+.ranking-badge.c { background-color: var(--slate); }
+
+/* --- Stamp overlays --- */
+
+.stamp {
+  font-size: 11px;
+  font-weight: 600;
+  font-style: italic;
+  margin-top: 6px;
+}
+
+.stamp.sold { color: #4a9e6f; }
+.stamp.removed { color: #999; }
+
+/* --- Section dividers --- */
+
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 24px 0 8px;
+}
+
+/* --- Avatar --- */
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--gold);
+  color: var(--white);
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* --- Add prospect toggle --- */
+
+.add-prospect-toggle {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold);
+  cursor: pointer;
+  padding: 6px 0;
+  border: none;
+  background: none;
+}
+
+.add-prospect-toggle:hover {
+  color: var(--gold-light);
+}
+
+/* --- Prospect row --- */
+
+.prospect-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.prospect-row select {
+  width: auto;
+  flex: 1;
+  min-width: 100px;
+}
+
+.prospect-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* --- Submit button --- */
+
+.submit-bar {
+  position: sticky;
+  bottom: 0;
+  padding: 16px 0;
+  background: linear-gradient(transparent, var(--cream) 20%);
+}
+
+.submit-bar button {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+}
