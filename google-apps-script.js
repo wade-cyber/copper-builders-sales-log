@@ -139,6 +139,9 @@ function doPost(e) {
   if (action === 'consolidateDashboard') {
     return jsonResponse(handleConsolidateDashboard());
   }
+  if (action === 'debugConsolidate') {
+    return jsonResponse(debugConsolidateNames_());
+  }
 
   return jsonResponse({ error: 'Unknown action' });
 }
@@ -790,4 +793,42 @@ function getCurrentWeekEndingShort_() {
   var sun = new Date(today);
   sun.setDate(today.getDate() + diff);
   return MONTHS_SHORT[sun.getMonth()] + ' ' + sun.getDate();
+}
+
+/**
+ * Debug helper — returns community names from both sheets for comparison.
+ */
+function debugConsolidateNames_() {
+  // Copper Leads Dashboard — community names from col A, rows 9+
+  var leadsNames = [];
+  var leadsSheet = SpreadsheetApp.openById(LEADS_SHEET_ID).getSheetByName('Dashboard');
+  if (leadsSheet) {
+    var lr = leadsSheet.getLastRow();
+    if (lr >= 9) {
+      var ld = leadsSheet.getRange(9, 1, lr - 8, 2).getValues();
+      for (var i = 0; i < ld.length; i++) {
+        var n = (ld[i][0] || '').toString().trim();
+        if (n) leadsNames.push({ row: i + 9, name: n, market: (ld[i][1] || '').toString().trim() });
+      }
+    }
+  }
+
+  // Sales Data Results — community names from col A, all rows
+  var resultsNames = [];
+  var resultsSheet = SpreadsheetApp.openById(RESULTS_SHEET_ID).getSheetByName('Sales Data Results');
+  if (resultsSheet) {
+    var rr = resultsSheet.getLastRow();
+    if (rr >= 1) {
+      var rd = resultsSheet.getRange(1, 1, rr, 2).getValues();
+      for (var i = 0; i < rd.length; i++) {
+        var n = (rd[i][0] || '').toString().trim();
+        if (n) resultsNames.push({ row: i + 1, name: n, col_b: (rd[i][1] || '').toString().trim() });
+      }
+    }
+  }
+
+  return {
+    copperLeadsDashboard: leadsNames,
+    salesDataResults: resultsNames
+  };
 }
