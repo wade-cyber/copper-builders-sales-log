@@ -16,6 +16,16 @@ export async function fetchProspects(rep) {
   return res.json();
 }
 
+export async function submitWeeklyLog(data) {
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'submitWeeklyLog', ...data }),
+  });
+  if (!res.ok) throw new Error('Failed to submit weekly log');
+  return res.json();
+}
+
 export async function submitReport(data) {
   const res = await fetch(SCRIPT_URL, {
     method: 'POST',

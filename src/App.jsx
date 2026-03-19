@@ -5,7 +5,7 @@ import CommunityBlock from './components/CommunityBlock';
 import SubmitScreen from './components/SubmitScreen';
 import { useAssignments } from './hooks/useAssignments';
 import { useProspects } from './hooks/useProspects';
-import { submitReport, fetchAllCommunities } from './utils/api';
+import { submitWeeklyLog, fetchAllCommunities } from './utils/api';
 import { getWeekEndingShort } from './utils/dates';
 
 const BOYL_BLOCK = { name: 'BOYL', assignmentName: 'BOYL', assignmentType: 'boyl' };
@@ -15,11 +15,14 @@ export default function App() {
   const [selectedRep, setSelectedRep] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [appointments, setAppointments] = useState({});
   const [extraCommunities, setExtraCommunities] = useState([]);
   const [showPicker, setShowPicker] = useState(false);
   const [pickerValue, setPickerValue] = useState('');
   const [allKnownCommunities, setAllKnownCommunities] = useState([]);
+  const [openedBlocks, setOpenedBlocks] = useState(new Set());
+  const [collapseKey, setCollapseKey] = useState(0);
 
   const { assignments, loading: assignmentsLoading } = useAssignments(selectedRep);
   const { prospects, addProspect, updateProspect, removeProspect, markSold } =
@@ -38,13 +41,25 @@ export default function App() {
   const handleRepChange = useCallback((rep) => {
     setSelectedRep(rep);
     setSubmitted(false);
+    setSubmitError('');
     setAppointments({});
     setExtraCommunities([]);
     setShowPicker(false);
+    setOpenedBlocks(new Set());
+    setCollapseKey(k => k + 1);
   }, []);
 
   const handleAppointmentChange = useCallback((communityName, grid) => {
     setAppointments((prev) => ({ ...prev, [communityName]: grid }));
+  }, []);
+
+  const handleBlockOpened = useCallback((blockName) => {
+    setOpenedBlocks((prev) => {
+      if (prev.has(blockName)) return prev;
+      const next = new Set(prev);
+      next.add(blockName);
+      return next;
+    });
   }, []);
 
   const allCommunities = useMemo(() => [
@@ -60,23 +75,20 @@ export default function App() {
   ], [allCommunities, assignments.singleHomes]);
 
   // Required = Smartsheet communities + Smartsheet single homes only.
-  // Excludes BOYL, Renovations, and added (cross-sell) communities.
   const requiredBlocks = useMemo(() => [
     ...assignments.communities,
     ...assignments.singleHomes,
   ], [assignments.communities, assignments.singleHomes]);
 
+  // A block is "touched" once it has been opened at least once
   const touchedCount = useMemo(() => {
     let count = 0;
     for (const a of requiredBlocks) {
       const name = a.name || a.assignmentName;
-      const grid = appointments[name];
-      const hasAppts = grid && grid.some(row => row.some(v => v > 0));
-      const hasProspects = prospects.some(p => p.community === name);
-      if (hasAppts || hasProspects) count++;
+      if (openedBlocks.has(name)) count++;
     }
     return count;
-  }, [requiredBlocks, appointments, prospects]);
+  }, [requiredBlocks, openedBlocks]);
 
   const allRequiredTouched = requiredBlocks.length > 0 && touchedCount >= requiredBlocks.length;
 
@@ -121,21 +133,46 @@ export default function App() {
 
   const handleSubmit = async () => {
     setSubmitting(true);
+    setSubmitError('');
     try {
-      for (const a of allBlocks) {
+      const sections = allBlocks.map((a) => {
         const name = a.name || a.assignmentName;
         const grid = appointments[name] || [[0,0,0],[0,0,0],[0,0,0]];
-        await submitReport({
-          rep: selectedRep,
-          weekEnding: getWeekEndingShort(),
-          community: name,
-          sectionType: a.assignmentType || 'community',
-          appointments: grid,
-        });
-      }
+        const blockProspects = prospects.filter(p => p.community === name);
+        const gridTotal = grid.reduce((sum, row) => sum + row.reduce((s, v) => s + v, 0), 0);
+
+        return {
+          name,
+          type: a.assignmentType || 'community',
+          appointments: {
+            clientOnly: { virtual: grid[0][0], onsite: grid[0][1], model: grid[0][2] },
+            realtorPlusClient: { virtual: grid[1][0], onsite: grid[1][1], model: grid[1][2] },
+            realtorOnly: { virtual: grid[2][0], onsite: grid[2][1], model: grid[2][2] },
+          },
+          totalAppointments: gridTotal,
+          prospects: blockProspects.map(p => ({
+            name: p.name,
+            ranking: p.ranking || 'C',
+            nextStep: p.nextStep || '',
+            status: p.status || 'active',
+          })),
+        };
+      });
+
+      await submitWeeklyLog({
+        repName: selectedRep,
+        weekEnding: getWeekEndingShort(),
+        timestamp: new Date().toISOString(),
+        sections,
+        totals: {
+          totalAppointments,
+          totalProspects: totalActiveProspects,
+        },
+      });
+
       setSubmitted(true);
     } catch (err) {
-      alert('Submit failed: ' + err.message);
+      setSubmitError('Submission failed — please try again or contact support');
     } finally {
       setSubmitting(false);
     }
@@ -166,6 +203,8 @@ export default function App() {
           onAddProspect={addProspect}
           onMarkSold={markSold}
           onRemoveProspect={removeProspect}
+          onOpened={handleBlockOpened}
+          forceCollapsed={collapseKey}
         />
       );
     });
@@ -262,10 +301,15 @@ export default function App() {
       {showSections && (
         <>
           <div className="sdiv" />
-          <div className="grand-totals">
-            <span>{totalAppointments} total appointment{totalAppointments !== 1 ? 's' : ''}</span>
-            <span className="grand-dot" />
-            <span>{totalActiveProspects} active prospect{totalActiveProspects !== 1 ? 's' : ''}</span>
+          <div className="totals-bar">
+            <div className="totals-card">
+              <div className="totals-label">Total Appts</div>
+              <div className="totals-number">{totalAppointments}</div>
+            </div>
+            <div className="totals-card">
+              <div className="totals-label">Total Prospects</div>
+              <div className="totals-number">{totalActiveProspects}</div>
+            </div>
           </div>
           <button
             className="submit-btn"
@@ -274,6 +318,9 @@ export default function App() {
           >
             {submitting ? 'Submitting…' : 'Submit Weekly Log'}
           </button>
+          {submitError && (
+            <div className="submit-error">{submitError}</div>
+          )}
         </>
       )}
     </div>

@@ -13,7 +13,9 @@
  *   - Submissions (columns: Timestamp, Week Ending, Rep Name, Community, Section Type,
  *                  Client Only Virtual, Client Only Onsite, Client Only Model,
  *                  Realtor+Client Virtual, Realtor+Client Onsite, Realtor+Client Model,
- *                  Realtor Only Virtual, Realtor Only Onsite, Realtor Only Model)
+ *                  Realtor Only Virtual, Realtor Only Onsite, Realtor Only Model,
+ *                  Total Appts, Active Prospects, Sold Prospects, Removed Prospects,
+ *                  Grand Total Appts, Grand Total Prospects)
  *   - Prospects (columns: ID, Rep Name, Community, Prospect Name, Ranking,
  *                Next Step, Status, Created Date, Last Updated)
  */
@@ -120,6 +122,9 @@ function doPost(e) {
   if (action === 'submitReport') {
     return handleSubmitReport(payload);
   }
+  if (action === 'submitWeeklyLog') {
+    return handleSubmitWeeklyLog(payload);
+  }
   if (action === 'saveProspect') {
     return handleSaveProspect(payload);
   }
@@ -128,6 +133,110 @@ function doPost(e) {
   }
 
   return jsonResponse({ error: 'Unknown action' });
+}
+
+function handleSubmitWeeklyLog(data) {
+  var sheet = getSheet('Submissions');
+  if (!sheet) {
+    sheet = SpreadsheetApp.openById(SHEET_ID).insertSheet('Submissions');
+  }
+
+  // Ensure header row
+  var firstCell = sheet.getRange(1, 1).getValue();
+  if (firstCell !== 'Timestamp') {
+    sheet.getRange(1, 1, 1, 20).setValues([[
+      'Timestamp', 'Week Ending', 'Rep Name', 'Community', 'Section Type',
+      'Client Only Virtual', 'Client Only Onsite', 'Client Only Model',
+      'Realtor+Client Virtual', 'Realtor+Client Onsite', 'Realtor+Client Model',
+      'Realtor Only Virtual', 'Realtor Only Onsite', 'Realtor Only Model',
+      'Total Appts', 'Active Prospects', 'Sold Prospects', 'Removed Prospects',
+      'Grand Total Appts', 'Grand Total Prospects'
+    ]]);
+  }
+
+  var sections = data.sections || [];
+  for (var i = 0; i < sections.length; i++) {
+    var section = sections[i];
+    var appts = section.appointments || {};
+    var co = appts.clientOnly || {};
+    var rc = appts.realtorPlusClient || {};
+    var ro = appts.realtorOnly || {};
+    var prospects = section.prospects || [];
+
+    sheet.appendRow([
+      data.timestamp,
+      data.weekEnding,
+      data.repName,
+      section.name,
+      section.type,
+      co.virtual || 0,
+      co.onsite || 0,
+      co.model || 0,
+      rc.virtual || 0,
+      rc.onsite || 0,
+      rc.model || 0,
+      ro.virtual || 0,
+      ro.onsite || 0,
+      ro.model || 0,
+      section.totalAppointments || 0,
+      prospects.filter(function(p) { return p.status === 'active'; }).length,
+      prospects.filter(function(p) { return p.status === 'sold'; }).length,
+      prospects.filter(function(p) { return p.status === 'removed'; }).length,
+      (data.totals || {}).totalAppointments || 0,
+      (data.totals || {}).totalProspects || 0
+    ]);
+  }
+
+  // Update prospect statuses in the Prospects tab
+  updateProspectStatuses(data.repName, sections);
+
+  return jsonResponse({ success: true, message: 'Submitted successfully' });
+}
+
+function updateProspectStatuses(repName, sections) {
+  var sheet = getSheet('Prospects');
+  if (!sheet) return;
+
+  var allData = sheet.getDataRange().getValues();
+  if (allData.length < 2) return;
+
+  var headers = allData[0];
+  var nameCol = headers.indexOf('Prospect Name');
+  var repCol = headers.indexOf('Rep Name');
+  var statusCol = headers.indexOf('Status');
+  var updatedCol = headers.indexOf('Last Updated');
+  var rankingCol = headers.indexOf('Ranking');
+  var nextStepCol = headers.indexOf('Next Step');
+
+  if (nameCol < 0 || repCol < 0 || statusCol < 0) return;
+
+  var now = new Date().toISOString();
+
+  for (var s = 0; s < sections.length; s++) {
+    var prospects = sections[s].prospects || [];
+    for (var p = 0; p < prospects.length; p++) {
+      var prospect = prospects[p];
+      if (prospect.status !== 'sold' && prospect.status !== 'removed') continue;
+
+      // Find matching row
+      for (var r = 1; r < allData.length; r++) {
+        if (allData[r][repCol] === repName && allData[r][nameCol] === prospect.name) {
+          var rowNum = r + 1; // 1-based
+          sheet.getRange(rowNum, statusCol + 1).setValue(prospect.status);
+          if (updatedCol >= 0) {
+            sheet.getRange(rowNum, updatedCol + 1).setValue(now);
+          }
+          if (rankingCol >= 0 && prospect.ranking) {
+            sheet.getRange(rowNum, rankingCol + 1).setValue(prospect.ranking);
+          }
+          if (nextStepCol >= 0 && prospect.nextStep) {
+            sheet.getRange(rowNum, nextStepCol + 1).setValue(prospect.nextStep);
+          }
+          break;
+        }
+      }
+    }
+  }
 }
 
 function handleSubmitReport(data) {

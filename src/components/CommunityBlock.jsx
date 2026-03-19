@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AppointmentGrid from './AppointmentGrid';
 import ProspectCard from './ProspectCard';
 import AddProspectForm from './AddProspectForm';
@@ -14,31 +14,48 @@ export default function CommunityBlock({
   onAddProspect,
   onMarkSold,
   onRemoveProspect,
+  onOpened,
+  forceCollapsed,
 }) {
-  const startCollapsed = type === 'boyl' || type === 'renovation';
-  const [open, setOpen] = useState(!startCollapsed);
+  const [open, setOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
+
+  // Reset to collapsed when forceCollapsed changes (new rep selected)
+  useEffect(() => {
+    if (forceCollapsed) {
+      setOpen(false);
+      setShowForm(false);
+    }
+  }, [forceCollapsed]);
+
+  const handleToggle = () => {
+    const willOpen = !open;
+    setOpen(willOpen);
+    if (willOpen && onOpened) {
+      onOpened(name);
+    }
+  };
 
   const communityProspects = prospects.filter((p) => p.community === name);
   const activeProspects = communityProspects.filter((p) => p.status === 'active' || !p.status);
   const apptTotal = appointments.reduce((sum, row) => sum + row.reduce((s, v) => s + v, 0), 0);
-  const hasStats = apptTotal > 0 || activeProspects.length > 0;
 
   return (
     <div className="block">
-      <div className={`bh${open ? ' open' : ''}`} onClick={() => setOpen(!open)}>
-        <div className="bname-wrap">
-          <span className="bname">
-            {name}
-            {isAdded && <span className="added-badge">Added</span>}
-          </span>
-          {hasStats && (
-            <span className="block-stats">
-              {apptTotal} appt{apptTotal !== 1 ? 's' : ''} / {activeProspects.length} prospect{activeProspects.length !== 1 ? 's' : ''}
-            </span>
+      <div className={`bh${open ? ' open' : ''}`} onClick={handleToggle}>
+        <span className="bname">
+          {name}
+          {isAdded && <span className="added-badge">Added</span>}
+        </span>
+        <div className="bh-right">
+          {apptTotal > 0 && (
+            <span className="bh-badge">Appts: {apptTotal}</span>
           )}
+          {activeProspects.length > 0 && (
+            <span className="bh-badge">Prospects: {activeProspects.length}</span>
+          )}
+          <div className="chev">{open ? '−' : '+'}</div>
         </div>
-        <div className="chev">{open ? '−' : '+'}</div>
       </div>
 
       {open && (
