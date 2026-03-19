@@ -20,6 +20,7 @@
 
 var SHEET_ID = '1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4';
 var LEADS_SHEET_ID = '1eH15Te0Wd1nuMMQ-yL0bvtxuYKAcPLv33CYjYylNEeI';
+var RESULTS_SHEET_ID = '1az7HktTLeeQCcCV5f5hgPDyRElyJKzezZymgywc6Gzw';
 
 var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -134,6 +135,9 @@ function doPost(e) {
   }
   if (action === 'createWeeklyDashboard') {
     return jsonResponse(handleCreateWeeklyDashboard());
+  }
+  if (action === 'consolidateDashboard') {
+    return jsonResponse(handleConsolidateDashboard());
   }
 
   return jsonResponse({ error: 'Unknown action' });
@@ -572,4 +576,218 @@ function handleSyncAssignments(data) {
   }
 
   return jsonResponse({ success: true, count: assignments.length });
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// CONSOLIDATE DASHBOARD
+// ══════════════════════════════════════════════════════════════
+//
+// Reads lead data from Copper Leads "Dashboard" tab,
+// prospect counts and appointment totals from the Sales App,
+// and writes consolidated values to "Sales Data Results" tab.
+//
+// Target columns in Sales Data Results:
+//   C: Active Prospects    (from Prospects tab)
+//   D: Appointments Held   (from Submissions tab)
+//   E: Total New Leads     (from Copper Leads col F)
+//   G: Digital Leads       (from Copper Leads cols G-P)
+//   H: In-Person Leads     (from Copper Leads cols Q-AA)
+//   J: Call Leads           (from Copper Leads cols AB-AH)
+//   L: VIP List Signups    (from Copper Leads col AI)
+//
+// Matching: by community name (col A), case-insensitive.
+// ══════════════════════════════════════════════════════════════
+
+function handleConsolidateDashboard() {
+  // ── 1. Read Copper Leads Dashboard ──
+  var leadsSheet = SpreadsheetApp.openById(LEADS_SHEET_ID).getSheetByName('Dashboard');
+  if (!leadsSheet) {
+    return { success: false, message: 'Copper Leads "Dashboard" tab not found' };
+  }
+
+  var leadsLastRow = leadsSheet.getLastRow();
+  var leadsLastCol = leadsSheet.getLastColumn();
+  if (leadsLastRow < 9) {
+    return { success: false, message: 'Copper Leads Dashboard has no data rows' };
+  }
+
+  // Read rows 9 onwards (all data rows: evergreen + communities)
+  var leadsDataRows = leadsLastRow - 8; // rows 9 to lastRow
+  var leadsData = leadsSheet.getRange(9, 1, leadsDataRows, Math.max(leadsLastCol, 35)).getValues();
+
+  // Build lookup: community name (lowercase) → lead metrics
+  var leadsByCommunity = {};
+  for (var i = 0; i < leadsData.length; i++) {
+    var communityName = (leadsData[i][0] || '').toString().trim();
+    if (!communityName) continue;
+
+    // Col F (idx 5): Total New Leads
+    var totalNewLeads = toNum_(leadsData[i][5]);
+
+    // Cols G-P (idx 6-15): Digital leads — 10 columns
+    var digitalLeads = 0;
+    for (var d = 6; d <= 15; d++) {
+      digitalLeads += toNum_(leadsData[i][d]);
+    }
+
+    // Cols Q-AA (idx 16-26): In Person leads — 11 columns
+    var inPersonLeads = 0;
+    for (var p = 16; p <= 26; p++) {
+      inPersonLeads += toNum_(leadsData[i][p]);
+    }
+
+    // Cols AB-AH (idx 27-33): Call leads — 7 columns
+    // Safe approach: read everything between In Person (26) and VIP col AI (34)
+    var callLeads = 0;
+    for (var c = 27; c <= 33; c++) {
+      callLeads += toNum_(leadsData[i][c]);
+    }
+
+    // Col AI (idx 34): VIP List Total Signups
+    var vipListSignups = toNum_(leadsData[i][34]);
+
+    leadsByCommunity[communityName.toLowerCase()] = {
+      totalNewLeads: totalNewLeads,
+      digitalLeads: digitalLeads,
+      inPersonLeads: inPersonLeads,
+      callLeads: callLeads,
+      vipListSignups: vipListSignups
+    };
+  }
+
+  // ── 2. Count active prospects per community (from Sales App) ──
+  var prospectCounts = {};
+  var prospectsSheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Prospects');
+  if (prospectsSheet && prospectsSheet.getLastRow() > 1) {
+    var pData = prospectsSheet.getDataRange().getValues();
+    var pHeaders = pData[0];
+    var pCommunityIdx = pHeaders.indexOf('Community');
+    var pStatusIdx = pHeaders.indexOf('Status');
+
+    if (pCommunityIdx >= 0 && pStatusIdx >= 0) {
+      for (var i = 1; i < pData.length; i++) {
+        var status = (pData[i][pStatusIdx] || 'active').toString().toLowerCase();
+        if (status !== 'active') continue;
+        var comm = (pData[i][pCommunityIdx] || '').toString().trim().toLowerCase();
+        if (comm) prospectCounts[comm] = (prospectCounts[comm] || 0) + 1;
+      }
+    }
+  }
+
+  // ── 3. Sum appointments held per community (from Sales App Submissions) ──
+  var apptCounts = {};
+  var submissionsSheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Submissions');
+  if (submissionsSheet && submissionsSheet.getLastRow() > 1) {
+    var sData = submissionsSheet.getDataRange().getValues();
+    var sHeaders = sData[0];
+    var sCommunityIdx = sHeaders.indexOf('Community');
+    var sApptsIdx = sHeaders.indexOf('Total Appts');
+    var sWeekIdx = sHeaders.indexOf('Week Ending');
+
+    if (sCommunityIdx >= 0 && sApptsIdx >= 0) {
+      // Determine current week ending for filtering
+      var currentWeekEnding = getCurrentWeekEndingShort_();
+
+      for (var i = 1; i < sData.length; i++) {
+        // Filter to current week only
+        var weekVal = (sData[i][sWeekIdx] || '').toString().trim();
+        if (sWeekIdx >= 0 && currentWeekEnding && weekVal !== currentWeekEnding) continue;
+
+        var comm = (sData[i][sCommunityIdx] || '').toString().trim().toLowerCase();
+        var appts = toNum_(sData[i][sApptsIdx]);
+        if (comm) apptCounts[comm] = (apptCounts[comm] || 0) + appts;
+      }
+    }
+  }
+
+  // ── 4. Write to Sales Data Results ──
+  var resultsSpreadsheet = SpreadsheetApp.openById(RESULTS_SHEET_ID);
+  var resultsSheet = resultsSpreadsheet.getSheetByName('Sales Data Results');
+  if (!resultsSheet) {
+    return { success: false, message: '"Sales Data Results" tab not found in results sheet' };
+  }
+
+  var lastRow = resultsSheet.getLastRow();
+  if (lastRow < 1) {
+    return { success: false, message: 'Sales Data Results sheet is empty' };
+  }
+
+  // Read column A (community names) for matching
+  var targetColA = resultsSheet.getRange(1, 1, lastRow, 1).getValues();
+
+  // Read existing values for each target column (preserve unmatched rows)
+  var colC = resultsSheet.getRange(1, 3, lastRow, 1).getValues();   // Active Prospects
+  var colD = resultsSheet.getRange(1, 4, lastRow, 1).getValues();   // Appointments Held
+  var colE = resultsSheet.getRange(1, 5, lastRow, 1).getValues();   // Total New Leads
+  var colG = resultsSheet.getRange(1, 7, lastRow, 1).getValues();   // Digital Leads
+  var colH = resultsSheet.getRange(1, 8, lastRow, 1).getValues();   // In-Person Leads
+  var colJ = resultsSheet.getRange(1, 10, lastRow, 1).getValues();  // Call Leads
+  var colL = resultsSheet.getRange(1, 12, lastRow, 1).getValues();  // VIP List Signups
+
+  var rowsUpdated = 0;
+
+  for (var i = 0; i < lastRow; i++) {
+    var name = (targetColA[i][0] || '').toString().trim();
+    if (!name) continue;
+
+    var key = name.toLowerCase();
+    var leads = leadsByCommunity[key];
+    var prospects = prospectCounts[key] || 0;
+    var appts = apptCounts[key] || 0;
+
+    // Only update rows where we have matching lead data or sales data
+    if (!leads && prospects === 0 && appts === 0) continue;
+
+    colC[i][0] = prospects;
+    colD[i][0] = appts;
+
+    if (leads) {
+      colE[i][0] = leads.totalNewLeads;
+      colG[i][0] = leads.digitalLeads;
+      colH[i][0] = leads.inPersonLeads;
+      colJ[i][0] = leads.callLeads;
+      colL[i][0] = leads.vipListSignups;
+    }
+
+    rowsUpdated++;
+  }
+
+  // Write all 7 columns back in batch (7 API calls total)
+  resultsSheet.getRange(1, 3, lastRow, 1).setValues(colC);
+  resultsSheet.getRange(1, 4, lastRow, 1).setValues(colD);
+  resultsSheet.getRange(1, 5, lastRow, 1).setValues(colE);
+  resultsSheet.getRange(1, 7, lastRow, 1).setValues(colG);
+  resultsSheet.getRange(1, 8, lastRow, 1).setValues(colH);
+  resultsSheet.getRange(1, 10, lastRow, 1).setValues(colJ);
+  resultsSheet.getRange(1, 12, lastRow, 1).setValues(colL);
+
+  return {
+    success: true,
+    rowsUpdated: rowsUpdated,
+    leadsFound: Object.keys(leadsByCommunity).length,
+    message: 'Consolidated ' + rowsUpdated + ' rows to Sales Data Results'
+  };
+}
+
+/**
+ * Safely converts a value to a number. Returns 0 for blanks/NaN.
+ */
+function toNum_(val) {
+  if (val === '' || val === null || val === undefined) return 0;
+  var n = Number(val);
+  return isNaN(n) ? 0 : n;
+}
+
+/**
+ * Returns the current week-ending date in short format (e.g. "Mar 22")
+ * to match the Week Ending column in the Submissions tab.
+ */
+function getCurrentWeekEndingShort_() {
+  var today = new Date();
+  var day = today.getDay(); // 0=Sun
+  var diff = day === 0 ? 0 : 7 - day;
+  var sun = new Date(today);
+  sun.setDate(today.getDate() + diff);
+  return MONTHS_SHORT[sun.getMonth()] + ' ' + sun.getDate();
 }
