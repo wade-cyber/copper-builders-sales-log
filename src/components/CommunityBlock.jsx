@@ -20,14 +20,24 @@ export default function CommunityBlock({
   const [showForm, setShowForm] = useState(false);
 
   const communityProspects = prospects.filter((p) => p.community === name);
+  const activeProspects = communityProspects.filter((p) => p.status === 'active' || !p.status);
+  const apptTotal = appointments.reduce((sum, row) => sum + row.reduce((s, v) => s + v, 0), 0);
+  const hasStats = apptTotal > 0 || activeProspects.length > 0;
 
   return (
     <div className="block">
       <div className={`bh${open ? ' open' : ''}`} onClick={() => setOpen(!open)}>
-        <span className="bname">
-          {name}
-          {isAdded && <span className="added-badge">Added</span>}
-        </span>
+        <div className="bname-wrap">
+          <span className="bname">
+            {name}
+            {isAdded && <span className="added-badge">Added</span>}
+          </span>
+          {hasStats && (
+            <span className="block-stats">
+              {apptTotal} appt{apptTotal !== 1 ? 's' : ''} / {activeProspects.length} prospect{activeProspects.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
         <div className="chev">{open ? '−' : '+'}</div>
       </div>
 

@@ -80,6 +80,21 @@ export default function App() {
 
   const allRequiredTouched = requiredBlocks.length > 0 && touchedCount >= requiredBlocks.length;
 
+  // Grand totals across all blocks
+  const totalAppointments = useMemo(() => {
+    let total = 0;
+    for (const grid of Object.values(appointments)) {
+      for (const row of grid) {
+        for (const v of row) total += v;
+      }
+    }
+    return total;
+  }, [appointments]);
+
+  const totalActiveProspects = useMemo(() =>
+    prospects.filter(p => p.status === 'active' || !p.status).length,
+  [prospects]);
+
   // Communities already shown (assigned + added)
   const shownCommunityNames = useMemo(() => {
     const names = new Set();
@@ -247,6 +262,11 @@ export default function App() {
       {showSections && (
         <>
           <div className="sdiv" />
+          <div className="grand-totals">
+            <span>{totalAppointments} total appointment{totalAppointments !== 1 ? 's' : ''}</span>
+            <span className="grand-dot" />
+            <span>{totalActiveProspects} active prospect{totalActiveProspects !== 1 ? 's' : ''}</span>
+          </div>
           <button
             className="submit-btn"
             onClick={handleSubmit}
