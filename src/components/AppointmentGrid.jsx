@@ -8,7 +8,7 @@ const TYPE_LABELS = {
   'single-home': 'Home',
   singlehome: 'Home',
   boyl: 'Lot',
-  renovation: 'Site',
+  renovation: 'Home',
 };
 
 export default function AppointmentGrid({ type, values, onChange }) {
@@ -27,28 +27,30 @@ export default function AppointmentGrid({ type, values, onChange }) {
   const grid = values && values.length === 3 ? values : [[0,0,0],[0,0,0],[0,0,0]];
 
   return (
-    <div className="card" style={{ padding: 12 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--slate)', marginBottom: 8 }}>
-        Appointments this week
-      </div>
-      <div className="grid-3x3">
-        <div />
-        {cols.map((c) => <div key={c} className="col-label">{c}</div>)}
+    <>
+      <div className="sub">Appointments This Week</div>
+      <div className="ag">
+        {/* Header row */}
+        <div className="agh" style={{ background: 'transparent', border: 'none' }} />
+        {cols.map((c) => <div key={c} className="agh">{c}</div>)}
+        {/* Data rows */}
         {ROWS.map((rowLabel, ri) => (
           <React.Fragment key={rowLabel}>
-            <div className="row-label">{rowLabel}</div>
+            <div className="agrl">{rowLabel}</div>
             {[0, 1, 2].map((ci) => (
-              <input
-                key={ci}
-                type="number"
-                min="0"
-                value={grid[ri][ci]}
-                onChange={(e) => handleChange(ri, ci, e.target.value)}
-              />
+              <div key={ci} className="agc">
+                <input
+                  className="agi"
+                  type="number"
+                  min="0"
+                  value={grid[ri][ci]}
+                  onChange={(e) => handleChange(ri, ci, e.target.value)}
+                />
+              </div>
             ))}
           </React.Fragment>
         ))}
       </div>
-    </div>
+    </>
   );
 }

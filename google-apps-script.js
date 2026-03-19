@@ -46,6 +46,9 @@ function doGet(e) {
   if (action === 'getProspects') {
     return getProspects(rep);
   }
+  if (action === 'getLastSync') {
+    return getLastSync();
+  }
 
   return jsonResponse({ error: 'Unknown action' });
 }
@@ -113,6 +116,13 @@ function getProspects(rep) {
   }
 
   return jsonResponse(results);
+}
+
+function getLastSync() {
+  var sheet = getSheet('Assignments');
+  if (!sheet) return jsonResponse({ lastSynced: null });
+  var val = sheet.getRange('G1').getValue();
+  return jsonResponse({ lastSynced: val ? new Date(val).toISOString() : null });
 }
 
 // --- POST handlers ---
@@ -267,6 +277,8 @@ function handleCreateWeeklyDashboard() {
   // Move Dashboard to first position (leftmost tab)
   leadsSpreadsheet.setActiveSheet(newDashboard);
   leadsSpreadsheet.moveActiveSheet(1);
+
+  logToSystemLog_('createWeeklyDashboard', 'success', 'Created "' + nextTabName + '" with ' + communitiesAdded + ' communities');
 
   return {
     success: true,
@@ -578,6 +590,12 @@ function handleSyncAssignments(data) {
     sheet.getRange(2, 1, rows.length, 4).setValues(rows);
   }
 
+  // Write sync timestamp to F1:G1 (after the 4 data columns + gap)
+  sheet.getRange('F1').setValue('Last Synced');
+  sheet.getRange('G1').setValue(new Date().toISOString());
+
+  logToSystemLog_('syncAssignments', 'success', 'Synced ' + assignments.length + ' assignments');
+
   return jsonResponse({ success: true, count: assignments.length });
 }
 
@@ -711,7 +729,30 @@ function handleConsolidateDashboard() {
     return { success: false, message: '"Sales Data Results" tab not found in results sheet' };
   }
 
+  // ── 4a. Dynamic community row rebuild from Assignments ──
+  // Keep rows 1-11 (headers/static), clear rows 12+ and rewrite from Assignments
   var lastRow = resultsSheet.getLastRow();
+  if (lastRow >= 12) {
+    resultsSheet.getRange(12, 1, lastRow - 11, resultsSheet.getLastColumn()).clearContent();
+  }
+
+  var communities = getCommunityListFromAssignments_();
+  if (communities.length > 0) {
+    var communityRows = [];
+    for (var ci = 0; ci < communities.length; ci++) {
+      communityRows.push([communities[ci].name, communities[ci].market]);
+    }
+    // Ensure enough rows exist
+    var needed = 12 + communities.length - 1;
+    if (resultsSheet.getMaxRows() < needed) {
+      resultsSheet.insertRowsAfter(resultsSheet.getMaxRows(), needed - resultsSheet.getMaxRows());
+    }
+    resultsSheet.getRange(12, 1, communities.length, 2).setValues(communityRows);
+  }
+
+  // ── 4b. Populate data columns ──
+  // Re-read lastRow after rebuild
+  lastRow = resultsSheet.getLastRow();
   if (lastRow < 1) {
     return { success: false, message: 'Sales Data Results sheet is empty' };
   }
@@ -756,7 +797,7 @@ function handleConsolidateDashboard() {
     rowsUpdated++;
   }
 
-  // Write all 7 columns back in batch (7 API calls total)
+  // Write all 7 columns back in batch
   resultsSheet.getRange(1, 3, lastRow, 1).setValues(colC);
   resultsSheet.getRange(1, 4, lastRow, 1).setValues(colD);
   resultsSheet.getRange(1, 5, lastRow, 1).setValues(colE);
@@ -764,6 +805,12 @@ function handleConsolidateDashboard() {
   resultsSheet.getRange(1, 8, lastRow, 1).setValues(colH);
   resultsSheet.getRange(1, 10, lastRow, 1).setValues(colJ);
   resultsSheet.getRange(1, 12, lastRow, 1).setValues(colL);
+
+  // ── 5. Build Sales Reports tab ──
+  handleBuildSalesReports(resultsSpreadsheet);
+
+  // ── 6. System log ──
+  logToSystemLog_('consolidateDashboard', 'success', 'Consolidated ' + rowsUpdated + ' rows, ' + Object.keys(leadsByCommunity).length + ' leads sources');
 
   return {
     success: true,
@@ -795,6 +842,125 @@ function getCurrentWeekEndingShort_() {
   return MONTHS_SHORT[sun.getMonth()] + ' ' + sun.getDate();
 }
 
+// ══════════════════════════════════════════════════════════════
+// BUILD SALES REPORTS
+// ══════════════════════════════════════════════════════════════
+//
+// Writes a "Sales Reports" tab in the results sheet showing
+// submission status for each rep (Sales Log + Leads Report).
+// ══════════════════════════════════════════════════════════════
+
+function handleBuildSalesReports(resultsSpreadsheet) {
+  if (!resultsSpreadsheet) {
+    resultsSpreadsheet = SpreadsheetApp.openById(RESULTS_SHEET_ID);
+  }
+
+  var REPS = ['Brittni', 'Rylie', 'Alyssa', 'Kaitlyn J', 'Helen Adams', 'Stefan', 'Kelsey/Brittni', 'Other'];
+
+  // Get or create Sales Reports tab
+  var reportSheet = resultsSpreadsheet.getSheetByName('Sales Reports');
+  if (!reportSheet) {
+    reportSheet = resultsSpreadsheet.insertSheet('Sales Reports');
+  }
+  reportSheet.clear();
+
+  var currentWeekEnding = getCurrentWeekEndingShort_();
+
+  // ── Section 1: Sales Log Submissions ──
+  var submissionsSheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Submissions');
+  var submittedReps = {};
+  if (submissionsSheet && submissionsSheet.getLastRow() > 1) {
+    var sData = submissionsSheet.getDataRange().getValues();
+    var sHeaders = sData[0];
+    var sRepIdx = sHeaders.indexOf('Rep Name');
+    var sWeekIdx = sHeaders.indexOf('Week Ending');
+    var sTimestampIdx = sHeaders.indexOf('Timestamp');
+
+    if (sRepIdx >= 0) {
+      for (var i = 1; i < sData.length; i++) {
+        var weekVal = (sData[i][sWeekIdx] || '').toString().trim();
+        if (sWeekIdx >= 0 && currentWeekEnding && weekVal !== currentWeekEnding) continue;
+        var repName = (sData[i][sRepIdx] || '').toString().trim();
+        if (repName) {
+          submittedReps[repName] = (sData[i][sTimestampIdx] || '').toString();
+        }
+      }
+    }
+  }
+
+  // ── Section 2: Leads Report (Copper Leads Dashboard) ──
+  var leadsSheet = SpreadsheetApp.openById(LEADS_SHEET_ID).getSheetByName('Dashboard');
+  var leadsSubmitted = {};
+  if (leadsSheet) {
+    // Check if any community rows have non-zero values in data columns (C onwards)
+    var lr = leadsSheet.getLastRow();
+    if (lr >= 9) {
+      var leadsData = leadsSheet.getRange(9, 1, lr - 8, Math.max(leadsSheet.getLastColumn(), 35)).getValues();
+      // If any data cell is non-zero, leads are populated
+      var hasLeadsData = false;
+      for (var i = 0; i < leadsData.length; i++) {
+        for (var c = 2; c < leadsData[i].length; c++) {
+          if (toNum_(leadsData[i][c]) > 0) {
+            hasLeadsData = true;
+            break;
+          }
+        }
+        if (hasLeadsData) break;
+      }
+      if (hasLeadsData) {
+        leadsSubmitted['_all'] = true;
+      }
+    }
+  }
+
+  // ── Write report ──
+  var rows = [];
+  rows.push(['Sales Reports — Week Ending ' + currentWeekEnding, '', '']);
+  rows.push(['', '', '']);
+  rows.push(['Rep Name', 'Sales Log', 'Leads Report']);
+
+  for (var r = 0; r < REPS.length; r++) {
+    var rep = REPS[r];
+    var salesStatus = submittedReps[rep] ? 'Submitted' : 'MISSING';
+    var leadsStatus = leadsSubmitted['_all'] ? 'COMPLETE' : 'NOT SUBMITTED';
+    rows.push([rep, salesStatus, leadsStatus]);
+  }
+
+  reportSheet.getRange(1, 1, rows.length, 3).setValues(rows);
+
+  // Bold the header row
+  reportSheet.getRange(1, 1, 1, 3).setFontWeight('bold');
+  reportSheet.getRange(3, 1, 1, 3).setFontWeight('bold');
+
+  return { success: true, repsChecked: REPS.length };
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// SYSTEM LOGGING
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Appends a log entry to the "System Log" tab in the Sales App sheet.
+ * Auto-creates the tab if it doesn't exist.
+ */
+function logToSystemLog_(action, status, message) {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var logSheet = ss.getSheetByName('System Log');
+    if (!logSheet) {
+      logSheet = ss.insertSheet('System Log');
+      logSheet.getRange(1, 1, 1, 4).setValues([['Timestamp', 'Action', 'Status', 'Message']]);
+      logSheet.getRange(1, 1, 1, 4).setFontWeight('bold');
+    }
+    logSheet.appendRow([new Date().toISOString(), action, status, message]);
+  } catch (e) {
+    // Logging should never break the main operation
+    Logger.log('System log write failed: ' + e.message);
+  }
+}
+
+
 /**
  * Debug helper — returns community names from both sheets for comparison.
  */
@@ -815,7 +981,14 @@ function debugConsolidateNames_() {
 
   // Sales Data Results — community names from col A, all rows
   var resultsNames = [];
-  var resultsSheet = SpreadsheetApp.openById(RESULTS_SHEET_ID).getSheetByName('Sales Data Results');
+  var resultsTabNames = [];
+  var resultsSpreadsheet = SpreadsheetApp.openById(RESULTS_SHEET_ID);
+  var allSheets = resultsSpreadsheet.getSheets();
+  for (var s = 0; s < allSheets.length; s++) {
+    resultsTabNames.push(allSheets[s].getName());
+  }
+
+  var resultsSheet = resultsSpreadsheet.getSheetByName('Sales Data Results');
   if (resultsSheet) {
     var rr = resultsSheet.getLastRow();
     if (rr >= 1) {
@@ -829,6 +1002,7 @@ function debugConsolidateNames_() {
 
   return {
     copperLeadsDashboard: leadsNames,
-    salesDataResults: resultsNames
+    salesDataResults: resultsNames,
+    resultsSheetTabs: resultsTabNames
   };
 }

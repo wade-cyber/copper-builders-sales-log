@@ -24,7 +24,7 @@ export default function App() {
   const [openedBlocks, setOpenedBlocks] = useState(new Set());
   const [collapseKey, setCollapseKey] = useState(0);
 
-  const { assignments, loading: assignmentsLoading } = useAssignments(selectedRep);
+  const { assignments, loading: assignmentsLoading, lastSyncedAt } = useAssignments(selectedRep);
   const { prospects, addProspect, updateProspect, removeProspect, markSold } =
     useProspects(selectedRep);
 
@@ -216,6 +216,12 @@ export default function App() {
     <div className="shell">
       <Header />
       <RepSelector value={selectedRep} onChange={handleRepChange} />
+
+      {selectedRep && lastSyncedAt && (Date.now() - lastSyncedAt.getTime()) > 8 * 24 * 60 * 60 * 1000 && (
+        <div className="stale-warning">
+          Assignment data is over a week old (last synced {lastSyncedAt.toLocaleDateString()}). Contact your admin to re-sync from Smartsheet.
+        </div>
+      )}
 
       {showSections && (
         <div className="pbar">

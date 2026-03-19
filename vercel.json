@@ -3,6 +3,10 @@
     {
       "path": "/api/sync-smartsheet",
       "schedule": "0 4 * * 1"
+    },
+    {
+      "path": "/api/consolidate-dashboard",
+      "schedule": "0 1 * * 2"
     }
   ]
 }

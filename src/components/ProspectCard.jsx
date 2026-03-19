@@ -9,54 +9,69 @@ const NEXT_STEPS = [
   'Scope review (Renovations)',
 ];
 
+function getInitials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.charAt(0).toUpperCase();
+}
+
 export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove }) {
   const isSold = prospect.status === 'sold';
   const isRemoved = prospect.status === 'removed';
   const disabled = isSold || isRemoved;
+  const r = (prospect.ranking || 'C').toUpperCase();
+  const rankClass = r === 'A' ? 'rank-a' : r === 'B' ? 'rank-b' : 'rank-c';
 
-  const cardClass = `card${isSold ? ' sold' : ''}${isRemoved ? ' removed' : ''}`;
+  let cardClass = 'pcard';
+  if (isSold) cardClass += ' sold';
+  if (isRemoved) cardClass += ' inactive';
 
   return (
     <div className={cardClass}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span className={`ranking-badge ${(prospect.ranking || 'c').toLowerCase()}`}>
-          {(prospect.ranking || 'C').toUpperCase()}
-        </span>
-        <strong style={{ flex: 1, fontSize: 14 }}>{prospect.name}</strong>
+      <div className="pcard-top">
+        <div className="pav">{getInitials(prospect.name)}</div>
+        <span className="pname">{prospect.name}</span>
+        <div className={`rank-pill ${rankClass}`}>
+          <select
+            value={prospect.ranking || 'C'}
+            onChange={(e) => onUpdate(prospect.id, { ranking: e.target.value })}
+            disabled={disabled}
+          >
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+          </select>
+        </div>
       </div>
 
-      <div className="prospect-row">
-        <select
-          value={prospect.ranking || 'C'}
-          onChange={(e) => onUpdate(prospect.id, { ranking: e.target.value })}
-          disabled={disabled}
-          style={{ width: 70, flex: 'none' }}
-        >
-          <option value="A">A</option>
-          <option value="B">B</option>
-          <option value="C">C</option>
-        </select>
-        <select
-          value={prospect.nextStep || ''}
-          onChange={(e) => onUpdate(prospect.id, { nextStep: e.target.value })}
-          disabled={disabled}
-        >
-          <option value="">Next step…</option>
-          {NEXT_STEPS.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </div>
-
-      {isSold && <div className="stamp sold">Sold — won't appear next week</div>}
-      {isRemoved && <div className="stamp removed">Removed — won't carry forward</div>}
+      {isSold && (
+        <div style={{ fontSize: 11, fontWeight: 600, fontStyle: 'italic', color: '#3a5e20', marginTop: 4 }}>
+          Sold — won't appear next week
+        </div>
+      )}
+      {isRemoved && (
+        <div style={{ fontSize: 11, fontWeight: 600, fontStyle: 'italic', color: '#999', marginTop: 4 }}>
+          Removed — won't carry forward
+        </div>
+      )}
 
       {!disabled && (
-        <div className="prospect-actions">
-          <button className="btn-sold btn-small" onClick={() => onMarkSold(prospect.id)}>
-            Sold
-          </button>
-          <button className="btn-remove btn-small" onClick={() => onRemove(prospect.id)}>
-            Remove
-          </button>
+        <div className="pcard-bot">
+          <div className="pcard-actions">
+            <button className="abtn sbtn" onClick={() => onMarkSold(prospect.id)}>Sold</button>
+            <button className="abtn rbtn" onClick={() => onRemove(prospect.id)}>Remove</button>
+          </div>
+          <div className="ns-wrap">
+            <div className="ns-label">Next Step</div>
+            <select
+              value={prospect.nextStep || ''}
+              onChange={(e) => onUpdate(prospect.id, { nextStep: e.target.value })}
+            >
+              <option value="">Select…</option>
+              {NEXT_STEPS.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
       )}
     </div>
