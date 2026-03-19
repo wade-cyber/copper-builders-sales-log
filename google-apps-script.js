@@ -8,19 +8,20 @@
  * 4. Deploy → New deployment → Web app → Execute as: Me, Who has access: Anyone
  * 5. Copy the deployment URL into your .env as VITE_GOOGLE_SCRIPT_URL and GOOGLE_SCRIPT_URL
  *
- * Required Google Sheet tabs:
- *   - Assignments (columns: Rep Name, Assignment Name, Assignment Type)
- *   - Submissions (columns: Timestamp, Week Ending, Rep Name, Community, Section Type,
- *                  Client Only Virtual, Client Only Onsite, Client Only Model,
- *                  Realtor+Client Virtual, Realtor+Client Onsite, Realtor+Client Model,
- *                  Realtor Only Virtual, Realtor Only Onsite, Realtor Only Model,
- *                  Total Appts, Active Prospects, Sold Prospects, Removed Prospects,
- *                  Grand Total Appts, Grand Total Prospects)
+ * Required Google Sheet tabs (Sales App):
+ *   - Assignments (columns: Rep Name, Assignment Name, Assignment Type, Market)
+ *   - Submissions (columns: Timestamp, Week Ending, Rep Name, Community, Section Type, ...)
  *   - Prospects (columns: ID, Rep Name, Community, Prospect Name, Ranking,
  *                Next Step, Status, Created Date, Last Updated)
+ *
+ * Required Google Sheet tabs (Copper Leads):
+ *   - Dashboard (the active week template)
  */
 
-const SHEET_ID = '1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4';
+var SHEET_ID = '1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4';
+var LEADS_SHEET_ID = '1eH15Te0Wd1nuMMQ-yL0bvtxuYKAcPLv33CYjYylNEeI';
+
+var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function getSheet(tabName) {
   return SpreadsheetApp.openById(SHEET_ID).getSheetByName(tabName);
@@ -35,8 +36,8 @@ function jsonResponse(data) {
 // --- GET handlers ---
 
 function doGet(e) {
-  const action = e.parameter.action;
-  const rep = e.parameter.rep;
+  var action = e.parameter.action;
+  var rep = e.parameter.rep;
 
   if (action === 'getAssignments') {
     return getAssignments(rep);
@@ -49,20 +50,20 @@ function doGet(e) {
 }
 
 function getAssignments(rep) {
-  const sheet = getSheet('Assignments');
+  var sheet = getSheet('Assignments');
   if (!sheet) return jsonResponse([]);
 
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const results = [];
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var results = [];
 
   // When no rep provided, return all unique community names
   if (!rep) {
-    const seen = {};
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const assignmentName = row[headers.indexOf('Assignment Name')];
-      const assignmentType = (row[headers.indexOf('Assignment Type')] || 'community').toLowerCase();
+    var seen = {};
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      var assignmentName = row[headers.indexOf('Assignment Name')];
+      var assignmentType = (row[headers.indexOf('Assignment Type')] || 'community').toLowerCase();
       if (assignmentType === 'community' && !seen[assignmentName]) {
         seen[assignmentName] = true;
         results.push({ name: assignmentName, assignmentName: assignmentName, assignmentType: 'community' });
@@ -71,9 +72,9 @@ function getAssignments(rep) {
     return jsonResponse(results);
   }
 
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    const repName = row[headers.indexOf('Rep Name')];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var repName = row[headers.indexOf('Rep Name')];
     if (repName !== rep) continue;
     results.push({
       name: row[headers.indexOf('Assignment Name')],
@@ -86,16 +87,16 @@ function getAssignments(rep) {
 }
 
 function getProspects(rep) {
-  const sheet = getSheet('Prospects');
+  var sheet = getSheet('Prospects');
   if (!sheet) return jsonResponse([]);
 
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const results = [];
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var results = [];
 
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    const repName = row[headers.indexOf('Rep Name')];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var repName = row[headers.indexOf('Rep Name')];
     if (repName !== rep) continue;
     results.push({
       id: row[headers.indexOf('ID')],
@@ -116,8 +117,8 @@ function getProspects(rep) {
 // --- POST handlers ---
 
 function doPost(e) {
-  const payload = JSON.parse(e.postData.contents);
-  const action = payload.action;
+  var payload = JSON.parse(e.postData.contents);
+  var action = payload.action;
 
   if (action === 'submitReport') {
     return handleSubmitReport(payload);
@@ -131,9 +132,207 @@ function doPost(e) {
   if (action === 'syncAssignments') {
     return handleSyncAssignments(payload);
   }
+  if (action === 'createWeeklyDashboard') {
+    return jsonResponse(handleCreateWeeklyDashboard());
+  }
 
   return jsonResponse({ error: 'Unknown action' });
 }
+
+// ══════════════════════════════════════════════════════════════
+// WEEKLY LEAD DASHBOARD — createWeeklyDashboard
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Creates the next week's lead dashboard tab.
+ *
+ * 1. Duplicates "Dashboard" tab → "Week of Mar 29, 2026"
+ * 2. Clears all data, updates date, pulls fresh communities
+ * 3. Renames current "Dashboard" → "Week of Mar 22, 2026"
+ * 4. Creates new "Dashboard" as copy of next week tab, moves to first position
+ *
+ * Idempotent: skips if next week tab already exists.
+ */
+function handleCreateWeeklyDashboard() {
+  // ── Calculate dates ──
+  var today = new Date();
+  var dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ...
+  var daysToNextSun = dayOfWeek === 0 ? 7 : 7 - dayOfWeek;
+
+  var nextSunday = new Date(today);
+  nextSunday.setDate(today.getDate() + daysToNextSun);
+  nextSunday.setHours(0, 0, 0, 0);
+
+  var currentSunday = new Date(nextSunday);
+  currentSunday.setDate(nextSunday.getDate() - 7);
+
+  var nextTabName = formatTabName_(nextSunday);
+  var currentTabName = formatTabName_(currentSunday);
+  var nextWeekEnding = formatWeekEndingSlash_(nextSunday);
+
+  // ── Open the leads spreadsheet ──
+  var leadsSpreadsheet = SpreadsheetApp.openById(LEADS_SHEET_ID);
+
+  // ── Idempotent check ──
+  if (leadsSpreadsheet.getSheetByName(nextTabName)) {
+    return {
+      success: true,
+      tabName: nextTabName,
+      communitiesAdded: 0,
+      message: 'Tab "' + nextTabName + '" already exists — skipped'
+    };
+  }
+
+  // ── Find Dashboard tab ──
+  var dashboardSheet = leadsSpreadsheet.getSheetByName('Dashboard');
+  if (!dashboardSheet) {
+    return { success: false, message: 'Dashboard tab not found in leads sheet' };
+  }
+
+  // ── Step 3: Duplicate Dashboard → next week tab ──
+  var newSheet = dashboardSheet.copyTo(leadsSpreadsheet);
+  newSheet.setName(nextTabName);
+
+  // ── Step 4a: Update week ending date ──
+  newSheet.getRange('A3').setValue('Week ending: ' + nextWeekEnding);
+
+  // ── Step 4b: Clear data cells ──
+  var lastRow = newSheet.getLastRow();
+  var lastCol = newSheet.getLastColumn();
+
+  // Clear columns C through last col for rows 9 onwards (all data)
+  if (lastRow >= 9 && lastCol >= 3) {
+    newSheet.getRange(9, 3, lastRow - 8, lastCol - 2).clearContent();
+  }
+
+  // Set Total New Leads (col C) to 0 for evergreen rows 9-18
+  var evergreenZeros = [];
+  for (var r = 0; r < 10; r++) {
+    evergreenZeros.push([0]);
+  }
+  newSheet.getRange(9, 3, 10, 1).setValues(evergreenZeros);
+
+  // ── Step 4c: Delete existing community rows (row 20 onwards) ──
+  // Refresh lastRow after clearing
+  lastRow = newSheet.getLastRow();
+  if (lastRow >= 20) {
+    newSheet.deleteRows(20, lastRow - 19);
+  }
+
+  // ── Step 4d: Pull fresh communities from Assignments tab ──
+  var communities = getCommunityListFromAssignments_();
+
+  // ── Step 4e: Write community rows starting at row 20 ──
+  var communitiesAdded = 0;
+  if (communities.length > 0) {
+    // Insert blank rows after the "Communities" header (row 19)
+    newSheet.insertRowsAfter(19, communities.length);
+
+    // Copy formatting from row 18 (last evergreen row) to all new rows
+    var numCols = lastCol > 0 ? lastCol : 33;
+    newSheet.getRange(18, 1, 1, numCols)
+      .copyFormatToRange(newSheet, 1, numCols, 20, 19 + communities.length);
+
+    // Build data array
+    var dataRows = [];
+    for (var c = 0; c < communities.length; c++) {
+      var row = [];
+      for (var col = 0; col < numCols; col++) {
+        row.push('');
+      }
+      row[0] = communities[c].name;    // Col A: Community
+      row[1] = communities[c].market;  // Col B: Market
+      row[2] = 0;                       // Col C: Total New Leads
+      dataRows.push(row);
+    }
+
+    newSheet.getRange(20, 1, communities.length, numCols).setValues(dataRows);
+    communitiesAdded = communities.length;
+  }
+
+  // ── Step 5: Rename current "Dashboard" → archived week name ──
+  dashboardSheet.setName(currentTabName);
+
+  // ── Step 6: Create new "Dashboard" from next week tab ──
+  var newDashboard = newSheet.copyTo(leadsSpreadsheet);
+  newDashboard.setName('Dashboard');
+
+  // Move Dashboard to first position (leftmost tab)
+  leadsSpreadsheet.setActiveSheet(newDashboard);
+  leadsSpreadsheet.moveActiveSheet(1);
+
+  return {
+    success: true,
+    tabName: nextTabName,
+    communitiesAdded: communitiesAdded,
+    message: 'Created "' + nextTabName + '" with ' + communitiesAdded + ' communities. Dashboard ready for next week.'
+  };
+}
+
+/**
+ * Reads unique communities (type=community) from the Assignments tab
+ * in the Sales App Google Sheet. Returns [{name, market}, ...].
+ */
+function getCommunityListFromAssignments_() {
+  var salesSpreadsheet = SpreadsheetApp.openById(SHEET_ID);
+  var assignSheet = salesSpreadsheet.getSheetByName('Assignments');
+  if (!assignSheet) return [];
+
+  var data = assignSheet.getDataRange().getValues();
+  if (data.length < 2) return [];
+
+  var headers = data[0];
+  var nameIdx = headers.indexOf('Assignment Name');
+  var typeIdx = headers.indexOf('Assignment Type');
+  var marketIdx = headers.indexOf('Market');
+
+  if (nameIdx < 0) return [];
+
+  var seen = {};
+  var results = [];
+
+  for (var i = 1; i < data.length; i++) {
+    var type = (data[i][typeIdx] || '').toString().toLowerCase().replace('-', '');
+    if (type !== 'community') continue;
+
+    var name = (data[i][nameIdx] || '').toString().trim();
+    if (!name || seen[name]) continue;
+    seen[name] = true;
+
+    var market = '';
+    if (marketIdx >= 0) {
+      market = (data[i][marketIdx] || '').toString().trim();
+    }
+
+    results.push({ name: name, market: market });
+  }
+
+  // Sort alphabetically by name
+  results.sort(function(a, b) {
+    return a.name.localeCompare(b.name);
+  });
+
+  return results;
+}
+
+/**
+ * Formats a Date as "Week of Mar 29, 2026" for tab names.
+ */
+function formatTabName_(d) {
+  return 'Week of ' + MONTHS_SHORT[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+}
+
+/**
+ * Formats a Date as "3/29/2026" for the "Week ending:" cell.
+ */
+function formatWeekEndingSlash_(d) {
+  return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// SUBMIT WEEKLY LOG
+// ══════════════════════════════════════════════════════════════
 
 function handleSubmitWeeklyLog(data) {
   var sheet = getSheet('Submissions');
@@ -239,12 +438,17 @@ function updateProspectStatuses(repName, sections) {
   }
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// LEGACY SUBMIT REPORT (per-block)
+// ══════════════════════════════════════════════════════════════
+
 function handleSubmitReport(data) {
-  let sheet = getSheet('Submissions');
+  var sheet = getSheet('Submissions');
   if (!sheet) {
     sheet = SpreadsheetApp.openById(SHEET_ID).insertSheet('Submissions');
   }
-  const firstCell = sheet.getRange(1, 1).getValue();
+  var firstCell = sheet.getRange(1, 1).getValue();
   if (firstCell !== 'Timestamp') {
     sheet.getRange(1, 1, 1, 14).setValues([[
       'Timestamp', 'Week Ending', 'Rep Name', 'Community', 'Section Type',
@@ -254,7 +458,7 @@ function handleSubmitReport(data) {
     ]]);
   }
 
-  const grid = data.appointments || [[0,0,0],[0,0,0],[0,0,0]];
+  var grid = data.appointments || [[0,0,0],[0,0,0],[0,0,0]];
   sheet.appendRow([
     new Date().toISOString(),
     data.weekEnding,
@@ -269,12 +473,17 @@ function handleSubmitReport(data) {
   return jsonResponse({ success: true });
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// SAVE PROSPECT
+// ══════════════════════════════════════════════════════════════
+
 function handleSaveProspect(data) {
-  let sheet = getSheet('Prospects');
+  var sheet = getSheet('Prospects');
   if (!sheet) {
     sheet = SpreadsheetApp.openById(SHEET_ID).insertSheet('Prospects');
   }
-  const firstCell = sheet.getRange(1, 1).getValue();
+  var firstCell = sheet.getRange(1, 1).getValue();
   if (firstCell !== 'ID') {
     sheet.getRange(1, 1, 1, 9).setValues([[
       'ID', 'Rep Name', 'Community', 'Prospect Name', 'Ranking',
@@ -282,21 +491,21 @@ function handleSaveProspect(data) {
     ]]);
   }
 
-  const allData = sheet.getDataRange().getValues();
-  const headers = allData[0];
-  const idCol = headers.indexOf('ID');
-  const now = new Date().toISOString();
+  var allData = sheet.getDataRange().getValues();
+  var headers = allData[0];
+  var idCol = headers.indexOf('ID');
+  var now = new Date().toISOString();
 
   // Find existing row by ID
-  let rowIndex = -1;
-  for (let i = 1; i < allData.length; i++) {
+  var rowIndex = -1;
+  for (var i = 1; i < allData.length; i++) {
     if (allData[i][idCol] === data.id) {
       rowIndex = i + 1; // 1-based
       break;
     }
   }
 
-  const rowData = [
+  var rowData = [
     data.id,
     data.rep,
     data.community,
@@ -309,43 +518,57 @@ function handleSaveProspect(data) {
   ];
 
   if (rowIndex > 0) {
-    // Update existing
     sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
   } else {
-    // Insert new
     sheet.appendRow(rowData);
   }
 
   return jsonResponse({ success: true });
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// SYNC ASSIGNMENTS
+// ══════════════════════════════════════════════════════════════
+
 function handleSyncAssignments(data) {
-  let sheet = getSheet('Assignments');
+  var sheet = getSheet('Assignments');
   if (!sheet) {
-    // Create the tab if it doesn't exist
     sheet = SpreadsheetApp.openById(SHEET_ID).insertSheet('Assignments');
   }
 
-  // Ensure header row exists
-  const firstCell = sheet.getRange(1, 1).getValue();
+  // Ensure header row (4 columns now — added Market)
+  var firstCell = sheet.getRange(1, 1).getValue();
   if (firstCell !== 'Rep Name') {
-    sheet.getRange(1, 1, 1, 3).setValues([['Rep Name', 'Assignment Name', 'Assignment Type']]);
+    sheet.getRange(1, 1, 1, 4).setValues([['Rep Name', 'Assignment Name', 'Assignment Type', 'Market']]);
+  } else {
+    // Upgrade existing 3-col header to 4-col if needed
+    var fourthHeader = sheet.getRange(1, 4).getValue();
+    if (fourthHeader !== 'Market') {
+      sheet.getRange(1, 4).setValue('Market');
+    }
   }
 
   // Clear everything below the header row
-  const lastRow = sheet.getLastRow();
+  var lastRow = sheet.getLastRow();
   if (lastRow > 1) {
     sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).clearContent();
   }
 
   // Write new assignments
-  const assignments = data.assignments || [];
-  for (const a of assignments) {
-    sheet.appendRow([
-      a.repName,
-      a.assignmentName,
-      a.assignmentType || 'community',
-    ]);
+  var assignments = data.assignments || [];
+  if (assignments.length > 0) {
+    var rows = [];
+    for (var i = 0; i < assignments.length; i++) {
+      var a = assignments[i];
+      rows.push([
+        a.repName,
+        a.assignmentName,
+        a.assignmentType || 'community',
+        a.market || ''
+      ]);
+    }
+    sheet.getRange(2, 1, rows.length, 4).setValues(rows);
   }
 
   return jsonResponse({ success: true, count: assignments.length });
