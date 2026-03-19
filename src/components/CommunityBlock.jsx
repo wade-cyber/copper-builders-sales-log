@@ -3,17 +3,10 @@ import AppointmentGrid from './AppointmentGrid';
 import ProspectCard from './ProspectCard';
 import AddProspectForm from './AddProspectForm';
 
-function Chevron({ open }) {
-  return (
-    <svg className={`chevron${open ? ' open' : ''}`} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M5 8l5 5 5-5" />
-    </svg>
-  );
-}
-
 export default function CommunityBlock({
   name,
   type,
+  isAdded,
   prospects,
   appointments,
   onAppointmentChange,
@@ -22,35 +15,46 @@ export default function CommunityBlock({
   onMarkSold,
   onRemoveProspect,
 }) {
-  const [open, setOpen] = useState(true);
+  const startCollapsed = type === 'boyl' || type === 'renovation';
+  const [open, setOpen] = useState(!startCollapsed);
   const [showForm, setShowForm] = useState(false);
 
   const communityProspects = prospects.filter((p) => p.community === name);
 
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div className="collapsible-header" onClick={() => setOpen(!open)}>
-        <h3>{name}</h3>
-        <Chevron open={open} />
+    <div className="block">
+      <div className={`bh${open ? ' open' : ''}`} onClick={() => setOpen(!open)}>
+        <span className="bname">
+          {name}
+          {isAdded && <span className="added-badge">Added</span>}
+        </span>
+        <div className="chev">{open ? '−' : '+'}</div>
       </div>
 
       {open && (
-        <div className="collapsible-body">
+        <div className="bb">
           <AppointmentGrid
             type={type}
             values={appointments}
             onChange={onAppointmentChange}
           />
 
-          {communityProspects.map((p) => (
-            <ProspectCard
-              key={p.id}
-              prospect={p}
-              onUpdate={onProspectUpdate}
-              onMarkSold={onMarkSold}
-              onRemove={onRemoveProspect}
-            />
-          ))}
+          <div className="divl" />
+          <div className="sub">Prospects</div>
+
+          {communityProspects.length > 0 && (
+            <div className="plist">
+              {communityProspects.map((p) => (
+                <ProspectCard
+                  key={p.id}
+                  prospect={p}
+                  onUpdate={onProspectUpdate}
+                  onMarkSold={onMarkSold}
+                  onRemove={onRemoveProspect}
+                />
+              ))}
+            </div>
+          )}
 
           {showForm ? (
             <AddProspectForm
@@ -61,10 +65,10 @@ export default function CommunityBlock({
             />
           ) : (
             <button
-              className="add-prospect-toggle"
+              className="add-link"
               onClick={() => setShowForm(true)}
             >
-              + Add prospect
+              + Add Prospect
             </button>
           )}
         </div>
