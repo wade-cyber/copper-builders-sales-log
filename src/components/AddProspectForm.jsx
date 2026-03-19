@@ -25,29 +25,34 @@ export default function AddProspectForm({ onSave }) {
   };
 
   return (
-    <div className="card" style={{ background: 'var(--cream)', border: '1px dashed var(--border)' }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--slate)' }}>
-        New Prospect
+    <div className="nf">
+      <div className="nf-r3">
+        <div className="nf-field" style={{ gridColumn: 'span 2' }}>
+          <label>Full Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Prospect name"
+          />
+        </div>
+        <div className="nf-field">
+          <label>Ranking</label>
+          <select value={ranking} onChange={(e) => setRanking(e.target.value)}>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+          </select>
+        </div>
       </div>
-      <input
-        type="text"
-        placeholder="Full name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        style={{ marginBottom: 8 }}
-      />
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-        <select value={ranking} onChange={(e) => setRanking(e.target.value)} style={{ width: 70, flex: 'none' }}>
-          <option value="A">A</option>
-          <option value="B">B</option>
-          <option value="C">C</option>
-        </select>
+      <div className="nf-field">
+        <label>Next Step</label>
         <select value={nextStep} onChange={(e) => setNextStep(e.target.value)}>
-          <option value="">Next step…</option>
+          <option value="">Select…</option>
           {NEXT_STEPS.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
-      <button className="btn-primary btn-small" onClick={handleSave} disabled={!name.trim()}>
+      <button className="save-btn" onClick={handleSave} disabled={!name.trim()}>
         Save Prospect
       </button>
     </div>

@@ -54,6 +54,21 @@ function getAssignments(rep) {
   const headers = data[0];
   const results = [];
 
+  // When no rep provided, return all unique community names
+  if (!rep) {
+    const seen = {};
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const assignmentName = row[headers.indexOf('Assignment Name')];
+      const assignmentType = (row[headers.indexOf('Assignment Type')] || 'community').toLowerCase();
+      if (assignmentType === 'community' && !seen[assignmentName]) {
+        seen[assignmentName] = true;
+        results.push({ name: assignmentName, assignmentName: assignmentName, assignmentType: 'community' });
+      }
+    }
+    return jsonResponse(results);
+  }
+
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const repName = row[headers.indexOf('Rep Name')];
@@ -116,8 +131,19 @@ function doPost(e) {
 }
 
 function handleSubmitReport(data) {
-  const sheet = getSheet('Submissions');
-  if (!sheet) return jsonResponse({ error: 'Submissions tab not found' });
+  let sheet = getSheet('Submissions');
+  if (!sheet) {
+    sheet = SpreadsheetApp.openById(SHEET_ID).insertSheet('Submissions');
+  }
+  const firstCell = sheet.getRange(1, 1).getValue();
+  if (firstCell !== 'Timestamp') {
+    sheet.getRange(1, 1, 1, 14).setValues([[
+      'Timestamp', 'Week Ending', 'Rep Name', 'Community', 'Section Type',
+      'Client Only Virtual', 'Client Only Onsite', 'Client Only Model',
+      'Realtor+Client Virtual', 'Realtor+Client Onsite', 'Realtor+Client Model',
+      'Realtor Only Virtual', 'Realtor Only Onsite', 'Realtor Only Model'
+    ]]);
+  }
 
   const grid = data.appointments || [[0,0,0],[0,0,0],[0,0,0]];
   sheet.appendRow([
@@ -135,8 +161,17 @@ function handleSubmitReport(data) {
 }
 
 function handleSaveProspect(data) {
-  const sheet = getSheet('Prospects');
-  if (!sheet) return jsonResponse({ error: 'Prospects tab not found' });
+  let sheet = getSheet('Prospects');
+  if (!sheet) {
+    sheet = SpreadsheetApp.openById(SHEET_ID).insertSheet('Prospects');
+  }
+  const firstCell = sheet.getRange(1, 1).getValue();
+  if (firstCell !== 'ID') {
+    sheet.getRange(1, 1, 1, 9).setValues([[
+      'ID', 'Rep Name', 'Community', 'Prospect Name', 'Ranking',
+      'Next Step', 'Status', 'Created Date', 'Last Updated'
+    ]]);
+  }
 
   const allData = sheet.getDataRange().getValues();
   const headers = allData[0];
@@ -176,8 +211,17 @@ function handleSaveProspect(data) {
 }
 
 function handleSyncAssignments(data) {
-  const sheet = getSheet('Assignments');
-  if (!sheet) return jsonResponse({ error: 'Assignments tab not found' });
+  let sheet = getSheet('Assignments');
+  if (!sheet) {
+    // Create the tab if it doesn't exist
+    sheet = SpreadsheetApp.openById(SHEET_ID).insertSheet('Assignments');
+  }
+
+  // Ensure header row exists
+  const firstCell = sheet.getRange(1, 1).getValue();
+  if (firstCell !== 'Rep Name') {
+    sheet.getRange(1, 1, 1, 3).setValues([['Rep Name', 'Assignment Name', 'Assignment Type']]);
+  }
 
   // Clear everything below the header row
   const lastRow = sheet.getLastRow();

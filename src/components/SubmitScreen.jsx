@@ -1,35 +1,39 @@
 import { getWeekEndingShort } from '../utils/dates';
 
-function GoldCheckmark() {
+function KeySvg() {
   return (
-    <svg width="64" height="64" viewBox="0 0 64 64" style={{ display: 'block', margin: '0 auto 16px' }}>
-      <circle cx="32" cy="32" r="30" fill="none" stroke="#B09245" strokeWidth="2.5" />
-      <path d="M20 33l8 8 16-16" fill="none" stroke="#B09245" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="18" height="10" viewBox="0 0 18 10" fill="none">
+      <circle cx="4" cy="5" r="3.5" stroke="#B09245" strokeWidth="1"/>
+      <line x1="7.5" y1="5" x2="17" y2="5" stroke="#B09245" strokeWidth="1"/>
+      <line x1="14" y1="5" x2="14" y2="7" stroke="#B09245" strokeWidth="1"/>
+      <line x1="16" y1="5" x2="16" y2="7" stroke="#B09245" strokeWidth="1"/>
     </svg>
-  );
-}
-
-function GoldRule() {
-  return (
-    <div style={{ width: 60, height: 2, background: '#B09245', margin: '16px auto', borderRadius: 1 }} />
   );
 }
 
 export default function SubmitScreen() {
   return (
-    <div style={{ textAlign: 'center', padding: '60px 0' }}>
-      <GoldCheckmark />
-      <div style={{ fontFamily: "'Libre Baskerville', serif", fontSize: '1.4rem', fontWeight: 700, color: 'var(--slate-dark)' }}>
+    <div className="submit-success" style={{ display: 'block' }}>
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style={{ margin: '0 auto 1rem' }}>
+        <circle cx="24" cy="24" r="23" stroke="#B09245" strokeWidth="1.5" />
+        <path d="M14 24l7 7 13-14" stroke="#B09245" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <div style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 11, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--gold)' }}>
         Copper Builders
       </div>
-      <div style={{ fontSize: 18, fontWeight: 600, marginTop: 12, color: 'var(--slate-dark)' }}>
+      <div className="success-rule" />
+      <div style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 20, fontWeight: 400, color: 'var(--slate-dark)' }}>
         Log submitted
       </div>
-      <GoldRule />
-      <div style={{ fontSize: 14, color: 'var(--slate)', marginTop: 8 }}>
+      <div style={{ fontSize: 13, color: 'var(--slate)', marginTop: 6 }}>
         Week ending {getWeekEndingShort()}
       </div>
-      <div style={{ fontSize: 13, color: 'var(--slate)', marginTop: 16, fontStyle: 'italic' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 }}>
+        <div style={{ flex: 0, width: 40, height: 1, background: 'var(--gold)' }} />
+        <KeySvg />
+        <div style={{ flex: 0, width: 40, height: 1, background: 'var(--gold)' }} />
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 16, fontStyle: 'italic' }}>
         Your report has been recorded. See you Monday.
       </div>
     </div>
