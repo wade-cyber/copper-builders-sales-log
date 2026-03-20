@@ -210,45 +210,50 @@ function handleCreateWeeklyDashboard() {
   var newSheet = dashboardSheet.copyTo(leadsSpreadsheet);
   newSheet.setName(nextTabName);
 
-  // ── Step 4a: Update week ending date ──
-  newSheet.getRange('A3').setValue('Week ending: ' + nextWeekEnding);
+  // ── Step 4a: Update week ending date in row 1 ──
+  // Row 1 col A has the merged header with week ending date
+  var headerVal = newSheet.getRange('A1').getValue().toString();
+  var datePattern = /Week ending:\s*\S+/i;
+  if (datePattern.test(headerVal)) {
+    newSheet.getRange('A1').setValue(headerVal.replace(datePattern, 'Week ending: ' + nextWeekEnding));
+  }
 
   // ── Step 4b: Clear data cells ──
+  // Row 1 = header, Row 2 = totals, Rows 3-12 = evergreen, Rows 13+ = communities
   var lastRow = newSheet.getLastRow();
   var lastCol = newSheet.getLastColumn();
 
-  // Clear columns C through last col for rows 9 onwards (all data)
-  if (lastRow >= 9 && lastCol >= 3) {
-    newSheet.getRange(9, 3, lastRow - 8, lastCol - 2).clearContent();
+  // Clear columns C through last col for rows 3 onwards (all data)
+  if (lastRow >= 3 && lastCol >= 3) {
+    newSheet.getRange(3, 3, lastRow - 2, lastCol - 2).clearContent();
   }
 
-  // Set Total New Leads (col C) to 0 for evergreen rows 9-18
+  // Set Total New Leads (col C) to 0 for evergreen rows 3-12
   var evergreenZeros = [];
   for (var r = 0; r < 10; r++) {
     evergreenZeros.push([0]);
   }
-  newSheet.getRange(9, 3, 10, 1).setValues(evergreenZeros);
+  newSheet.getRange(3, 3, 10, 1).setValues(evergreenZeros);
 
-  // ── Step 4c: Delete existing community rows (row 20 onwards) ──
-  // Refresh lastRow after clearing
+  // ── Step 4c: Delete existing community rows (row 13 onwards) ──
   lastRow = newSheet.getLastRow();
-  if (lastRow >= 20) {
-    newSheet.deleteRows(20, lastRow - 19);
+  if (lastRow >= 13) {
+    newSheet.deleteRows(13, lastRow - 12);
   }
 
   // ── Step 4d: Pull fresh communities from Assignments tab ──
   var communities = getCommunityListFromAssignments_();
 
-  // ── Step 4e: Write community rows starting at row 20 ──
+  // ── Step 4e: Write community rows starting at row 13 ──
   var communitiesAdded = 0;
   if (communities.length > 0) {
-    // Insert blank rows after the "Communities" header (row 19)
-    newSheet.insertRowsAfter(19, communities.length);
+    // Insert blank rows after the last evergreen row (row 12)
+    newSheet.insertRowsAfter(12, communities.length);
 
-    // Copy formatting from row 18 (last evergreen row) to all new rows
-    var numCols = lastCol > 0 ? lastCol : 33;
-    newSheet.getRange(18, 1, 1, numCols)
-      .copyFormatToRange(newSheet, 1, numCols, 20, 19 + communities.length);
+    // Copy formatting from row 12 (last evergreen row) to all new rows
+    var numCols = lastCol > 0 ? lastCol : 34;
+    newSheet.getRange(12, 1, 1, numCols)
+      .copyFormatToRange(newSheet, 1, numCols, 13, 12 + communities.length);
 
     // Build data array
     var dataRows = [];
@@ -263,7 +268,7 @@ function handleCreateWeeklyDashboard() {
       dataRows.push(row);
     }
 
-    newSheet.getRange(20, 1, communities.length, numCols).setValues(dataRows);
+    newSheet.getRange(13, 1, communities.length, numCols).setValues(dataRows);
     communitiesAdded = communities.length;
   }
 
@@ -630,44 +635,50 @@ function handleConsolidateDashboard() {
 
   var leadsLastRow = leadsSheet.getLastRow();
   var leadsLastCol = leadsSheet.getLastColumn();
-  if (leadsLastRow < 9) {
+  if (leadsLastRow < 3) {
     return { success: false, message: 'Copper Leads Dashboard has no data rows' };
   }
 
-  // Read rows 9 onwards (all data rows: evergreen + communities)
-  var leadsDataRows = leadsLastRow - 8; // rows 9 to lastRow
-  var leadsData = leadsSheet.getRange(9, 1, leadsDataRows, Math.max(leadsLastCol, 35)).getValues();
+  // Read rows 3 onwards (row 1 = header, row 2 = totals, row 3+ = data)
+  var leadsDataRows = leadsLastRow - 2; // rows 3 to lastRow
+  var leadsData = leadsSheet.getRange(3, 1, leadsDataRows, Math.max(leadsLastCol, 34)).getValues();
 
   // Build lookup: community name (lowercase) → lead metrics
+  // Column layout (0-indexed):
+  //   A(0): Community name    B(1): Market
+  //   C(2): Total New Leads
+  //   D-M(3-12): Digital leads (10 cols)
+  //   N-X(13-23): In Person leads (11 cols)
+  //   Y-AG(24-32): Call leads (9 cols)
+  //   AH(33): VIP List Total Signups
   var leadsByCommunity = {};
   for (var i = 0; i < leadsData.length; i++) {
     var communityName = (leadsData[i][0] || '').toString().trim();
     if (!communityName) continue;
 
-    // Col F (idx 5): Total New Leads
-    var totalNewLeads = toNum_(leadsData[i][5]);
+    // Col C (idx 2): Total New Leads
+    var totalNewLeads = toNum_(leadsData[i][2]);
 
-    // Cols G-P (idx 6-15): Digital leads — 10 columns
+    // Cols D-M (idx 3-12): Digital leads — 10 columns
     var digitalLeads = 0;
-    for (var d = 6; d <= 15; d++) {
+    for (var d = 3; d <= 12; d++) {
       digitalLeads += toNum_(leadsData[i][d]);
     }
 
-    // Cols Q-AA (idx 16-26): In Person leads — 11 columns
+    // Cols N-X (idx 13-23): In Person leads — 11 columns
     var inPersonLeads = 0;
-    for (var p = 16; p <= 26; p++) {
+    for (var p = 13; p <= 23; p++) {
       inPersonLeads += toNum_(leadsData[i][p]);
     }
 
-    // Cols AB-AH (idx 27-33): Call leads — 7 columns
-    // Safe approach: read everything between In Person (26) and VIP col AI (34)
+    // Cols Y-AG (idx 24-32): Call leads — 9 columns
     var callLeads = 0;
-    for (var c = 27; c <= 33; c++) {
+    for (var c = 24; c <= 32; c++) {
       callLeads += toNum_(leadsData[i][c]);
     }
 
-    // Col AI (idx 34): VIP List Total Signups
-    var vipListSignups = toNum_(leadsData[i][34]);
+    // Col AH (idx 33): VIP List Total Signups
+    var vipListSignups = toNum_(leadsData[i][33]);
 
     leadsByCommunity[communityName.toLowerCase()] = {
       totalNewLeads: totalNewLeads,
@@ -698,6 +709,7 @@ function handleConsolidateDashboard() {
   }
 
   // ── 3. Sum appointments held per community (from Sales App Submissions) ──
+  // For BOYL/Renovations, build composite key: "BOYL - CLT", "Renovations - TRN", etc.
   var apptCounts = {};
   var submissionsSheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Submissions');
   if (submissionsSheet && submissionsSheet.getLastRow() > 1) {
@@ -706,6 +718,8 @@ function handleConsolidateDashboard() {
     var sCommunityIdx = sHeaders.indexOf('Community');
     var sApptsIdx = sHeaders.indexOf('Total Appts');
     var sWeekIdx = sHeaders.indexOf('Week Ending');
+    var sMarketIdx = sHeaders.indexOf('Market');
+    var sSectionTypeIdx = sHeaders.indexOf('Section Type');
 
     if (sCommunityIdx >= 0 && sApptsIdx >= 0) {
       // Determine current week ending for filtering
@@ -716,9 +730,18 @@ function handleConsolidateDashboard() {
         var weekVal = (sData[i][sWeekIdx] || '').toString().trim();
         if (sWeekIdx >= 0 && currentWeekEnding && weekVal !== currentWeekEnding) continue;
 
-        var comm = (sData[i][sCommunityIdx] || '').toString().trim().toLowerCase();
+        var comm = (sData[i][sCommunityIdx] || '').toString().trim();
+        var sectionType = sSectionTypeIdx >= 0 ? (sData[i][sSectionTypeIdx] || '').toString().trim().toLowerCase() : '';
+        var market = sMarketIdx >= 0 ? (sData[i][sMarketIdx] || '').toString().trim() : '';
+
+        // For BOYL/Renovations, use composite key matching the Leads Dashboard format
+        var apptKey = comm;
+        if ((sectionType === 'boyl' || sectionType === 'renovation') && market) {
+          apptKey = comm + ' - ' + market;
+        }
+
         var appts = toNum_(sData[i][sApptsIdx]);
-        if (comm) apptCounts[comm] = (apptCounts[comm] || 0) + appts;
+        if (apptKey) apptCounts[apptKey.toLowerCase()] = (apptCounts[apptKey.toLowerCase()] || 0) + appts;
       }
     }
   }
@@ -730,26 +753,47 @@ function handleConsolidateDashboard() {
     return { success: false, message: '"Sales Data Results" tab not found in results sheet' };
   }
 
-  // ── 4a. Dynamic community row rebuild from Assignments ──
-  // Keep rows 1-11 (headers/static), clear rows 12+ and rewrite from Assignments
+  // ── 4a. Dynamic row rebuild ──
+  // Mirror the Leads Dashboard structure:
+  //   Rows 1-10: Evergreen rows (BOYL/Renovations/General × 3 markets + General Overall)
+  //   Row 11: "Communities" header
+  //   Rows 12+: Individual communities from Assignments
   var lastRow = resultsSheet.getLastRow();
-  if (lastRow >= 12) {
-    resultsSheet.getRange(12, 1, lastRow - 11, resultsSheet.getLastColumn()).clearContent();
+  var lastCol = resultsSheet.getLastColumn() || 12;
+  if (lastRow >= 1) {
+    resultsSheet.getRange(1, 1, lastRow, lastCol).clearContent();
   }
 
+  // Evergreen rows matching Leads Dashboard
+  var evergreenRows = [
+    ['BOYL - CLT', 'CLT'],
+    ['Renovations - CLT', 'CLT'],
+    ['General - CLT', 'CLT'],
+    ['BOYL - TRN', 'TRN'],
+    ['Renovations - TRN', 'TRN'],
+    ['General - TRN', 'TRN'],
+    ['BOYL - GVL', 'GVL'],
+    ['Renovations - GVL', 'GVL'],
+    ['General - GVL', 'GVL'],
+    ['General Overall', ''],
+  ];
+
   var communities = getCommunityListFromAssignments_();
-  if (communities.length > 0) {
-    var communityRows = [];
-    for (var ci = 0; ci < communities.length; ci++) {
-      communityRows.push([communities[ci].name, communities[ci].market]);
-    }
-    // Ensure enough rows exist
-    var needed = 12 + communities.length - 1;
-    if (resultsSheet.getMaxRows() < needed) {
-      resultsSheet.insertRowsAfter(resultsSheet.getMaxRows(), needed - resultsSheet.getMaxRows());
-    }
-    resultsSheet.getRange(12, 1, communities.length, 2).setValues(communityRows);
+
+  // Total rows: 10 evergreen + 1 header + communities
+  var allRows = [];
+  for (var ei = 0; ei < evergreenRows.length; ei++) {
+    allRows.push(evergreenRows[ei]);
   }
+  for (var ci = 0; ci < communities.length; ci++) {
+    allRows.push([communities[ci].name, communities[ci].market]);
+  }
+
+  // Ensure enough rows exist
+  if (resultsSheet.getMaxRows() < allRows.length) {
+    resultsSheet.insertRowsAfter(resultsSheet.getMaxRows(), allRows.length - resultsSheet.getMaxRows());
+  }
+  resultsSheet.getRange(1, 1, allRows.length, 2).setValues(allRows);
 
   // ── 4b. Populate data columns ──
   // Re-read lastRow after rebuild
@@ -893,10 +937,10 @@ function handleBuildSalesReports(resultsSpreadsheet) {
   var leadsSheet = SpreadsheetApp.openById(LEADS_SHEET_ID).getSheetByName('Dashboard');
   var leadsSubmitted = {};
   if (leadsSheet) {
-    // Check if any community rows have non-zero values in data columns (C onwards)
+    // Check if any data rows have non-zero values in data columns (C onwards)
     var lr = leadsSheet.getLastRow();
-    if (lr >= 9) {
-      var leadsData = leadsSheet.getRange(9, 1, lr - 8, Math.max(leadsSheet.getLastColumn(), 35)).getValues();
+    if (lr >= 3) {
+      var leadsData = leadsSheet.getRange(3, 1, lr - 2, Math.max(leadsSheet.getLastColumn(), 34)).getValues();
       // If any data cell is non-zero, leads are populated
       var hasLeadsData = false;
       for (var i = 0; i < leadsData.length; i++) {
@@ -966,16 +1010,16 @@ function logToSystemLog_(action, status, message) {
  * Debug helper — returns community names from both sheets for comparison.
  */
 function debugConsolidateNames_() {
-  // Copper Leads Dashboard — community names from col A, rows 9+
+  // Copper Leads Dashboard — community names from col A, rows 3+
   var leadsNames = [];
   var leadsSheet = SpreadsheetApp.openById(LEADS_SHEET_ID).getSheetByName('Dashboard');
   if (leadsSheet) {
     var lr = leadsSheet.getLastRow();
-    if (lr >= 9) {
-      var ld = leadsSheet.getRange(9, 1, lr - 8, 2).getValues();
+    if (lr >= 3) {
+      var ld = leadsSheet.getRange(3, 1, lr - 2, 2).getValues();
       for (var i = 0; i < ld.length; i++) {
         var n = (ld[i][0] || '').toString().trim();
-        if (n) leadsNames.push({ row: i + 9, name: n, market: (ld[i][1] || '').toString().trim() });
+        if (n) leadsNames.push({ row: i + 3, name: n, market: (ld[i][1] || '').toString().trim() });
       }
     }
   }
