@@ -102,6 +102,8 @@ function getProspects(rep) {
     var row = data[i];
     var repName = row[headers.indexOf('Rep Name')];
     if (repName !== rep) continue;
+    var status = (row[headers.indexOf('Status')] || 'active').toString().toLowerCase();
+    if (status === 'sold' || status === 'removed') continue;
     results.push({
       id: row[headers.indexOf('ID')],
       rep: repName,
@@ -109,7 +111,7 @@ function getProspects(rep) {
       name: row[headers.indexOf('Prospect Name')],
       ranking: row[headers.indexOf('Ranking')],
       nextStep: row[headers.indexOf('Next Step')],
-      status: row[headers.indexOf('Status')] || 'active',
+      status: status,
       createdDate: row[headers.indexOf('Created Date')],
       lastUpdated: row[headers.indexOf('Last Updated')],
     });
