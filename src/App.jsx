@@ -23,6 +23,8 @@ export default function App() {
   const [allKnownCommunities, setAllKnownCommunities] = useState([]);
   const [openedBlocks, setOpenedBlocks] = useState(new Set());
   const [collapseKey, setCollapseKey] = useState(0);
+  const [boylMarket, setBoylMarket] = useState('');
+  const [renovationsMarket, setRenovationsMarket] = useState('');
 
   const { assignments, loading: assignmentsLoading, lastSyncedAt } = useAssignments(selectedRep);
   const { prospects, addProspect, updateProspect, removeProspect, markSold } =
@@ -47,6 +49,8 @@ export default function App() {
     setShowPicker(false);
     setOpenedBlocks(new Set());
     setCollapseKey(k => k + 1);
+    setBoylMarket('');
+    setRenovationsMarket('');
   }, []);
 
   const handleAppointmentChange = useCallback((communityName, grid) => {
@@ -140,10 +144,13 @@ export default function App() {
         const grid = appointments[name] || [[0,0,0],[0,0,0],[0,0,0]];
         const blockProspects = prospects.filter(p => p.community === name);
         const gridTotal = grid.reduce((sum, row) => sum + row.reduce((s, v) => s + v, 0), 0);
+        const blockType = a.assignmentType || 'community';
+        const market = blockType === 'boyl' ? boylMarket : blockType === 'renovation' ? renovationsMarket : '';
 
         return {
           name,
-          type: a.assignmentType || 'community',
+          type: blockType,
+          market,
           appointments: {
             clientOnly: { virtual: grid[0][0], onsite: grid[0][1], model: grid[0][2] },
             realtorPlusClient: { virtual: grid[1][0], onsite: grid[1][1], model: grid[1][2] },
@@ -290,6 +297,15 @@ export default function App() {
         <>
           <div className="sdiv" />
           <div className="slabel">BOYL — Build on Your Lot</div>
+          <div className="market-select">
+            <label className="market-label">Market</label>
+            <select value={boylMarket} onChange={(e) => setBoylMarket(e.target.value)}>
+              <option value="">Select market…</option>
+              <option value="CLT">CLT</option>
+              <option value="TRN">TRN</option>
+              <option value="GVL">GVL</option>
+            </select>
+          </div>
           {renderBlocks([BOYL_BLOCK], 'boyl')}
         </>
       )}
@@ -299,6 +315,15 @@ export default function App() {
         <>
           <div className="sdiv" />
           <div className="slabel">Renovations</div>
+          <div className="market-select">
+            <label className="market-label">Market</label>
+            <select value={renovationsMarket} onChange={(e) => setRenovationsMarket(e.target.value)}>
+              <option value="">Select market…</option>
+              <option value="CLT">CLT</option>
+              <option value="TRN">TRN</option>
+              <option value="GVL">GVL</option>
+            </select>
+          </div>
           {renderBlocks([RENOVATIONS_BLOCK], 'renovation')}
         </>
       )}
@@ -320,7 +345,7 @@ export default function App() {
           <button
             className="submit-btn"
             onClick={handleSubmit}
-            disabled={submitting || !allRequiredTouched}
+            disabled={submitting}
           >
             {submitting ? 'Submitting…' : 'Submit Weekly Log'}
           </button>

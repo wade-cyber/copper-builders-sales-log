@@ -362,13 +362,13 @@ function handleSubmitWeeklyLog(data) {
   // Ensure header row
   var firstCell = sheet.getRange(1, 1).getValue();
   if (firstCell !== 'Timestamp') {
-    sheet.getRange(1, 1, 1, 20).setValues([[
+    sheet.getRange(1, 1, 1, 21).setValues([[
       'Timestamp', 'Week Ending', 'Rep Name', 'Community', 'Section Type',
       'Client Only Virtual', 'Client Only Onsite', 'Client Only Model',
       'Realtor+Client Virtual', 'Realtor+Client Onsite', 'Realtor+Client Model',
       'Realtor Only Virtual', 'Realtor Only Onsite', 'Realtor Only Model',
       'Total Appts', 'Active Prospects', 'Sold Prospects', 'Removed Prospects',
-      'Grand Total Appts', 'Grand Total Prospects'
+      'Grand Total Appts', 'Grand Total Prospects', 'Market'
     ]]);
   }
 
@@ -401,7 +401,8 @@ function handleSubmitWeeklyLog(data) {
       prospects.filter(function(p) { return p.status === 'sold'; }).length,
       prospects.filter(function(p) { return p.status === 'removed'; }).length,
       (data.totals || {}).totalAppointments || 0,
-      (data.totals || {}).totalProspects || 0
+      (data.totals || {}).totalProspects || 0,
+      section.market || ''
     ]);
   }
 

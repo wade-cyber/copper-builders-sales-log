@@ -150,6 +150,11 @@ body { background: var(--cream); font-family: 'Open Sans', sans-serif; }
 .success-rule { width: 60px; height: 1px; background: var(--gold); margin: 1rem auto; }
 
 
+/* MARKET SELECTOR */
+.market-select { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.market-label { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--slate); }
+.market-select select { height: 28px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-size: 12px; background: var(--white); color: var(--slate-dark); }
+
 /* STALE DATA WARNING */
 .stale-warning { background: #fdf5e4; border: 1px solid var(--gold); border-radius: 4px; padding: 10px 14px; text-align: center; font-size: 12px; color: #7a5e10; margin-bottom: 1.25rem; }
 
