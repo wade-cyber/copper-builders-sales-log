@@ -9,7 +9,7 @@
     },
     {
       "path": "/api/consolidate-dashboard",
-      "schedule": "0 1 * * 2"
+      "schedule": "0 5 * * 2"
     }
   ]
 }

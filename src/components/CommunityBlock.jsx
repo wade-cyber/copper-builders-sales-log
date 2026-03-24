@@ -16,6 +16,8 @@ export default function CommunityBlock({
   onRemoveProspect,
   onOpened,
   forceCollapsed,
+  saveErrors,
+  onRetrySave,
 }) {
   const [open, setOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -78,6 +80,8 @@ export default function CommunityBlock({
                   onUpdate={onProspectUpdate}
                   onMarkSold={onMarkSold}
                   onRemove={onRemoveProspect}
+                  saveError={saveErrors && saveErrors[p.id]}
+                  onRetry={onRetrySave}
                 />
               ))}
             </div>

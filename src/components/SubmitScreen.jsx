@@ -11,7 +11,7 @@ function KeySvg() {
   );
 }
 
-export default function SubmitScreen() {
+export default function SubmitScreen({ repName, totalAppointments, totalProspects, onStartNew }) {
   return (
     <div className="submit-success" style={{ display: 'block' }}>
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style={{ margin: '0 auto 1rem' }}>
@@ -27,7 +27,22 @@ export default function SubmitScreen() {
       </div>
       <div style={{ fontSize: 13, color: 'var(--slate)', marginTop: 6 }}>
         Week ending {getWeekEndingShort()}
+        {repName && <> &mdash; {repName}</>}
       </div>
+
+      {(totalAppointments > 0 || totalProspects > 0) && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 16 }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontFamily: "'Libre Baskerville', serif", color: 'var(--slate-dark)' }}>{totalAppointments}</div>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--slate)' }}>Appointments</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontFamily: "'Libre Baskerville', serif", color: 'var(--slate-dark)' }}>{totalProspects}</div>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--slate)' }}>Prospects</div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 }}>
         <div style={{ flex: 0, width: 40, height: 1, background: 'var(--gold)' }} />
         <KeySvg />
@@ -36,6 +51,20 @@ export default function SubmitScreen() {
       <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 16, fontStyle: 'italic' }}>
         Your report has been recorded. See you Monday.
       </div>
+
+      {onStartNew && (
+        <button
+          onClick={onStartNew}
+          style={{
+            marginTop: 24, height: 36, padding: '0 20px', background: 'transparent',
+            color: 'var(--gold)', border: '1px solid var(--gold)', borderRadius: 4,
+            fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase',
+            cursor: 'pointer',
+          }}
+        >
+          Start New Report
+        </button>
+      )}
     </div>
   );
 }

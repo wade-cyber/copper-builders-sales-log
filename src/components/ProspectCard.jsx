@@ -1,13 +1,4 @@
-const NEXT_STEPS = [
-  'Contract appt set',
-  'Follow-up call',
-  'Send floor plans',
-  'Site visit',
-  'Financing referral',
-  'Waiting on decision',
-  'Plans review (BOYL)',
-  'Scope review (Renovations)',
-];
+import { NEXT_STEPS } from '../utils/constants';
 
 function getInitials(name) {
   if (!name) return '?';
@@ -16,7 +7,7 @@ function getInitials(name) {
   return name.charAt(0).toUpperCase();
 }
 
-export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove }) {
+export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove, saveError, onRetry }) {
   const isSold = prospect.status === 'sold';
   const isRemoved = prospect.status === 'removed';
   const disabled = isSold || isRemoved;
@@ -44,6 +35,18 @@ export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove 
           </select>
         </div>
       </div>
+
+      {saveError && (
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#c0392b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>Save failed</span>
+          <button
+            onClick={() => onRetry(prospect.id)}
+            style={{ fontSize: 10, padding: '1px 6px', border: '1px solid #c0392b', borderRadius: 3, background: 'transparent', color: '#c0392b', cursor: 'pointer' }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {isSold && (
         <div style={{ fontSize: 11, fontWeight: 600, fontStyle: 'italic', color: '#3a5e20', marginTop: 4 }}>

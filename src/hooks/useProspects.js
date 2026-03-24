@@ -4,6 +4,7 @@ import { fetchProspects, saveProspect } from '../utils/api';
 export function useProspects(rep) {
   const [prospects, setProspects] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [saveErrors, setSaveErrors] = useState({});
 
   useEffect(() => {
     if (!rep) { setProspects([]); return; }
@@ -25,6 +26,29 @@ export function useProspects(rep) {
     return () => { cancelled = true; };
   }, [rep]);
 
+  const handleSaveError = useCallback((id, err) => {
+    setSaveErrors((prev) => ({ ...prev, [id]: err.message || 'Save failed' }));
+  }, []);
+
+  const clearSaveError = useCallback((id) => {
+    setSaveErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  const retrySave = useCallback((id) => {
+    clearSaveError(id);
+    setProspects((current) => {
+      const prospect = current.find((p) => p.id === id);
+      if (prospect) {
+        saveProspect({ ...prospect, rep }).catch((err) => handleSaveError(id, err));
+      }
+      return current;
+    });
+  }, [rep, clearSaveError, handleSaveError]);
+
   const addProspect = useCallback((prospect) => {
     const newProspect = {
       ...prospect,
@@ -33,42 +57,37 @@ export function useProspects(rep) {
       createdDate: new Date().toISOString(),
     };
     setProspects((prev) => [...prev, newProspect]);
-    saveProspect({ ...newProspect, rep }).catch(() => {});
+    saveProspect({ ...newProspect, rep }).catch((err) => handleSaveError(newProspect.id, err));
     return newProspect;
-  }, [rep]);
+  }, [rep, handleSaveError]);
 
+  // Fixed: combine state update + API call in single setProspects to avoid race condition
   const updateProspect = useCallback((id, updates) => {
-    setProspects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
-    );
-    setProspects((current) => {
-      const prospect = current.find((p) => p.id === id);
-      if (prospect) saveProspect({ ...prospect, rep }).catch(() => {});
-      return current;
+    setProspects((prev) => {
+      const next = prev.map((p) => (p.id === id ? { ...p, ...updates } : p));
+      const updated = next.find((p) => p.id === id);
+      if (updated) saveProspect({ ...updated, rep }).catch((err) => handleSaveError(id, err));
+      return next;
     });
-  }, [rep]);
+  }, [rep, handleSaveError]);
 
   const removeProspect = useCallback((id) => {
-    setProspects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: 'removed' } : p))
-    );
-    setProspects((current) => {
-      const prospect = current.find((p) => p.id === id);
-      if (prospect) saveProspect({ ...prospect, rep }).catch(() => {});
-      return current;
+    setProspects((prev) => {
+      const next = prev.map((p) => (p.id === id ? { ...p, status: 'removed' } : p));
+      const updated = next.find((p) => p.id === id);
+      if (updated) saveProspect({ ...updated, rep }).catch((err) => handleSaveError(id, err));
+      return next;
     });
-  }, [rep]);
+  }, [rep, handleSaveError]);
 
   const markSold = useCallback((id) => {
-    setProspects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: 'sold' } : p))
-    );
-    setProspects((current) => {
-      const prospect = current.find((p) => p.id === id);
-      if (prospect) saveProspect({ ...prospect, rep }).catch(() => {});
-      return current;
+    setProspects((prev) => {
+      const next = prev.map((p) => (p.id === id ? { ...p, status: 'sold' } : p));
+      const updated = next.find((p) => p.id === id);
+      if (updated) saveProspect({ ...updated, rep }).catch((err) => handleSaveError(id, err));
+      return next;
     });
-  }, [rep]);
+  }, [rep, handleSaveError]);
 
-  return { prospects, loading, addProspect, updateProspect, removeProspect, markSold };
+  return { prospects, loading, saveErrors, addProspect, updateProspect, removeProspect, markSold, retrySave };
 }

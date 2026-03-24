@@ -1,15 +1,17 @@
 // sync-smartsheet — Vercel serverless cron function
 // Runs every Sunday at 11pm ET (Monday 4:00 UTC) via vercel.json cron config
-// Fetches Smartsheet assignments, deduplicates, POSTs to Apps Script syncAssignments
+// Fetches Smartsheet assignments, deduplicates, writes to Google Sheets directly
 // Then triggers weekly lead dashboard creation
+
+import { syncAssignments } from './_lib/sync-assignments.js';
+import { createWeeklyDashboard } from './_lib/create-weekly-dashboard.js';
 
 export default async function handler(req, res) {
   const token = process.env.SMARTSHEET_API_TOKEN;
   const sheetId = process.env.SMARTSHEET_SHEET_ID;
-  const scriptUrl = process.env.GOOGLE_SCRIPT_URL;
 
-  if (!token || !sheetId || !scriptUrl) {
-    return res.status(500).json({ error: 'Missing env vars' });
+  if (!token || !sheetId) {
+    return res.status(500).json({ error: 'Missing env vars (SMARTSHEET_API_TOKEN, SMARTSHEET_SHEET_ID)' });
   }
 
   // Check if this is a targeted action request (manual trigger)
@@ -21,12 +23,7 @@ export default async function handler(req, res) {
   // If specifically requesting just the dashboard creation
   if (body.action === 'createWeeklyDashboard') {
     try {
-      const dashRes = await fetch(scriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'createWeeklyDashboard' }),
-      });
-      const dashData = await dashRes.json();
+      const dashData = await createWeeklyDashboard();
       return res.status(200).json(dashData);
     } catch (err) {
       return res.status(500).json({ error: 'Dashboard creation failed: ' + err.message });
@@ -110,29 +107,13 @@ export default async function handler(req, res) {
       });
     }
 
-    // POST to Apps Script syncAssignments
-    const postRes = await fetch(scriptUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'syncAssignments', assignments }),
-    });
+    // Write assignments directly to Google Sheets
+    const syncResult = await syncAssignments(assignments);
 
-    if (!postRes.ok) {
-      const text = await postRes.text();
-      return res.status(500).json({ error: `Apps Script sync error: ${text}` });
-    }
-
-    const syncResult = await postRes.json();
-
-    // ── After assignments sync, create weekly lead dashboard ──
+    // After assignments sync, create weekly lead dashboard
     let dashboardResult = null;
     try {
-      const dashRes = await fetch(scriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'createWeeklyDashboard' }),
-      });
-      dashboardResult = await dashRes.json();
+      dashboardResult = await createWeeklyDashboard();
     } catch (dashErr) {
       dashboardResult = { success: false, message: 'Dashboard creation failed: ' + dashErr.message };
     }

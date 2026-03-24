@@ -5,7 +5,7 @@ import CommunityBlock from './components/CommunityBlock';
 import SubmitScreen from './components/SubmitScreen';
 import { useAssignments } from './hooks/useAssignments';
 import { useProspects } from './hooks/useProspects';
-import { submitWeeklyLog, fetchAllCommunities } from './utils/api';
+import { submitWeeklyLog, fetchAllCommunities, fetchReps } from './utils/api';
 import { getWeekEndingShort } from './utils/dates';
 
 const BOYL_BLOCK = { name: 'BOYL', assignmentName: 'BOYL', assignmentType: 'boyl' };
@@ -25,10 +25,18 @@ export default function App() {
   const [collapseKey, setCollapseKey] = useState(0);
   const [boylMarket, setBoylMarket] = useState('');
   const [renovationsMarket, setRenovationsMarket] = useState('');
+  const [reps, setReps] = useState([]);
 
   const { assignments, loading: assignmentsLoading, lastSyncedAt } = useAssignments(selectedRep);
-  const { prospects, addProspect, updateProspect, removeProspect, markSold } =
+  const { prospects, saveErrors, addProspect, updateProspect, removeProspect, markSold, retrySave } =
     useProspects(selectedRep);
+
+  // Fetch dynamic rep list from Assignments tab
+  useEffect(() => {
+    fetchReps()
+      .then((data) => { if (Array.isArray(data)) setReps(data); })
+      .catch(() => {});
+  }, []);
 
   // Fetch all known communities for the dropdown picker
   useEffect(() => {
@@ -136,8 +144,23 @@ export default function App() {
   };
 
   const handleSubmit = async () => {
-    setSubmitting(true);
     setSubmitError('');
+
+    // Bug 3 fix: require market selection for BOYL/Renovations if appointments > 0
+    const boylGrid = appointments['BOYL'] || [[0,0,0],[0,0,0],[0,0,0]];
+    const boylTotal = boylGrid.reduce((s, row) => s + row.reduce((a, v) => a + v, 0), 0);
+    if (boylTotal > 0 && !boylMarket) {
+      setSubmitError('Please select a market for BOYL before submitting.');
+      return;
+    }
+    const renoGrid = appointments['Renovations'] || [[0,0,0],[0,0,0],[0,0,0]];
+    const renoTotal = renoGrid.reduce((s, row) => s + row.reduce((a, v) => a + v, 0), 0);
+    if (renoTotal > 0 && !renovationsMarket) {
+      setSubmitError('Please select a market for Renovations before submitting.');
+      return;
+    }
+
+    setSubmitting(true);
     try {
       const sections = allBlocks.map((a) => {
         const name = a.name || a.assignmentName;
@@ -185,11 +208,21 @@ export default function App() {
     }
   };
 
+  const handleStartNew = useCallback(() => {
+    setSubmitted(false);
+    handleRepChange('');
+  }, [handleRepChange]);
+
   if (submitted) {
     return (
       <div className="shell">
         <Header />
-        <SubmitScreen />
+        <SubmitScreen
+          repName={selectedRep}
+          totalAppointments={totalAppointments}
+          totalProspects={totalActiveProspects}
+          onStartNew={handleStartNew}
+        />
       </div>
     );
   }
@@ -212,6 +245,8 @@ export default function App() {
           onRemoveProspect={removeProspect}
           onOpened={handleBlockOpened}
           forceCollapsed={collapseKey}
+          saveErrors={saveErrors}
+          onRetrySave={retrySave}
         />
       );
     });
@@ -222,7 +257,7 @@ export default function App() {
   return (
     <div className="shell">
       <Header />
-      <RepSelector value={selectedRep} onChange={handleRepChange} />
+      <RepSelector value={selectedRep} onChange={handleRepChange} reps={reps} />
 
       {selectedRep && lastSyncedAt && (Date.now() - lastSyncedAt.getTime()) > 8 * 24 * 60 * 60 * 1000 && (
         <div className="stale-warning">
