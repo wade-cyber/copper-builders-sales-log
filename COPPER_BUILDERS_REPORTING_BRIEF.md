@@ -1,471 +1,210 @@
-# Copper Builders — Weekly Sales Log System
+# Copper Builders — Weekly Sales Log
 
-**Version:** 2.0
 **Last Updated:** March 24, 2026
-**Status:** Active — deploys via git push to GitHub → Vercel
 
 ---
 
-## System Overview
+## Quick Links
 
-The **Weekly Sales Log** is a web-based reporting system that captures sales rep activity across all Copper Builders communities, enabling real-time visibility into:
-
-- **Appointment activity** by community and appointment type
-- **Prospect tracking** with lead ranking and next steps
-- **Special programs** (BOYL, Renovations) with market attribution
-- **Weekly consolidation** for management dashboards
-- **Smartsheet integration** for assignment management
-
----
-
-## Key Features
-
-### 1. Rep-Based Reporting
-
-Each sales rep logs in with their name (pulled from Smartsheet assignments) and submits their weekly activity.
-
-**Data Points Captured:**
-- Appointments by appointment type:
-  - **Client-only** (interested in builder only)
-  - **Realtor + Client** (buyer's agent + client)
-  - **Realtor-only** (agent looking at specs)
-- Appointment channels:
-  - **Virtual** (phone/video)
-  - **Onsite** (visit to model/community)
-  - **Model** (model home walkthrough)
-
-### 2. Community/Property Management
-
-- **Smartsheet Integration** — Communities and assignments auto-sync from Smartsheet each week
-- **Dynamic Assignment List** — Reps see only their assigned communities
-- **Add-On Communities** — Reps can add unlisted communities to their report
-- **Single Homes Program** — Tracked separately as a special assignment type
-
-### 3. Prospect Tracking
-
-Each rep can log prospects with:
-- **Name** — Prospect's name
-- **Ranking** — A (hot), B (warm), C (cold)
-- **Next Step** — Follow-up action (call, email, visit, etc.)
-- **Status** — Active, Sold, or Removed
-
-Sold/Removed prospects are excluded from the active pipeline but kept for historical records.
-
-### 4. Special Programs
-
-#### BOYL (Build on Your Lot)
-- Market selection: **CLT** (Charlotte), **TRN** (Triad), **GVL** (Greenville)
-- Market selection is **required** if appointments logged
-- Tracks lots brought by clients vs. offered by builder
-
-#### Renovations
-- Market selection: **CLT**, **TRN**, **GVL**
-- Market selection is **required** if appointments logged
-- Separate pipeline from new construction
+| Resource | Link |
+|----------|------|
+| **Sales Log App** | [copper-builders-log.vercel.app](https://copper-builders-log.vercel.app/) |
+| **Sales App Reporting** (Assignments, Submissions, Prospects) | [Google Sheet](https://docs.google.com/spreadsheets/d/1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4) |
+| **Copper Leads Reporting** (Weekly Lead Dashboard) | [Google Sheet](https://docs.google.com/spreadsheets/d/1eH15Te0Wd1nuMMQ-yL0bvtxuYKAcPLv33CYjYylNEeI) |
+| **Sales Dashboard Data** (Consolidated Results) | [Google Sheet](https://docs.google.com/spreadsheets/d/1az7HktTLeeQCcCV5f5hgPDyRElyJKzezZymgywc6Gzw) |
+| **GitHub Repo** | [wade-cyber/copper-builders-sales-log](https://github.com/wade-cyber/copper-builders-sales-log) |
 
 ---
 
-## User Workflow
+## What This System Does
 
-### Step 1: Rep Selection
-```
-[Select Rep] → Dropdown lists all reps from Smartsheet
-              → Loading message while assignments fetch
-              → 8-day-old data warning (if stale)
-```
+The Weekly Sales Log captures sales rep activity across all Copper Builders communities each week:
 
-### Step 2: Community Entry
-```
-Rep's communities appear in sections:
-├─ Communities (assigned from Smartsheet)
-│   ├─ Community A [appointment grid]
-│   ├─ Community B [appointment grid]
-│   └─ [+ Add Community] button
-├─ Single Homes (if applicable)
-├─ BOYL (special program)
-│   └─ Market: [CLT] [TRN] [GVL]
-└─ Renovations (special program)
-    └─ Market: [CLT] [TRN] [GVL]
-```
+- **Appointments** — logged by type (Client-only, Realtor+Client, Realtor-only) and channel (Virtual, Onsite, Model)
+- **Prospects** — tracked with ranking (A/B/C), next steps, and status (Active, Sold, Removed)
+- **Special Programs** — BOYL and Renovations, broken out by market (CLT, TRN, GVL)
+- **Weekly Dashboards** — auto-consolidated into the Copper Leads sheet every Tuesday
 
-### Step 3: Appointment Entry
-For each community/section, rep enters:
-```
-                Virtual  Onsite  Model
-Client-only       [_]      [_]     [_]
-Realtor+Client    [_]      [_]     [_]
-Realtor-only      [_]      [_]     [_]
-```
+---
+
+## How Reps Use the App
+
+### 1. Select Your Name
+
+Open [the app](https://copper-builders-log.vercel.app/) and choose your name from the dropdown. Your assigned communities load automatically from Smartsheet.
+
+### 2. Log Appointments
+
+For each community, fill in the 3x3 appointment grid:
+
+|                    | Virtual | Onsite | Model |
+|--------------------|---------|--------|-------|
+| **Client-only**    | _       | _      | _     |
+| **Realtor+Client** | _       | _      | _     |
+| **Realtor-only**   | _       | _      | _     |
 
 Numbers are cumulative for the week.
 
-### Step 4: Prospect Management
-Under each community block:
-```
-[Prospect Name] - [A/B/C] - [Next Step] - [Status] [Edit] [Sold] [Remove]
-```
+### 3. Manage Prospects
 
-Add new prospects with:
-```
-[+ Add Prospect] → Form to enter name, ranking, next step
-```
+Under each community, add or update prospects:
+- **Name** — prospect's name
+- **Ranking** — A (hot), B (warm), C (cold)
+- **Next Step** — follow-up action
+- Mark as **Sold** or **Remove** when appropriate
 
-### Step 5: Submission
+### 4. Submit
+
+Hit **Submit Weekly Log** at the bottom. You'll see a confirmation with your totals.
+
+> **BOYL / Renovations:** If you log appointments for these, you must select a market (CLT, TRN, or GVL) before submitting.
+
+---
+
+## Where the Data Lives
+
+### [Sales App Reporting](https://docs.google.com/spreadsheets/d/1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4)
+
+| Tab | What's In It |
+|-----|-------------|
+| **Assignments** | Rep-to-community mapping (synced from Smartsheet every Monday) |
+| **Submissions** | Every weekly log submission — one row per community per rep per week |
+| **Prospects** | All prospects with ranking, next step, status, and dates |
+| **System Log** | Automated action log (syncs, dashboard creation, etc.) |
+
+### [Copper Leads Reporting](https://docs.google.com/spreadsheets/d/1eH15Te0Wd1nuMMQ-yL0bvtxuYKAcPLv33CYjYylNEeI)
+
+| Tab | What's In It |
+|-----|-------------|
+| **Dashboard** | Current week's lead data — communities, lead sources, totals |
+| **Week of [date]** tabs | Archived weekly snapshots (one per past week) |
+
+### [Sales Dashboard Data](https://docs.google.com/spreadsheets/d/1az7HktTLeeQCcCV5f5hgPDyRElyJKzezZymgywc6Gzw)
+
+| Tab | What's In It |
+|-----|-------------|
+| **Sales Data Results** | Consolidated view — prospects, appointments, leads by community |
+| **Sales Reports** | Which reps submitted their Sales Log + whether Leads Report is complete |
+
+---
+
+## Automated Weekly Schedule
+
+| When | What Happens |
+|------|-------------|
+| **Monday 4:00 AM ET** | Smartsheet sync — pulls latest rep/community assignments, creates next week's Dashboard tab |
+| **Wednesday–Friday** | Reps submit their weekly logs via the app |
+| **Tuesday 5:00 AM ET** | Dashboard consolidation — aggregates all submissions into Sales Data Results + Sales Reports |
+
+---
+
+## For Management
+
+The **Sales Reports** tab in the [Sales Dashboard Data](https://docs.google.com/spreadsheets/d/1az7HktTLeeQCcCV5f5hgPDyRElyJKzezZymgywc6Gzw) sheet shows at a glance:
+
+- Which reps submitted their Sales Log this week (**Submitted** vs **MISSING**)
+- Whether the Leads Report is complete (**COMPLETE** vs **NOT SUBMITTED**)
+
+The **Sales Data Results** tab shows consolidated numbers per community:
+- Active Prospects
+- Appointments Held
+- Total New Leads, Digital Leads, In-Person Leads, Call Leads
+- VIP List Signups
+
+---
+
+## Troubleshooting
+
+### "Can't load assignments" or app shows spinner forever
+1. Refresh the page (Cmd+R)
+2. Check that the [Sales App Reporting](https://docs.google.com/spreadsheets/d/1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4) sheet is accessible
+3. If assignments look stale (8+ days old), the Monday sync may have failed — contact admin
+
+### "Prospect won't save"
+1. Make sure all required fields are filled (name is required)
+2. Wait a minute and retry — Google Sheets may be rate-limited
+3. Open browser console (F12) to see error details
+
+### "My submission isn't showing up"
+1. Open the [Submissions tab](https://docs.google.com/spreadsheets/d/1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4/edit#gid=0) and scroll to the bottom
+2. Check the "Week Ending" column for this week's date
+3. Remove any active filters: Data → Filter → Reset
+
+### "Dashboard numbers look wrong"
+1. Consolidation runs Tuesday at 5 AM — numbers won't reflect late submissions until next Tuesday
+2. Check the [Dashboard tab](https://docs.google.com/spreadsheets/d/1eH15Te0Wd1nuMMQ-yL0bvtxuYKAcPLv33CYjYylNEeI) directly to verify lead entry data
+3. Duplicate submissions are automatically deduplicated (latest wins per rep+community)
+
+---
+
+## Technical Overview
+
+For anyone maintaining or extending the system:
+
+### Stack
+- **Frontend:** React 19 + Vite, hosted on Vercel
+- **Backend:** Vercel serverless functions (`/api/*`), no separate server
+- **Data:** Google Sheets via Sheets API v4 (service account auth)
+- **Assignments Source:** Smartsheet API
+- **Deployment:** `git push` to GitHub → auto-deploys to Vercel
+
+### API Routes
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/get-reps` | GET | List all rep names |
+| `/api/get-assignments?rep=Name` | GET | Get a rep's communities |
+| `/api/get-prospects?rep=Name` | GET | Get a rep's active prospects |
+| `/api/get-last-sync` | GET | Last Smartsheet sync timestamp |
+| `/api/save-prospect` | POST | Create or update a prospect |
+| `/api/submit-weekly-log` | POST | Submit a rep's weekly report |
+| `/api/sync-assignments` | POST | Write assignments to Sheets |
+| `/api/create-weekly-dashboard` | POST | Create next week's Dashboard tab |
+| `/api/consolidate-dashboard` | POST | Aggregate data into Results sheet |
+| `/api/sync-smartsheet` | POST/Cron | Full Smartsheet sync + dashboard creation |
+
+### Environment Variables (Vercel)
+
+| Variable | Purpose |
+|----------|---------|
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Service account for Sheets API access |
+| `GOOGLE_PRIVATE_KEY` | Service account private key |
+| `SALES_APP_SHEET_ID` | Sales App Reporting sheet ID |
+| `LEADS_SHEET_ID` | Copper Leads Reporting sheet ID |
+| `RESULTS_SHEET_ID` | Sales Dashboard Data sheet ID |
+| `SMARTSHEET_API_TOKEN` | Smartsheet API key for assignment sync |
+| `SMARTSHEET_SHEET_ID` | Smartsheet sheet ID to pull from |
+
+### Key Files
+
 ```
-Progress bar shows: "X of Y sections reviewed"
-                    ████░░░░░ 4/6 sections
-
-Total Appts: [23]  Total Prospects: [17]
-
-[Submit Weekly Log] button → Saves to Google Sheets
-                           → Confirmation page
+copper-builders-sales-log/
+├── api/
+│   ├── _lib/
+│   │   ├── sheets.js                  # Shared Google Sheets auth + helpers
+│   │   ├── sync-assignments.js        # Assignment sync logic
+│   │   └── create-weekly-dashboard.js  # Dashboard creation logic
+│   ├── get-reps.js                    # GET /api/get-reps
+│   ├── get-assignments.js             # GET /api/get-assignments
+│   ├── get-prospects.js               # GET /api/get-prospects
+│   ├── get-last-sync.js               # GET /api/get-last-sync
+│   ├── save-prospect.js               # POST /api/save-prospect
+│   ├── submit-weekly-log.js           # POST /api/submit-weekly-log
+│   ├── sync-assignments.js            # POST /api/sync-assignments
+│   ├── create-weekly-dashboard.js     # POST /api/create-weekly-dashboard
+│   ├── consolidate-dashboard.js       # POST /api/consolidate-dashboard (cron)
+│   └── sync-smartsheet.js             # POST /api/sync-smartsheet (cron)
+├── src/
+│   ├── App.jsx                        # Main app component
+│   ├── components/                    # UI components
+│   └── utils/
+│       ├── api.js                     # Frontend API calls
+│       ├── constants.js               # Prospect next-step options
+│       └── dates.js                   # Week-ending date math
+├── vercel.json                        # Cron schedule config
+└── package.json
 ```
 
 ---
 
-## Data Storage & Flow
-
-### Google Sheets Architecture
-
-**Three linked Google Sheets:**
-
-#### 1. Sales App Reporting Sheet
-```
-Tabs:
-  ├─ Assignments
-  │  └─ Rep Name | Assignment Name | Assignment Type
-  │     [pulled from Smartsheet weekly]
-  │
-  ├─ Submissions
-  │  └─ Timestamp | Week Ending | Rep Name | Community | Section Type |
-  │     Client-only (Virtual/Onsite/Model) | Realtor+Client | Realtor-only
-  │     [appended when rep submits]
-  │
-  └─ Prospects
-     └─ ID | Rep Name | Community | Prospect Name | Ranking |
-        Next Step | Status | Created Date | Last Updated
-        [updated when rep adds/edits prospect]
-```
-
-#### 2. Copper Leads Sheet
-```
-Tabs:
-  ├─ Dashboard (active week)
-  │  └─ Week of Mar 22, 2026
-  │     Communities | CLT BOYL | TRN BOYL | GVL BOYL | Renovations | etc.
-  │     Totals row updates dynamically
-  │
-  ├─ Week of Mar 15, 2026
-  │  └─ [Historical week, archived]
-  │
-  ├─ Week of Mar 8, 2026
-  │  └─ [Historical week, archived]
-  │
-  └─ ... (previous weeks)
-```
-
-#### 3. Results Sheet
-```
-Summary metrics:
-  - Total appointments by week
-  - Appointments by rep
-  - Appointments by community
-  - Prospect pipeline status
-```
-
-### Data Flow Timeline
-
-```
-Monday 4am (Cron)
-  └─ Smartsheet Sync
-     ├─ Pull all rep-to-community assignments
-     ├─ Update "Assignments" tab
-     └─ Clear stale data
-
-Tuesday 1am (Cron)
-  └─ Dashboard Consolidation
-     ├─ Reads all submissions from the week
-     ├─ Deduplicates by rep+community (keeps latest)
-     ├─ Sums appointments by category
-     ├─ Updates "Dashboard" tab with totals
-     └─ Archives previous week's dashboard
-
-Wednesday-Friday
-  └─ Reps submit their weekly logs
-     ├─ Form submission → API call
-     ├─ Logged to "Submissions" tab
-     ├─ Prospects saved to "Prospects" tab
-     └─ Confirmation sent to rep
-
-Next Monday
-  └─ New week cycle begins
-```
-
----
-
-## Reporting & Insights
-
-### For Management
-
-**Weekly Dashboard Shows:**
-- Appointments by community (total + by type)
-- Appointments by market (CLT/TRN/GVL BOYL & Renovations)
-- Submissions status (which reps submitted, which missing)
-- Prospect pipeline (active count, ranking distribution)
-- Week-over-week trend
-
-**Queries Available:**
-- "Which community had the most activity?"
-- "BOYL appointments: CLT vs TRN vs GVL?"
-- "How many prospects ranked 'A' are in pipeline?"
-- "Did Rep X submit?"
-- "Average appointments per rep?"
-
-### For Reps
-
-**Immediate Feedback:**
-- Submission confirmation
-- Progress bar showing sections completed
-- Appointment totals for the week
-- Prospect status summary
-
-**Historical Access:**
-- Can view previous submissions (via Google Sheets)
-- Can see prospect pipeline status
-- Comparison to prior weeks
-
----
-
-## Integration Points
-
-### Smartsheet
-- **What:** Assignment data (rep ↔ community mapping)
-- **How:** Python cron script runs Monday 4am
-- **Sync:** Pulls latest assignments and updates "Assignments" tab
-- **Credentials:** API key stored in environment
-
-### Google Sheets
-- **What:** Data persistence (Assignments, Submissions, Prospects)
-- **How:** Vercel serverless API routes access Sheets via Google Sheets API v4
-- **Sync:** Real-time on submit
-- **Credentials:** Google service account (shared with all 3 spreadsheets)
-
-### Vercel API Routes (Backend)
-- **What:** API backend for the React app (replaced Google Apps Script)
-- **How:** Serverless functions under `/api/` — same-origin, no CORS needed
-- **Routes:** get-reps, get-assignments, get-prospects, get-last-sync, save-prospect, submit-weekly-log, sync-assignments, create-weekly-dashboard, consolidate-dashboard
-- **Deployment:** Auto-deploys with `git push` (same as frontend)
-
----
-
-## Deployment & Operations
-
-### Full Stack (Vercel)
-
-```
-Repository: GitHub (auto-deploy from main)
-URL: https://copper-builders-log.vercel.app/
-Frontend: React + Vite (static build)
-Backend: Vercel serverless functions (/api/*)
-Sheets access: Google service account + Sheets API v4
-Auto-scaling: Yes
-```
-
-### Cron Jobs (Vercel)
-
-```
-Monday 4:00 AM EST
-  └─ sync-smartsheet → /api/sync-smartsheet
-     └─ Pulls assignments from Smartsheet
-     └─ Updates "Assignments" tab
-
-Tuesday 1:00 AM EST
-  └─ consolidate-dashboard → /api/consolidate-dashboard
-     └─ Processes weekly submissions
-     └─ Updates "Dashboard" tab
-     └─ Archives previous week
-```
-
----
-
-## Performance Metrics
-
-| Metric | Target | Actual |
-|--------|--------|--------|
-| Page Load | <3s | ~1.2s |
-| Form Submit | <2s | ~0.8s |
-| Data Fetch | <2s | ~0.5s |
-| Prospect Search | <1s | ~0.3s |
-| Dashboard Consolidation | <5m | ~1m |
-
----
-
-## Error Handling & Recovery
-
-### User-Facing Errors
-
-| Scenario | Message | Action |
-|----------|---------|--------|
-| No rep selected | "Select a rep to begin" | Click dropdown |
-| Network error | "Network error — retrying..." | Auto-retry (3x) |
-| Submission fails | "Submission failed — [reason]" | Retry button shown |
-| BOYL market missing | "Please select market for BOYL" | Prevent submit |
-| Old Smartsheet data | "Data is 8+ days old" | Contact admin |
-
-### System Failures
-
-| Failure | Impact | Recovery |
-|---------|--------|----------|
-| Vercel API down | Can't submit | Enter data directly in Google Sheets |
-| Smartsheet sync fails | Stale assignments | Admin can manually update Assignments tab |
-| Google Sheets quota exceeded | Can't save data | Auto-retry with exponential backoff |
-| Vercel CDN down | App unavailable | Automatic failover (Vercel handles) |
-
-### Data Recovery
-
-- **Backups:** Google Sheets auto-versioning (30-day history)
-- **Submission Retry:** Automatic retry with exponential backoff
-- **Manual Override:** Admins can enter data directly in Google Sheets if needed
-
----
-
-## Security & Privacy
-
-### Authentication
-- **No user auth required** (rep selection via dropdown only)
-- **Assumes trusted internal environment** (Copper Builders team only)
-- **Optional:** Can add Google Sign-In if needed
-
-### Data Access
-- **Submissions tab:** Visible to all team members
-- **Prospects tab:** Visible to all team members
-- **Smartsheet API key:** Stored in environment variables (Vercel)
-- **Google Sheets API:** Accessed via service account (Vercel env vars)
-
-### Recommended Practices
-1. Limit spreadsheet sharing to Copper Builders domain only
-2. Enable Google Sheets audit trail
-3. Monitor Vercel function logs for API errors
-4. Rotate Smartsheet API key annually
-
----
-
-## Troubleshooting Guide
-
-### Issue: "Can't load assignments"
-
-**Possible Causes:**
-1. Smartsheet API token expired
-2. Google service account lost access to spreadsheet
-3. Network timeout
-
-**Fix:**
-```
-1. Verify Smartsheet API key is valid (Settings > API Keys)
-2. Check that all 3 Google Sheets are shared with the service account email
-3. Check Vercel function logs for error details
-4. Refresh browser (Cmd+R)
-```
-
-### Issue: "Prospect won't save"
-
-**Possible Causes:**
-1. Invalid prospect data (name required, for example)
-2. Google Sheets quota exceeded
-3. Vercel function error
-
-**Fix:**
-```
-1. Check all required fields are filled
-2. Wait 60 seconds and retry (quota cooldown)
-3. Check browser console for error details (F12)
-4. Clear browser cache and retry
-```
-
-### Issue: "Weekly submission not appearing in Google Sheets"
-
-**Possible Causes:**
-1. Submission didn't actually go through
-2. Google Sheets processing delay
-3. Filter hiding the row
-
-**Fix:**
-```
-1. Check Submissions tab for latest entry (scroll down)
-2. Look for this week's date in "Week Ending" column
-3. Remove any filters: Data > Filter > Reset range
-4. Check if submitted row has today's timestamp
-```
-
----
-
-## Future Enhancements
-
-**Planned Features:**
-- [ ] Mobile app (iOS/Android) for on-the-go reporting
-- [ ] Offline mode (save drafts locally, sync when online)
-- [ ] Photo uploads (prospect photos, model home photos)
-- [ ] Advanced filters & export (CSV, PDF)
-- [ ] Slack integration (weekly report summaries)
-- [ ] Email notifications (to management on submit)
-- [ ] Advanced analytics (conversion rates, pipeline aging)
-- [ ] Multi-language support
-
-**Technical Debt:**
-- [ ] Add TypeScript for type safety
-- [ ] Implement accessibility (WCAG 2.1)
-- [ ] Add E2E tests (Playwright)
-- [ ] Migrate to Supabase for better scalability
-- [ ] Add real authentication (Google Sign-In)
-
----
-
-## Support & Maintenance
-
-### Weekly Tasks
-- Monitor Smartsheet sync status (Monday morning)
-- Check for submission errors (Friday)
-- Review dashboard consolidation (Tuesday morning)
-
-### Monthly Tasks
-- Export historical data for analysis
-- Audit Google Sheets for data quality
-- Review prospect pipeline aging
-
-### Quarterly Tasks
-- Performance review (load times, errors)
-- Security audit
-- Backup/disaster recovery test
-- Team training refresher
-
----
-
-## Contact & Support
-
-**Technical Issues:**
-- Check Vercel function logs for errors
-- Check Troubleshooting Guide section above
-- Contact: OpenClaw Agent (available 24/7)
-
-**Data Questions:**
-- Is the data in Google Sheets correct?
-- Check the Submissions/Prospects tabs directly
-- Verify with the rep who submitted
-
-**Feature Requests:**
-- Document in GitHub issues
-- Request in team Slack
-- Quarterly review session
-
----
-
-## Summary
-
-The **Weekly Sales Log** provides a streamlined way for sales reps to log appointments and prospects, with automatic consolidation into management dashboards. It's built on React + Vercel serverless functions with Google Sheets for data persistence, and integrates with your existing Smartsheet workflow.
-
-The entire stack deploys automatically via `git push` to GitHub — no manual steps required.
-
----
-
-*Last Updated: March 20, 2026*  
-*Next Review: April 20, 2026*
+*Last Updated: March 24, 2026*
