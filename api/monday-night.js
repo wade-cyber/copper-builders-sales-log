@@ -12,7 +12,7 @@ import {
   getCurrentWeekEndingShort, logToSystemLog, toNum, formatTabName,
   SALES_APP_SHEET_ID, LEADS_SHEET_ID,
 } from './_lib/sheets.js';
-import { syncFromAssignmentsSheet, getCommunitiesFromAssignmentsSheet, getRepsFromAssignmentsSheet } from './_lib/sync-from-assignments-sheet.js';
+import { getCommunitiesFromAssignmentsSheet, getRepsFromAssignmentsSheet } from './_lib/sync-from-assignments-sheet.js';
 import { createWeeklyDashboard } from './_lib/create-weekly-dashboard.js';
 
 export default async function handler(req, res) {
@@ -205,14 +205,11 @@ async function runPhase2() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// PHASE 3: Sync assignments + consolidate dashboard
+// PHASE 3: Consolidate dashboard data
 // ═══════════════════════════════════════════════════════════
 
 async function runPhase3() {
-  // Step 3a: Sync assignments to Sales App for the rep app
-  const syncResult = await syncFromAssignmentsSheet();
-
-  // Step 3b: Run consolidation (writes Sales Data Results tab)
+  // Run consolidation (writes Sales Data Results + Sales Reports tabs)
   let consolidateResult = { success: false, message: 'skipped' };
   try {
     consolidateResult = await runConsolidation();
@@ -221,11 +218,10 @@ async function runPhase3() {
   }
 
   await logToSystemLog('monday-night-phase3', 'success',
-    `Assignments: ${syncResult.count}. Consolidation: ${consolidateResult.success}.`);
+    `Consolidation: ${consolidateResult.success}. Rows: ${consolidateResult.rowsWritten || 0}.`);
 
   return {
     success: true,
-    assignments: syncResult,
     consolidation: consolidateResult,
   };
 }

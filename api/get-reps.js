@@ -1,10 +1,10 @@
-// GET /api/get-reps — returns sorted unique rep names from Assignments tab
+// GET /api/get-reps — returns sorted unique rep names from Assignments Google Sheet
 
-import { getUniqueRepsFromAssignments } from './_lib/sheets.js';
+import { getRepsFromAssignmentsSheet } from './_lib/sync-from-assignments-sheet.js';
 
 export default async function handler(req, res) {
   try {
-    const reps = await getUniqueRepsFromAssignments();
+    const reps = await getRepsFromAssignmentsSheet();
     return res.status(200).json(reps);
   } catch (err) {
     return res.status(500).json({ error: err.message });
