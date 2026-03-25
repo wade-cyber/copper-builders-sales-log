@@ -6,7 +6,7 @@ import {
   getSheetData, updateRange, clearRange, getSheetId, batchUpdate, getSpreadsheet,
   getCommunityListFromAssignments, getUniqueRepsFromAssignments,
   getCurrentWeekEndingShort, logToSystemLog, toNum,
-  SALES_APP_SHEET_ID, LEADS_SHEET_ID, RESULTS_SHEET_ID,
+  SALES_APP_SHEET_ID, LEADS_SHEET_ID,
 } from './_lib/sheets.js';
 
 export default async function handler(req, res) {
@@ -22,13 +22,13 @@ async function consolidateDashboard() {
   // ── 1. Read Copper Leads Dashboard ──
   let leadsData;
   try {
-    leadsData = await getSheetData(LEADS_SHEET_ID, 'Dashboard!A3:AJ');
+    leadsData = await getSheetData(LEADS_SHEET_ID, 'Dashboard Template!A3:AJ');
   } catch {
-    return { success: false, message: 'Copper Leads "Dashboard" tab not found' };
+    return { success: false, message: 'Copper Leads "Dashboard Template" tab not found' };
   }
 
   if (!leadsData || leadsData.length === 0) {
-    return { success: false, message: 'Copper Leads Dashboard has no data rows' };
+    return { success: false, message: 'Copper Leads "Dashboard Template" has no data rows' };
   }
 
   // Build lookup: community name (lowercase) → lead metrics
@@ -128,7 +128,7 @@ async function consolidateDashboard() {
   } catch { /* no Submissions tab yet */ }
 
   // ── 4. Write to Sales Data Results ──
-  const resultsSheetId = await getSheetId(RESULTS_SHEET_ID, 'Sales Data Results');
+  const resultsSheetId = await getSheetId(SALES_APP_SHEET_ID, 'Sales Data Results');
   if (resultsSheetId === null) {
     return { success: false, message: '"Sales Data Results" tab not found in results sheet' };
   }
@@ -155,15 +155,15 @@ async function consolidateDashboard() {
 
   // Clear existing content
   try {
-    const existingData = await getSheetData(RESULTS_SHEET_ID, 'Sales Data Results');
+    const existingData = await getSheetData(SALES_APP_SHEET_ID, 'Sales Data Results');
     if (existingData.length > 0) {
-      await clearRange(RESULTS_SHEET_ID, `'Sales Data Results'!A1:L${Math.max(existingData.length, allRows.length) + 5}`);
+      await clearRange(SALES_APP_SHEET_ID, `'Sales Data Results'!A1:L${Math.max(existingData.length, allRows.length) + 5}`);
     }
   } catch { /* empty sheet */ }
 
   // Write community names (cols A-B)
   if (allRows.length > 0) {
-    await updateRange(RESULTS_SHEET_ID, `'Sales Data Results'!A1:B${allRows.length}`, allRows);
+    await updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!A1:B${allRows.length}`, allRows);
   }
 
   // 4b: Populate data columns
@@ -203,13 +203,13 @@ async function consolidateDashboard() {
   const n = allRows.length;
   // Write all 7 data columns in parallel
   await Promise.all([
-    updateRange(RESULTS_SHEET_ID, `'Sales Data Results'!C1:C${n}`, colC),
-    updateRange(RESULTS_SHEET_ID, `'Sales Data Results'!D1:D${n}`, colD),
-    updateRange(RESULTS_SHEET_ID, `'Sales Data Results'!E1:E${n}`, colE),
-    updateRange(RESULTS_SHEET_ID, `'Sales Data Results'!G1:G${n}`, colG),
-    updateRange(RESULTS_SHEET_ID, `'Sales Data Results'!H1:H${n}`, colH),
-    updateRange(RESULTS_SHEET_ID, `'Sales Data Results'!J1:J${n}`, colJ),
-    updateRange(RESULTS_SHEET_ID, `'Sales Data Results'!L1:L${n}`, colL),
+    updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!C1:C${n}`, colC),
+    updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!D1:D${n}`, colD),
+    updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!E1:E${n}`, colE),
+    updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!G1:G${n}`, colG),
+    updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!H1:H${n}`, colH),
+    updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!J1:J${n}`, colJ),
+    updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!L1:L${n}`, colL),
   ]);
 
   // ── 5. Build Sales Reports tab ──
@@ -231,16 +231,16 @@ async function buildSalesReports() {
   const REPS = await getUniqueRepsFromAssignments();
 
   // Get or create Sales Reports tab
-  let reportSheetId = await getSheetId(RESULTS_SHEET_ID, 'Sales Reports');
+  let reportSheetId = await getSheetId(SALES_APP_SHEET_ID, 'Sales Reports');
   if (reportSheetId === null) {
-    await batchUpdate(RESULTS_SHEET_ID, [{
+    await batchUpdate(SALES_APP_SHEET_ID, [{
       addSheet: { properties: { title: 'Sales Reports' } }
     }]);
-    reportSheetId = await getSheetId(RESULTS_SHEET_ID, 'Sales Reports');
+    reportSheetId = await getSheetId(SALES_APP_SHEET_ID, 'Sales Reports');
   } else {
     // Clear existing content
     try {
-      await clearRange(RESULTS_SHEET_ID, "'Sales Reports'!A1:Z100");
+      await clearRange(SALES_APP_SHEET_ID, "'Sales Reports'!A1:Z100");
     } catch { /* empty */ }
   }
 
@@ -270,7 +270,7 @@ async function buildSalesReports() {
   // Check if leads data exists
   let hasLeadsData = false;
   try {
-    const leadsData = await getSheetData(LEADS_SHEET_ID, 'Dashboard!A3:AJ');
+    const leadsData = await getSheetData(LEADS_SHEET_ID, 'Dashboard Template!A3:AJ');
     if (leadsData && leadsData.length > 0) {
       for (const row of leadsData) {
         for (let c = 2; c < row.length; c++) {
@@ -305,10 +305,10 @@ async function buildSalesReports() {
   rows.push(['', '', '']);
   rows.push([updateLabel, '', '']);
 
-  await updateRange(RESULTS_SHEET_ID, `'Sales Reports'!A1:C${rows.length}`, rows);
+  await updateRange(SALES_APP_SHEET_ID, `'Sales Reports'!A1:C${rows.length}`, rows);
 
   // Bold header rows and style footer
-  await batchUpdate(RESULTS_SHEET_ID, [
+  await batchUpdate(SALES_APP_SHEET_ID, [
     {
       repeatCell: {
         range: { sheetId: reportSheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 3 },

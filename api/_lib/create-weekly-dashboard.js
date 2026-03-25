@@ -1,6 +1,6 @@
 // Shared create-weekly-dashboard logic
-// Duplicates "Dashboard" tab → next week, clears data, pulls fresh communities,
-// renames old Dashboard to archived week name, creates new Dashboard copy.
+// Duplicates "Dashboard Template" tab → next week, clears data, pulls fresh communities,
+// renames old Dashboard Template to archived week name, creates new Dashboard Template copy.
 
 import {
   getSheetData, updateRange, batchUpdate, getSheetId, getSpreadsheet,
@@ -40,10 +40,10 @@ export async function createWeeklyDashboard() {
     };
   }
 
-  // Find Dashboard tab
-  const dashboardSheetId = await getSheetId(LEADS_SHEET_ID, 'Dashboard');
+  // Find Dashboard Template tab
+  const dashboardSheetId = await getSheetId(LEADS_SHEET_ID, 'Dashboard Template');
   if (dashboardSheetId === null) {
-    return { success: false, message: 'Dashboard tab not found in leads sheet' };
+    return { success: false, message: 'Dashboard Template tab not found in leads sheet' };
   }
 
   // Step 1: Duplicate Dashboard → next week tab
@@ -162,7 +162,7 @@ export async function createWeeklyDashboard() {
     communitiesAdded = communities.length;
   }
 
-  // Step 7: Rename current "Dashboard" → archived week name
+  // Step 7: Rename current "Dashboard Template" → archived week name
   await batchUpdate(LEADS_SHEET_ID, [{
     updateSheetProperties: {
       properties: { sheetId: dashboardSheetId, title: currentTabName },
@@ -170,11 +170,11 @@ export async function createWeeklyDashboard() {
     }
   }]);
 
-  // Step 8: Create new "Dashboard" from next week tab
+  // Step 8: Create new "Dashboard Template" from next week tab
   const copyResult = await batchUpdate(LEADS_SHEET_ID, [{
     duplicateSheet: {
       sourceSheetId: newSheetId,
-      newSheetName: 'Dashboard',
+      newSheetName: 'Dashboard Template',
       insertSheetIndex: 0, // first position
     }
   }]);
