@@ -17,7 +17,7 @@ async function readAssignmentsSheet() {
     headers,
     rows: data.slice(1),
     repIdx: headers.indexOf('Rep Name'),
-    communityIdx: headers.indexOf('Community Name'),
+    communityIdx: headers.indexOf('Community Name') >= 0 ? headers.indexOf('Community Name') : headers.indexOf('Community or House Name'),
     divisionIdx: headers.indexOf('Division'),
     reportToolIdx: headers.indexOf('Sales reporting tool report this week?'),
     reportLeadsIdx: headers.indexOf('Report Leads this Week?'),
