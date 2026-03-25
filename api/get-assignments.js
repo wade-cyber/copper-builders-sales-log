@@ -1,32 +1,23 @@
 // GET /api/get-assignments?rep=Name — returns assignments for a rep
 // Without ?rep param: returns all unique communities
-// Only includes assignments where "Sales reporting tool report this week?" = "yes"
+// Reads from the local "Weekly Assignments" cache tab (fast, pre-filtered)
 
-import { getSheetData, ASSIGNMENTS_SHEET_ID } from './_lib/sheets.js';
+import { getSheetData, SALES_APP_SHEET_ID } from './_lib/sheets.js';
 
 export default async function handler(req, res) {
   try {
     const rep = req.query.rep || '';
-    const data = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Community Assignments');
+    const data = await getSheetData(SALES_APP_SHEET_ID, 'Weekly Assignments');
     if (data.length < 2) return res.status(200).json([]);
 
     const headers = data[0];
     const repIdx = headers.indexOf('Rep Name');
     const communityIdx = headers.indexOf('Community Name');
-    const divisionIdx = headers.indexOf('Division');
-    const reportIdx = headers.indexOf('Sales reporting tool report this week?');
-
-    // Filter to only rows where "Sales reporting tool report this week?" = "yes"
-    const activeRows = [];
-    for (let i = 1; i < data.length; i++) {
-      const reportThisWeek = (data[i][reportIdx] || '').toString().trim().toLowerCase();
-      if (reportThisWeek === 'yes') activeRows.push(data[i]);
-    }
 
     // Count communities for type determination
     const counts = {};
-    for (const row of activeRows) {
-      const name = (row[communityIdx] || '').toString().trim();
+    for (let i = 1; i < data.length; i++) {
+      const name = (data[i][communityIdx] || '').toString().trim();
       if (name) counts[name] = (counts[name] || 0) + 1;
     }
 
@@ -34,24 +25,26 @@ export default async function handler(req, res) {
     if (!rep) {
       const seen = {};
       const results = [];
-      for (const row of activeRows) {
-        const name = (row[communityIdx] || '').toString().trim();
-        const type = counts[name] > 1 ? 'community' : 'single-home';
-        if (type === 'community' && !seen[name]) {
-          seen[name] = true;
-          results.push({ name, assignmentName: name, assignmentType: 'community' });
-        }
+      for (let i = 1; i < data.length; i++) {
+        const name = (data[i][communityIdx] || '').toString().trim();
+        if (!name || seen[name]) continue;
+        seen[name] = true;
+        results.push({
+          name,
+          assignmentName: name,
+          assignmentType: counts[name] > 1 ? 'community' : 'single-home',
+        });
       }
       return res.status(200).json(results);
     }
 
-    // Rep provided: return that rep's active assignments
+    // Rep provided: return that rep's assignments
     const results = [];
     const seen = new Set();
-    for (const row of activeRows) {
-      const rowRep = (row[repIdx] || '').toString().trim();
+    for (let i = 1; i < data.length; i++) {
+      const rowRep = (data[i][repIdx] || '').toString().trim();
       if (rowRep !== rep) continue;
-      const name = (row[communityIdx] || '').toString().trim();
+      const name = (data[i][communityIdx] || '').toString().trim();
       if (!name || seen.has(name)) continue;
       seen.add(name);
       results.push({

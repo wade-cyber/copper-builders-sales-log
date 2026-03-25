@@ -205,11 +205,19 @@ async function runPhase2() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// PHASE 3: Consolidate dashboard data
+// PHASE 3: Sync assignments to local cache + consolidate
 // ═══════════════════════════════════════════════════════════
 
 async function runPhase3() {
-  // Run consolidation (writes Sales Data Results + Sales Reports tabs)
+  // Step 3a: Cache assignments locally for fast app loading
+  let assignmentResult = { success: false, message: 'skipped' };
+  try {
+    assignmentResult = await cacheAssignmentsLocally();
+  } catch (e) {
+    assignmentResult = { success: false, message: e.message };
+  }
+
+  // Step 3b: Run consolidation (writes Sales Data Results + Sales Reports tabs)
   let consolidateResult = { success: false, message: 'skipped' };
   try {
     consolidateResult = await runConsolidation();
@@ -218,12 +226,68 @@ async function runPhase3() {
   }
 
   await logToSystemLog('monday-night-phase3', 'success',
-    `Consolidation: ${consolidateResult.success}. Rows: ${consolidateResult.rowsWritten || 0}.`);
+    `Assignments: ${assignmentResult.count || 0}. Consolidation: ${consolidateResult.success}. Rows: ${consolidateResult.rowsWritten || 0}.`);
 
   return {
     success: true,
+    assignments: assignmentResult,
     consolidation: consolidateResult,
   };
+}
+
+/**
+ * Reads filtered assignments from the Assignments Google Sheet and writes
+ * them to a "Weekly Assignments" tab in the Sales App sheet.
+ * This is the local cache the app reads from — fast and doesn't depend
+ * on the external sheet being available on every page load.
+ */
+async function cacheAssignmentsLocally() {
+  const { getSheetData: readSheet, ASSIGNMENTS_SHEET_ID: ASID } = await import('./_lib/sheets.js');
+  const data = await readSheet(ASID, 'Community Assignments');
+  if (data.length < 2) return { success: true, count: 0 };
+
+  const headers = data[0];
+  const repIdx = headers.indexOf('Rep Name');
+  const communityIdx = headers.indexOf('Community Name');
+  const divisionIdx = headers.indexOf('Division');
+  const reportToolIdx = headers.indexOf('Sales reporting tool report this week?');
+
+  // Filter to active assignments only
+  const rows = [];
+  for (let i = 1; i < data.length; i++) {
+    const reportThisWeek = (data[i][reportToolIdx] || '').toString().trim().toLowerCase();
+    if (reportThisWeek !== 'yes') continue;
+    rows.push([
+      (data[i][repIdx] || '').toString().trim(),
+      (data[i][communityIdx] || '').toString().trim(),
+      (data[i][divisionIdx] || '').toString().trim(),
+    ]);
+  }
+
+  // Ensure Weekly Assignments tab exists
+  let sheetId = await getSheetId(SALES_APP_SHEET_ID, 'Weekly Assignments');
+  if (sheetId === null) {
+    await batchUpdate(SALES_APP_SHEET_ID, [{
+      addSheet: { properties: { title: 'Weekly Assignments' } }
+    }]);
+  }
+
+  // Clear and write
+  try { await clearRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!A1:C500"); } catch {}
+
+  await updateRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!A1:C1", [
+    ['Rep Name', 'Community Name', 'Division']
+  ]);
+
+  if (rows.length > 0) {
+    await updateRange(SALES_APP_SHEET_ID, `'Weekly Assignments'!A2:C${1 + rows.length}`, rows);
+  }
+
+  await updateRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!E1:F1", [
+    ['Last Synced', new Date().toISOString()]
+  ]);
+
+  return { success: true, count: rows.length };
 }
 
 // ═══════════════════════════════════════════════════════════
