@@ -11,7 +11,7 @@ function KeySvg() {
   );
 }
 
-export default function SubmitScreen({ repName, totalAppointments, totalProspects, onStartNew }) {
+export default function SubmitScreen({ repName, totalAppointments, totalDirectLeads, totalProspects, onStartNew }) {
   return (
     <div className="submit-success" style={{ display: 'block' }}>
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style={{ margin: '0 auto 1rem' }}>
@@ -30,8 +30,12 @@ export default function SubmitScreen({ repName, totalAppointments, totalProspect
         {repName && <> &mdash; {repName}</>}
       </div>
 
-      {(totalAppointments > 0 || totalProspects > 0) && (
+      {(totalDirectLeads > 0 || totalAppointments > 0 || totalProspects > 0) && (
         <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 16 }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontFamily: "'Libre Baskerville', serif", color: 'var(--slate-dark)' }}>{totalDirectLeads || 0}</div>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--slate)' }}>Leads</div>
+          </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 22, fontFamily: "'Libre Baskerville', serif", color: 'var(--slate-dark)' }}>{totalAppointments}</div>
             <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--slate)' }}>Appointments</div>
@@ -49,7 +53,7 @@ export default function SubmitScreen({ repName, totalAppointments, totalProspect
         <div style={{ flex: 0, width: 40, height: 1, background: 'var(--gold)' }} />
       </div>
       <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 16, fontStyle: 'italic' }}>
-        Your report has been recorded. See you Monday.
+        Your report has been recorded. Have a great week!
       </div>
 
       {onStartNew && (

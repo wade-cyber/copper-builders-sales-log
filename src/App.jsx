@@ -244,6 +244,7 @@ export default function App() {
         <SubmitScreen
           repName={selectedRep}
           totalAppointments={totalAppointments}
+          totalDirectLeads={totalDirectLeads}
           totalProspects={totalActiveProspects}
           onStartNew={handleStartNew}
         />
@@ -395,12 +396,12 @@ export default function App() {
           <div className="sdiv" />
           <div className="totals-bar totals-bar-3">
             <div className="totals-card">
-              <div className="totals-label">Total Appts</div>
-              <div className="totals-number">{totalAppointments}</div>
-            </div>
-            <div className="totals-card">
               <div className="totals-label">Direct Leads</div>
               <div className="totals-number">{totalDirectLeads}</div>
+            </div>
+            <div className="totals-card">
+              <div className="totals-label">Total Appts</div>
+              <div className="totals-number">{totalAppointments}</div>
             </div>
             <div className="totals-card">
               <div className="totals-label">Total Prospects</div>
