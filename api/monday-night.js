@@ -225,14 +225,134 @@ async function runPhase3() {
     consolidateResult = { success: false, message: e.message };
   }
 
+  // Step 3c: Write weekly stats back to Assignments sheet (columns D-H)
+  let statsResult = { success: false, message: 'skipped' };
+  try {
+    statsResult = await writeWeeklyStatsToAssignments();
+  } catch (e) {
+    statsResult = { success: false, message: e.message };
+  }
+
   await logToSystemLog('monday-night-phase3', 'success',
-    `Assignments: ${assignmentResult.count || 0}. Consolidation: ${consolidateResult.success}. Rows: ${consolidateResult.rowsWritten || 0}.`);
+    `Assignments: ${assignmentResult.count || 0}. Consolidation: ${consolidateResult.success}. Stats: ${statsResult.rowsUpdated || 0} rows.`);
 
   return {
     success: true,
     assignments: assignmentResult,
     consolidation: consolidateResult,
+    weeklyStats: statsResult,
   };
+}
+
+/**
+ * Writes weekly summary stats to the Assignments Google Sheet.
+ * For each rep+community row, fills in:
+ *   D: report date (when rep submitted)
+ *   E: Sales (prospects marked "sold" this week)
+ *   F: Prospects (active prospect count)
+ *   G: Appts Held (total appointments)
+ *   H: Sales Rep's Leads (direct leads digital + phone)
+ */
+async function writeWeeklyStatsToAssignments() {
+  const currentWeekEnding = getCurrentWeekEndingShort();
+
+  // Read Assignments sheet to get row structure
+  const assignData = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Assignments');
+  if (assignData.length < 2) return { success: true, rowsUpdated: 0 };
+
+  const aHeaders = assignData[0];
+  const aRepIdx = aHeaders.indexOf('Rep Name');
+  let aCommunityIdx = aHeaders.indexOf('Community Name');
+  if (aCommunityIdx < 0) aCommunityIdx = aHeaders.indexOf('Community or House Name');
+
+  // Read Submissions for this week (deduplicated)
+  const subsByRepComm = {};
+  try {
+    const sData = await getSheetData(SALES_APP_SHEET_ID, 'Submissions');
+    if (sData.length > 1) {
+      const sH = sData[0];
+      const sRepIdx = sH.indexOf('Rep Name');
+      const sCommIdx = sH.indexOf('Community');
+      const sWeekIdx = sH.indexOf('Week Ending');
+      const sTsIdx = sH.indexOf('Timestamp');
+      const sApptsIdx = sH.indexOf('Total Appts');
+      const sDLDigIdx = sH.indexOf('Direct Leads Digital');
+      const sDLPhIdx = sH.indexOf('Direct Leads Phone Call');
+      const sSoldIdx = sH.indexOf('Sold Prospects');
+
+      for (let i = 1; i < sData.length; i++) {
+        const week = (sData[i][sWeekIdx] || '').toString().trim();
+        if (currentWeekEnding && week !== currentWeekEnding) continue;
+
+        const rep = (sData[i][sRepIdx] || '').toString().trim();
+        const comm = (sData[i][sCommIdx] || '').toString().trim();
+        const ts = (sData[i][sTsIdx] || '').toString();
+        const key = `${rep}||${comm}`;
+
+        if (!subsByRepComm[key] || ts > subsByRepComm[key].ts) {
+          subsByRepComm[key] = {
+            ts,
+            appts: toNum(sData[i][sApptsIdx]),
+            dlDigital: sDLDigIdx >= 0 ? toNum(sData[i][sDLDigIdx]) : 0,
+            dlPhone: sDLPhIdx >= 0 ? toNum(sData[i][sDLPhIdx]) : 0,
+            sold: sSoldIdx >= 0 ? toNum(sData[i][sSoldIdx]) : 0,
+          };
+        }
+      }
+    }
+  } catch {}
+
+  // Read Prospects for active counts per rep+community
+  const prospectsByRepComm = {};
+  try {
+    const pData = await getSheetData(SALES_APP_SHEET_ID, 'Prospects');
+    if (pData.length > 1) {
+      const pH = pData[0];
+      const pRepIdx = pH.indexOf('Rep Name');
+      const pCommIdx = pH.indexOf('Community');
+      const pStatusIdx = pH.indexOf('Status');
+
+      for (let i = 1; i < pData.length; i++) {
+        const status = (pData[i][pStatusIdx] || 'active').toString().toLowerCase();
+        if (status !== 'active') continue;
+        const rep = (pData[i][pRepIdx] || '').toString().trim();
+        const comm = (pData[i][pCommIdx] || '').toString().trim();
+        const key = `${rep}||${comm}`;
+        prospectsByRepComm[key] = (prospectsByRepComm[key] || 0) + 1;
+      }
+    }
+  } catch {}
+
+  // Build values for columns D-H for each Assignments row
+  const statsRows = [];
+  let rowsUpdated = 0;
+
+  for (let i = 1; i < assignData.length; i++) {
+    const rep = (assignData[i][aRepIdx] || '').toString().trim();
+    const comm = aCommunityIdx >= 0 ? (assignData[i][aCommunityIdx] || '').toString().trim() : '';
+    const key = `${rep}||${comm}`;
+
+    const sub = subsByRepComm[key];
+    const prospects = prospectsByRepComm[key] || 0;
+
+    if (sub) {
+      const reportDate = sub.ts ? new Date(sub.ts).toLocaleDateString('en-US') : '';
+      const sales = sub.sold || 0;
+      const appts = sub.appts || 0;
+      const leads = sub.dlDigital + sub.dlPhone;
+      statsRows.push([reportDate, sales, prospects, appts, leads]);
+      rowsUpdated++;
+    } else {
+      statsRows.push(['', 0, prospects, 0, 0]);
+    }
+  }
+
+  // Write columns D-H (rows 2 onwards)
+  if (statsRows.length > 0) {
+    await updateRange(ASSIGNMENTS_SHEET_ID, `Assignments!D2:H${1 + statsRows.length}`, statsRows);
+  }
+
+  return { success: true, rowsUpdated };
 }
 
 /**

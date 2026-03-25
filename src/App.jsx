@@ -212,10 +212,10 @@ export default function App() {
         <>
           <div className="sdiv" />
           <div className="totals-bar totals-bar-4">
-            <div className="totals-card"><div className="totals-label">Leads</div><div className="totals-number">{totalDirectLeads}</div></div>
-            <div className="totals-card"><div className="totals-label">Appts</div><div className="totals-number">{totalAppointments}</div></div>
             <div className="totals-card"><div className="totals-label">Sales</div><div className="totals-number">{totalSales}</div></div>
             <div className="totals-card"><div className="totals-label">Prospects</div><div className="totals-number">{totalActiveProspects}</div></div>
+            <div className="totals-card"><div className="totals-label">Appts</div><div className="totals-number">{totalAppointments}</div></div>
+            <div className="totals-card"><div className="totals-label">Leads</div><div className="totals-number">{totalDirectLeads}</div></div>
           </div>
           <button className="submit-btn" onClick={handleSubmit} disabled={submitting}>
             {submitting ? 'Submitting…' : 'Submit Weekly Log'}
