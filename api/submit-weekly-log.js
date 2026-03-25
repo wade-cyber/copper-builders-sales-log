@@ -19,18 +19,16 @@ export default async function handler(req, res) {
       }]);
     }
 
-    const existing = await getSheetData(SALES_APP_SHEET_ID, 'Submissions!A1:A1');
-    if (existing.length === 0 || existing[0][0] !== 'Timestamp') {
-      await updateRange(SALES_APP_SHEET_ID, 'Submissions!A1:W1', [[
-        'Timestamp', 'Week Ending', 'Rep Name', 'Community', 'Section Type',
-        'Client Only Virtual', 'Client Only Onsite', 'Client Only Model',
-        'Realtor+Client Virtual', 'Realtor+Client Onsite', 'Realtor+Client Model',
-        'Realtor Only Virtual', 'Realtor Only Onsite', 'Realtor Only Model',
-        'Total Appts', 'Active Prospects', 'Sold Prospects', 'Removed Prospects',
-        'Grand Total Appts', 'Grand Total Prospects', 'Market',
-        'Direct Leads Digital', 'Direct Leads Phone Call'
-      ]]);
-    }
+    // Always write the full header to ensure all columns exist
+    await updateRange(SALES_APP_SHEET_ID, 'Submissions!A1:W1', [[
+      'Timestamp', 'Week Ending', 'Rep Name', 'Community', 'Section Type',
+      'Client Only Virtual', 'Client Only Onsite', 'Client Only Model',
+      'Realtor+Client Virtual', 'Realtor+Client Onsite', 'Realtor+Client Model',
+      'Realtor Only Virtual', 'Realtor Only Onsite', 'Realtor Only Model',
+      'Total Appts', 'Active Prospects', 'Sold Prospects', 'Removed Prospects',
+      'Grand Total Appts', 'Grand Total Prospects', 'Market',
+      'Direct Leads Digital', 'Direct Leads Phone Call'
+    ]]);
 
     // Build rows from sections
     const sections = data.sections || [];
