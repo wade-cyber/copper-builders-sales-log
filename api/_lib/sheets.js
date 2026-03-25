@@ -5,7 +5,7 @@ import { google } from 'googleapis';
 
 // Sheet IDs from environment
 export const SALES_APP_SHEET_ID = process.env.SALES_APP_SHEET_ID;
-export const LEADS_SHEET_ID = process.env.LEADS_SHEET_ID;
+// LEADS_SHEET_ID removed — leads sheet managed separately
 export const ASSIGNMENTS_SHEET_ID = process.env.ASSIGNMENTS_SHEET_ID;
 export const TEMPLATE_SHEET_ID = process.env.TEMPLATE_SHEET_ID;
 // Scorecard data is stored in SALES_APP_SHEET_ID → "Sales Data Results" tab
