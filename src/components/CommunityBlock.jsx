@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import AppointmentGrid from './AppointmentGrid';
 import ProspectCard from './ProspectCard';
 import AddProspectForm from './AddProspectForm';
 
@@ -7,14 +6,11 @@ export default function CommunityBlock({
   name,
   type,
   isAdded,
-  thirdParty,
   prospects,
   appointments,
   onAppointmentChange,
   directLeads,
   onDirectLeadsChange,
-  thirdPartyLeads,
-  onThirdPartyLeadsChange,
   sales,
   onAddSale,
   onRemoveSale,
@@ -57,9 +53,8 @@ export default function CommunityBlock({
 
   const communityProspects = prospects.filter((p) => p.community === name);
   const activeProspects = communityProspects.filter((p) => p.status === 'active' || !p.status);
-  const apptTotal = appointments.reduce((sum, row) => sum + row.reduce((s, v) => s + v, 0), 0);
+  const apptTotal = (appointments[0] || 0) + (appointments[1] || 0);
   const leadsTotal = (directLeads?.digital || 0) + (directLeads?.phoneCall || 0);
-  const isThirdParty = thirdParty === 'yes';
 
   return (
     <div className="block">
@@ -79,8 +74,8 @@ export default function CommunityBlock({
 
       {open && (
         <div className="bb">
-          {/* Direct Leads */}
-          <div className="sub">New Leads Received Directly by Sales Person</div>
+          {/* Leads */}
+          <div className="sub">New Leads Received by Sales Agent</div>
           <div className="direct-leads">
             <div className="dl-field">
               <label>Digital</label>
@@ -94,34 +89,21 @@ export default function CommunityBlock({
             </div>
           </div>
 
-          {/* 3rd Party Leads — only when thirdParty = "yes" */}
-          {isThirdParty && (
-            <>
-              <div className="divl" />
-              <div className="sub">3rd Party Leads Reported</div>
-              <div className="direct-leads dl-3col">
-                <div className="dl-field">
-                  <label>Digital</label>
-                  <input type="number" min="0" value={thirdPartyLeads?.digital || 0}
-                    onChange={(e) => onThirdPartyLeadsChange('digital', e.target.value)} />
-                </div>
-                <div className="dl-field">
-                  <label>In Person</label>
-                  <input type="number" min="0" value={thirdPartyLeads?.inPerson || 0}
-                    onChange={(e) => onThirdPartyLeadsChange('inPerson', e.target.value)} />
-                </div>
-                <div className="dl-field">
-                  <label>Call-In</label>
-                  <input type="number" min="0" value={thirdPartyLeads?.callIn || 0}
-                    onChange={(e) => onThirdPartyLeadsChange('callIn', e.target.value)} />
-                </div>
-              </div>
-            </>
-          )}
-
           {/* Appointments */}
           <div className="divl" />
-          <AppointmentGrid values={appointments} onChange={onAppointmentChange} />
+          <div className="sub">Appointments This Week</div>
+          <div className="direct-leads">
+            <div className="dl-field">
+              <label>Virtual</label>
+              <input type="number" min="0" value={appointments[0] || 0}
+                onChange={(e) => onAppointmentChange([Math.max(0, parseInt(e.target.value) || 0), appointments[1] || 0])} />
+            </div>
+            <div className="dl-field">
+              <label>In Person</label>
+              <input type="number" min="0" value={appointments[1] || 0}
+                onChange={(e) => onAppointmentChange([appointments[0] || 0, Math.max(0, parseInt(e.target.value) || 0)])} />
+            </div>
+          </div>
 
           {/* Sales */}
           <div className="divl" />

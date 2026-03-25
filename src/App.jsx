@@ -15,7 +15,6 @@ export default function App() {
   const [submitError, setSubmitError] = useState('');
   const [appointments, setAppointments] = useState({});
   const [directLeads, setDirectLeads] = useState({});
-  const [thirdPartyLeads, setThirdPartyLeads] = useState({});
   const [sales, setSales] = useState({});
   const [extraCommunities, setExtraCommunities] = useState([]);
   const [showPicker, setShowPicker] = useState(false);
@@ -30,18 +29,14 @@ export default function App() {
     useProspects(selectedRep);
 
   useEffect(() => {
-    fetchReps()
-      .then((data) => { if (Array.isArray(data)) setReps(data); })
-      .catch(() => {});
+    fetchReps().then((data) => { if (Array.isArray(data)) setReps(data); }).catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetchAllCommunities()
-      .then((data) => {
-        const names = (Array.isArray(data) ? data : []).map(a => a.name || a.assignmentName);
-        setAllKnownCommunities(names);
-      })
-      .catch(() => {});
+    fetchAllCommunities().then((data) => {
+      const names = (Array.isArray(data) ? data : []).map(a => a.name || a.assignmentName);
+      setAllKnownCommunities(names);
+    }).catch(() => {});
   }, []);
 
   const handleRepChange = useCallback((rep) => {
@@ -50,7 +45,6 @@ export default function App() {
     setSubmitError('');
     setAppointments({});
     setDirectLeads({});
-    setThirdPartyLeads({});
     setSales({});
     setExtraCommunities([]);
     setShowPicker(false);
@@ -58,8 +52,9 @@ export default function App() {
     setCollapseKey(k => k + 1);
   }, []);
 
-  const handleAppointmentChange = useCallback((communityName, grid) => {
-    setAppointments((prev) => ({ ...prev, [communityName]: grid }));
+  // Appointments: { communityName: [virtual, inPerson] }
+  const handleAppointmentChange = useCallback((communityName, arr) => {
+    setAppointments((prev) => ({ ...prev, [communityName]: arr }));
   }, []);
 
   const handleDirectLeadsChange = useCallback((communityName, field, value) => {
@@ -70,26 +65,12 @@ export default function App() {
     }));
   }, []);
 
-  const handleThirdPartyLeadsChange = useCallback((communityName, field, value) => {
-    const num = Math.max(0, parseInt(value) || 0);
-    setThirdPartyLeads((prev) => ({
-      ...prev,
-      [communityName]: { ...(prev[communityName] || { digital: 0, inPerson: 0, callIn: 0 }), [field]: num },
-    }));
-  }, []);
-
   const handleAddSale = useCallback((communityName, sale) => {
-    setSales((prev) => ({
-      ...prev,
-      [communityName]: [...(prev[communityName] || []), sale],
-    }));
+    setSales((prev) => ({ ...prev, [communityName]: [...(prev[communityName] || []), sale] }));
   }, []);
 
   const handleRemoveSale = useCallback((communityName, index) => {
-    setSales((prev) => ({
-      ...prev,
-      [communityName]: (prev[communityName] || []).filter((_, i) => i !== index),
-    }));
+    setSales((prev) => ({ ...prev, [communityName]: (prev[communityName] || []).filter((_, i) => i !== index) }));
   }, []);
 
   const handleBlockOpened = useCallback((blockName) => {
@@ -102,29 +83,22 @@ export default function App() {
   }, []);
 
   const allCommunities = useMemo(() => [
-    ...assignments.communities,
-    ...assignments.singleHomes,
-    ...extraCommunities,
+    ...assignments.communities, ...assignments.singleHomes, ...extraCommunities,
   ], [assignments.communities, assignments.singleHomes, extraCommunities]);
 
   const requiredBlocks = useMemo(() => [
-    ...assignments.communities,
-    ...assignments.singleHomes,
+    ...assignments.communities, ...assignments.singleHomes,
   ], [assignments.communities, assignments.singleHomes]);
 
   const touchedCount = useMemo(() => {
     let count = 0;
-    for (const a of requiredBlocks) {
-      if (openedBlocks.has(a.name || a.assignmentName)) count++;
-    }
+    for (const a of requiredBlocks) if (openedBlocks.has(a.name || a.assignmentName)) count++;
     return count;
   }, [requiredBlocks, openedBlocks]);
 
   const totalAppointments = useMemo(() => {
     let total = 0;
-    for (const grid of Object.values(appointments)) {
-      for (const row of grid) for (const v of row) total += v;
-    }
+    for (const arr of Object.values(appointments)) total += (arr[0] || 0) + (arr[1] || 0);
     return total;
   }, [appointments]);
 
@@ -168,26 +142,19 @@ export default function App() {
     try {
       const sections = allCommunities.map((a) => {
         const name = a.name || a.assignmentName;
-        const grid = appointments[name] || [[0,0],[0,0],[0,0]];
+        const appts = appointments[name] || [0, 0];
         const blockProspects = prospects.filter(p => p.community === name);
-        const gridTotal = grid.reduce((sum, row) => sum + row.reduce((s, v) => s + v, 0), 0);
         const dl = directLeads[name] || { digital: 0, phoneCall: 0 };
-        const tp = thirdPartyLeads[name] || { digital: 0, inPerson: 0, callIn: 0 };
         const commSales = sales[name] || [];
 
         return {
           name,
           type: a.assignmentType || 'community',
           market: '',
-          appointments: {
-            clientOnly: { virtual: grid[0][0], inPerson: grid[0][1] },
-            realtorPlusClient: { virtual: grid[1][0], inPerson: grid[1][1] },
-            realtorOnly: { virtual: grid[2][0], inPerson: grid[2][1] },
-          },
+          appointments: { virtual: appts[0] || 0, inPerson: appts[1] || 0 },
           directLeads: { digital: dl.digital || 0, phoneCall: dl.phoneCall || 0 },
-          thirdPartyLeads: { digital: tp.digital || 0, inPerson: tp.inPerson || 0, callIn: tp.callIn || 0 },
           sales: commSales,
-          totalAppointments: gridTotal,
+          totalAppointments: (appts[0] || 0) + (appts[1] || 0),
           prospects: blockProspects.map(p => ({
             name: p.name, ranking: p.ranking || 'C', nextStep: '', status: p.status || 'active',
           })),
@@ -269,14 +236,11 @@ export default function App() {
                 name={cname}
                 type={a.assignmentType || 'community'}
                 isAdded={!!a.isAdded}
-                thirdParty={a.thirdParty || ''}
                 prospects={prospects}
-                appointments={appointments[cname] || [[0,0],[0,0],[0,0]]}
-                onAppointmentChange={(grid) => handleAppointmentChange(cname, grid)}
+                appointments={appointments[cname] || [0, 0]}
+                onAppointmentChange={(arr) => handleAppointmentChange(cname, arr)}
                 directLeads={directLeads[cname] || { digital: 0, phoneCall: 0 }}
                 onDirectLeadsChange={(field, value) => handleDirectLeadsChange(cname, field, value)}
-                thirdPartyLeads={thirdPartyLeads[cname] || { digital: 0, inPerson: 0, callIn: 0 }}
-                onThirdPartyLeadsChange={(field, value) => handleThirdPartyLeadsChange(cname, field, value)}
                 sales={sales[cname] || []}
                 onAddSale={(sale) => handleAddSale(cname, sale)}
                 onRemoveSale={(idx) => handleRemoveSale(cname, idx)}
@@ -320,22 +284,10 @@ export default function App() {
         <>
           <div className="sdiv" />
           <div className="totals-bar totals-bar-4">
-            <div className="totals-card">
-              <div className="totals-label">Leads</div>
-              <div className="totals-number">{totalDirectLeads}</div>
-            </div>
-            <div className="totals-card">
-              <div className="totals-label">Appts</div>
-              <div className="totals-number">{totalAppointments}</div>
-            </div>
-            <div className="totals-card">
-              <div className="totals-label">Sales</div>
-              <div className="totals-number">{totalSales}</div>
-            </div>
-            <div className="totals-card">
-              <div className="totals-label">Prospects</div>
-              <div className="totals-number">{totalActiveProspects}</div>
-            </div>
+            <div className="totals-card"><div className="totals-label">Leads</div><div className="totals-number">{totalDirectLeads}</div></div>
+            <div className="totals-card"><div className="totals-label">Appts</div><div className="totals-number">{totalAppointments}</div></div>
+            <div className="totals-card"><div className="totals-label">Sales</div><div className="totals-number">{totalSales}</div></div>
+            <div className="totals-card"><div className="totals-label">Prospects</div><div className="totals-number">{totalActiveProspects}</div></div>
           </div>
           <button className="submit-btn" onClick={handleSubmit} disabled={submitting}>
             {submitting ? 'Submitting…' : 'Submit Weekly Log'}
