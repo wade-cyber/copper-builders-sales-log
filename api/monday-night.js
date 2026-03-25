@@ -10,7 +10,7 @@
 import {
   getSheetData, updateRange, clearRange, getSheetId, batchUpdate, getSpreadsheet,
   getCurrentWeekEndingShort, logToSystemLog, toNum, formatTabName,
-  SALES_APP_SHEET_ID, LEADS_SHEET_ID,
+  SALES_APP_SHEET_ID, LEADS_SHEET_ID, ASSIGNMENTS_SHEET_ID,
 } from './_lib/sheets.js';
 import { getCommunitiesFromAssignmentsSheet, getRepsFromAssignmentsSheet } from './_lib/sync-from-assignments-sheet.js';
 import { createWeeklyDashboard } from './_lib/create-weekly-dashboard.js';
@@ -242,8 +242,7 @@ async function runPhase3() {
  * on the external sheet being available on every page load.
  */
 async function cacheAssignmentsLocally() {
-  const { getSheetData: readSheet, ASSIGNMENTS_SHEET_ID: ASID } = await import('./_lib/sheets.js');
-  const data = await readSheet(ASID, 'Community Assignments');
+  const data = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Community Assignments');
   if (data.length < 2) return { success: true, count: 0 };
 
   const headers = data[0];
