@@ -407,3 +407,4 @@ async function runConsolidation() {
 
   return { success: true, rowsWritten: dataRows.length };
 }
+// force rebuild 1774478375
