@@ -249,18 +249,20 @@ async function cacheAssignmentsLocally() {
   const repIdx = headers.indexOf('Rep Name');
   const communityIdx = headers.indexOf('Community Name');
   const divisionIdx = headers.indexOf('Division');
+  // Load all assignments (filter column is optional — if not present, include all)
   const reportToolIdx = headers.indexOf('Sales reporting tool report this week?');
 
-  // Filter to active assignments only
   const rows = [];
   for (let i = 1; i < data.length; i++) {
-    const reportThisWeek = (data[i][reportToolIdx] || '').toString().trim().toLowerCase();
-    if (reportThisWeek !== 'yes') continue;
-    rows.push([
-      (data[i][repIdx] || '').toString().trim(),
-      (data[i][communityIdx] || '').toString().trim(),
-      (data[i][divisionIdx] || '').toString().trim(),
-    ]);
+    // If filter column exists, only include "yes" rows. Otherwise include all.
+    if (reportToolIdx >= 0) {
+      const reportThisWeek = (data[i][reportToolIdx] || '').toString().trim().toLowerCase();
+      if (reportThisWeek !== 'yes') continue;
+    }
+    const rep = (data[i][repIdx] || '').toString().trim();
+    const comm = (data[i][communityIdx] || '').toString().trim();
+    if (!rep || !comm) continue;
+    rows.push([rep, comm, (data[i][divisionIdx] || '').toString().trim()]);
   }
 
   // Ensure Weekly Assignments tab exists
