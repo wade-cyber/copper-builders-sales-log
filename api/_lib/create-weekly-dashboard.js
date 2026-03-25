@@ -36,14 +36,14 @@ export async function createWeeklyDashboard() {
   const currentTabName = formatTabName(currentSunday);
   const nextWeekEnding = formatWeekEndingSlash(nextSunday);
 
-  // Idempotent check
-  const existingId = await getSheetId(LEADS_SHEET_ID, nextTabName);
-  if (existingId !== null) {
+  // Idempotent check — skip if we already archived this week
+  const existingArchive = await getSheetId(LEADS_SHEET_ID, currentTabName);
+  if (existingArchive !== null) {
     return {
       success: true,
-      tabName: nextTabName,
+      tabName: currentTabName,
       communitiesAdded: 0,
-      message: `Tab "${nextTabName}" already exists — skipped`,
+      message: `Archive "${currentTabName}" already exists — skipped`,
     };
   }
 
