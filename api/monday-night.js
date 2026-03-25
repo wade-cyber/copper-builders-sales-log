@@ -279,8 +279,9 @@ async function runConsolidation() {
     }
   } catch {}
 
-  // Read appointment counts (deduplicated)
+  // Read appointment counts + direct leads from Submissions (deduplicated)
   const apptCounts = {};
+  const directLeadCounts = {};
   try {
     const sData = await getSheetData(SALES_APP_SHEET_ID, 'Submissions');
     if (sData.length > 1) {
@@ -290,6 +291,8 @@ async function runConsolidation() {
       const sWeekIdx = sH.indexOf('Week Ending');
       const sRepIdx = sH.indexOf('Rep Name');
       const sTimestampIdx = sH.indexOf('Timestamp');
+      const sDigitalIdx = sH.indexOf('Direct Leads Digital');
+      const sPhoneIdx = sH.indexOf('Direct Leads Phone Call');
 
       if (sCommunityIdx >= 0 && sApptsIdx >= 0) {
         const latestByKey = {};
@@ -301,12 +304,20 @@ async function runConsolidation() {
           const ts = sTimestampIdx >= 0 ? (sData[i][sTimestampIdx] || '').toString() : '';
           const key = `${rep}||${comm}`;
           if (!latestByKey[key] || ts > latestByKey[key].ts) {
-            latestByKey[key] = { ts, appts: toNum(sData[i][sApptsIdx]), community: comm };
+            latestByKey[key] = {
+              ts, community: comm,
+              appts: toNum(sData[i][sApptsIdx]),
+              digital: sDigitalIdx >= 0 ? toNum(sData[i][sDigitalIdx]) : 0,
+              phoneCall: sPhoneIdx >= 0 ? toNum(sData[i][sPhoneIdx]) : 0,
+            };
           }
         }
         for (const entry of Object.values(latestByKey)) {
           const key = entry.community.toLowerCase();
           apptCounts[key] = (apptCounts[key] || 0) + entry.appts;
+          if (!directLeadCounts[key]) directLeadCounts[key] = { digital: 0, phoneCall: 0 };
+          directLeadCounts[key].digital += entry.digital;
+          directLeadCounts[key].phoneCall += entry.phoneCall;
         }
       }
     }
@@ -348,6 +359,7 @@ async function runConsolidation() {
     const leads = leadsByCommunity[key] || {};
     const prospects = prospectCounts[key] || 0;
     const appts = apptCounts[key] || 0;
+    const dl = directLeadCounts[key] || { digital: 0, phoneCall: 0 };
 
     return [
       name, market, prospects, appts,
@@ -356,8 +368,8 @@ async function runConsolidation() {
       leads.totalInPerson || 0,
       leads.totalCalls || 0,
       leads.vipList || 0,
-      leads.repDigital || 0,
-      leads.repPhoneCall || 0,
+      dl.digital,
+      dl.phoneCall,
     ];
   });
 
