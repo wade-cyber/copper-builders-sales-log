@@ -7,7 +7,7 @@ import {
   logToSystemLog, formatTabName, formatWeekEndingSlash,
   LEADS_SHEET_ID,
 } from './sheets.js';
-import { getCommunitiesFromAssignmentsSheet } from './sync-from-assignments-sheet.js';
+import { getCommunitiesForLeadsReport } from './sync-from-assignments-sheet.js';
 
 // Total data columns: A(0) through AN(39) = 40 columns
 const TOTAL_COLS = 40;
@@ -81,7 +81,7 @@ export async function createWeeklyDashboard() {
   await updateRange(LEADS_SHEET_ID, `'Dashboard Template'!B2`, [[nextWeekEnding]]);
 
   // Step 3: Sync communities from Assignments sheet
-  const communities = await getCommunitiesFromAssignmentsSheet();
+  const communities = await getCommunitiesForLeadsReport();
   let communitiesAdded = 0;
 
   // Delete existing community rows (row 17+)
