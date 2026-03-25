@@ -242,7 +242,7 @@ async function runPhase3() {
  * on the external sheet being available on every page load.
  */
 async function cacheAssignmentsLocally() {
-  const data = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Community Assignments');
+  const data = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Assignments');
   if (data.length < 2) return { success: true, count: 0 };
 
   const headers = data[0];

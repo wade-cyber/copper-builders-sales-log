@@ -9,7 +9,7 @@ import {
 
 /** Reads and parses all rows from the Assignments sheet with column indices. */
 async function readAssignmentsSheet() {
-  const data = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Community Assignments');
+  const data = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Assignments');
   if (data.length < 2) return { headers: data[0] || [], rows: [] };
 
   const headers = data[0];
