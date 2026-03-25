@@ -68,13 +68,6 @@ export default function CommunityBlock({
 
       {open && (
         <div className="bb">
-          <AppointmentGrid
-            type={type}
-            values={appointments}
-            onChange={onAppointmentChange}
-          />
-
-          <div className="divl" />
           <div className="sub">New Lead Received Directly by Sales Person</div>
           <div className="direct-leads">
             <div className="dl-field">
@@ -96,6 +89,14 @@ export default function CommunityBlock({
               />
             </div>
           </div>
+
+          <div className="divl" />
+          <div className="sub">Appointments</div>
+          <AppointmentGrid
+            type={type}
+            values={appointments}
+            onChange={onAppointmentChange}
+          />
 
           <div className="divl" />
           <div className="sub">Prospects</div>
