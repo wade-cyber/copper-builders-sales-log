@@ -37,8 +37,9 @@ export default async function handler(req, res) {
 
     return res.status(400).json({ error: 'Invalid phase' });
   } catch (err) {
+    console.error(err);
     await logToSystemLog('monday-night', 'error', `Phase ${phase} failed: ${err.message}`);
-    return res.status(500).json({ error: `Phase ${phase} failed: ${err.message}` });
+    return res.status(500).json({ error: `Phase ${phase} failed. Check system log for details.` });
   }
 }
 

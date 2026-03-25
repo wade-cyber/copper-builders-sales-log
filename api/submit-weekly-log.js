@@ -63,7 +63,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, message: 'Submitted successfully' });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error(err); return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }
 
@@ -112,7 +112,8 @@ async function updateProspectStatuses(repName, sections) {
   }
 }
 
-/** Converts 0-based column index to letter (0→A, 1→B, ..., 25→Z). */
+/** Converts 0-based column index to letter (0→A, 25→Z, 26→AA, etc). */
 function colLetter(idx) {
-  return String.fromCharCode(65 + idx);
+  if (idx < 26) return String.fromCharCode(65 + idx);
+  return colLetter(Math.floor(idx / 26) - 1) + String.fromCharCode(65 + (idx % 26));
 }
