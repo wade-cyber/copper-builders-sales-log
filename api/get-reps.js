@@ -6,7 +6,7 @@ import { getSheetData, ASSIGNMENTS_SHEET_ID } from './_lib/sheets.js';
 
 export default async function handler(req, res) {
   try {
-    const data = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Assignments');
+    const data = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Community Assignments');
     if (data.length < 2) return res.status(200).json([]);
 
     const headers = data[0];
