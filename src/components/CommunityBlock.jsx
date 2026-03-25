@@ -10,6 +10,8 @@ export default function CommunityBlock({
   prospects,
   appointments,
   onAppointmentChange,
+  directLeads,
+  onDirectLeadsChange,
   onProspectUpdate,
   onAddProspect,
   onMarkSold,
@@ -41,6 +43,7 @@ export default function CommunityBlock({
   const communityProspects = prospects.filter((p) => p.community === name);
   const activeProspects = communityProspects.filter((p) => p.status === 'active' || !p.status);
   const apptTotal = appointments.reduce((sum, row) => sum + row.reduce((s, v) => s + v, 0), 0);
+  const leadsTotal = (directLeads?.digital || 0) + (directLeads?.phoneCall || 0);
 
   return (
     <div className="block">
@@ -52,6 +55,9 @@ export default function CommunityBlock({
         <div className="bh-right">
           {apptTotal > 0 && (
             <span className="bh-badge">Appts: {apptTotal}</span>
+          )}
+          {leadsTotal > 0 && (
+            <span className="bh-badge">Leads: {leadsTotal}</span>
           )}
           {activeProspects.length > 0 && (
             <span className="bh-badge">Prospects: {activeProspects.length}</span>
@@ -67,6 +73,29 @@ export default function CommunityBlock({
             values={appointments}
             onChange={onAppointmentChange}
           />
+
+          <div className="divl" />
+          <div className="sub">New Lead Received Directly by Sales Person</div>
+          <div className="direct-leads">
+            <div className="dl-field">
+              <label>Digital</label>
+              <input
+                type="number"
+                min="0"
+                value={directLeads.digital || 0}
+                onChange={(e) => onDirectLeadsChange('digital', e.target.value)}
+              />
+            </div>
+            <div className="dl-field">
+              <label>Phone Call</label>
+              <input
+                type="number"
+                min="0"
+                value={directLeads.phoneCall || 0}
+                onChange={(e) => onDirectLeadsChange('phoneCall', e.target.value)}
+              />
+            </div>
+          </div>
 
           <div className="divl" />
           <div className="sub">Prospects</div>

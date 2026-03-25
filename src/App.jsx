@@ -17,6 +17,7 @@ export default function App() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [appointments, setAppointments] = useState({});
+  const [directLeads, setDirectLeads] = useState({});
   const [extraCommunities, setExtraCommunities] = useState([]);
   const [showPicker, setShowPicker] = useState(false);
   const [pickerValue, setPickerValue] = useState('');
@@ -53,6 +54,7 @@ export default function App() {
     setSubmitted(false);
     setSubmitError('');
     setAppointments({});
+    setDirectLeads({});
     setExtraCommunities([]);
     setShowPicker(false);
     setOpenedBlocks(new Set());
@@ -63,6 +65,17 @@ export default function App() {
 
   const handleAppointmentChange = useCallback((communityName, grid) => {
     setAppointments((prev) => ({ ...prev, [communityName]: grid }));
+  }, []);
+
+  const handleDirectLeadsChange = useCallback((communityName, field, value) => {
+    const num = Math.max(0, parseInt(value) || 0);
+    setDirectLeads((prev) => ({
+      ...prev,
+      [communityName]: {
+        ...(prev[communityName] || { digital: 0, phoneCall: 0 }),
+        [field]: num,
+      },
+    }));
   }, []);
 
   const handleBlockOpened = useCallback((blockName) => {
@@ -119,6 +132,14 @@ export default function App() {
     prospects.filter(p => p.status === 'active' || !p.status).length,
   [prospects]);
 
+  const totalDirectLeads = useMemo(() => {
+    let total = 0;
+    for (const dl of Object.values(directLeads)) {
+      total += (dl.digital || 0) + (dl.phoneCall || 0);
+    }
+    return total;
+  }, [directLeads]);
+
   // Communities already shown (assigned + added)
   const shownCommunityNames = useMemo(() => {
     const names = new Set();
@@ -170,6 +191,8 @@ export default function App() {
         const blockType = a.assignmentType || 'community';
         const market = blockType === 'boyl' ? boylMarket : blockType === 'renovation' ? renovationsMarket : '';
 
+        const dl = directLeads[name] || { digital: 0, phoneCall: 0 };
+
         return {
           name,
           type: blockType,
@@ -179,6 +202,7 @@ export default function App() {
             realtorPlusClient: { virtual: grid[1][0], onsite: grid[1][1], model: grid[1][2] },
             realtorOnly: { virtual: grid[2][0], onsite: grid[2][1], model: grid[2][2] },
           },
+          directLeads: { digital: dl.digital || 0, phoneCall: dl.phoneCall || 0 },
           totalAppointments: gridTotal,
           prospects: blockProspects.map(p => ({
             name: p.name,
@@ -239,6 +263,8 @@ export default function App() {
           prospects={prospects}
           appointments={appointments[name] || [[0,0,0],[0,0,0],[0,0,0]]}
           onAppointmentChange={(grid) => handleAppointmentChange(name, grid)}
+          directLeads={directLeads[name] || { digital: 0, phoneCall: 0 }}
+          onDirectLeadsChange={(field, value) => handleDirectLeadsChange(name, field, value)}
           onProspectUpdate={updateProspect}
           onAddProspect={addProspect}
           onMarkSold={markSold}
@@ -367,10 +393,14 @@ export default function App() {
       {showSections && (
         <>
           <div className="sdiv" />
-          <div className="totals-bar">
+          <div className="totals-bar totals-bar-3">
             <div className="totals-card">
               <div className="totals-label">Total Appts</div>
               <div className="totals-number">{totalAppointments}</div>
+            </div>
+            <div className="totals-card">
+              <div className="totals-label">Direct Leads</div>
+              <div className="totals-number">{totalDirectLeads}</div>
             </div>
             <div className="totals-card">
               <div className="totals-label">Total Prospects</div>

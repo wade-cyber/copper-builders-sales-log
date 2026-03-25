@@ -21,13 +21,14 @@ export default async function handler(req, res) {
 
     const existing = await getSheetData(SALES_APP_SHEET_ID, 'Submissions!A1:A1');
     if (existing.length === 0 || existing[0][0] !== 'Timestamp') {
-      await updateRange(SALES_APP_SHEET_ID, 'Submissions!A1:U1', [[
+      await updateRange(SALES_APP_SHEET_ID, 'Submissions!A1:W1', [[
         'Timestamp', 'Week Ending', 'Rep Name', 'Community', 'Section Type',
         'Client Only Virtual', 'Client Only Onsite', 'Client Only Model',
         'Realtor+Client Virtual', 'Realtor+Client Onsite', 'Realtor+Client Model',
         'Realtor Only Virtual', 'Realtor Only Onsite', 'Realtor Only Model',
         'Total Appts', 'Active Prospects', 'Sold Prospects', 'Removed Prospects',
-        'Grand Total Appts', 'Grand Total Prospects', 'Market'
+        'Grand Total Appts', 'Grand Total Prospects', 'Market',
+        'Direct Leads Digital', 'Direct Leads Phone Call'
       ]]);
     }
 
@@ -40,6 +41,8 @@ export default async function handler(req, res) {
       const rc = appts.realtorPlusClient || {};
       const ro = appts.realtorOnly || {};
       const prospects = section.prospects || [];
+
+      const dl = section.directLeads || {};
 
       rows.push([
         data.timestamp,
@@ -63,6 +66,8 @@ export default async function handler(req, res) {
         (data.totals || {}).totalAppointments || 0,
         (data.totals || {}).totalProspects || 0,
         section.market || '',
+        dl.digital || 0,
+        dl.phoneCall || 0,
       ]);
     }
 
