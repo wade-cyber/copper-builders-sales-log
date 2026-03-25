@@ -8,9 +8,6 @@ import { useProspects } from './hooks/useProspects';
 import { submitWeeklyLog, fetchAllCommunities, fetchReps } from './utils/api';
 import { getWeekEndingShort } from './utils/dates';
 
-const BOYL_BLOCK = { name: 'BOYL', assignmentName: 'BOYL', assignmentType: 'boyl' };
-const RENOVATIONS_BLOCK = { name: 'Renovations', assignmentName: 'Renovations', assignmentType: 'renovation' };
-
 export default function App() {
   const [selectedRep, setSelectedRep] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -24,22 +21,18 @@ export default function App() {
   const [allKnownCommunities, setAllKnownCommunities] = useState([]);
   const [openedBlocks, setOpenedBlocks] = useState(new Set());
   const [collapseKey, setCollapseKey] = useState(0);
-  const [boylMarket, setBoylMarket] = useState('');
-  const [renovationsMarket, setRenovationsMarket] = useState('');
   const [reps, setReps] = useState([]);
 
   const { assignments, loading: assignmentsLoading, lastSyncedAt } = useAssignments(selectedRep);
   const { prospects, saveErrors, addProspect, updateProspect, removeProspect, markSold, retrySave } =
     useProspects(selectedRep);
 
-  // Fetch dynamic rep list from Assignments tab
   useEffect(() => {
     fetchReps()
       .then((data) => { if (Array.isArray(data)) setReps(data); })
       .catch(() => {});
   }, []);
 
-  // Fetch all known communities for the dropdown picker
   useEffect(() => {
     fetchAllCommunities()
       .then((data) => {
@@ -59,8 +52,6 @@ export default function App() {
     setShowPicker(false);
     setOpenedBlocks(new Set());
     setCollapseKey(k => k + 1);
-    setBoylMarket('');
-    setRenovationsMarket('');
   }, []);
 
   const handleAppointmentChange = useCallback((communityName, grid) => {
@@ -87,25 +78,19 @@ export default function App() {
     });
   }, []);
 
+  // All communities: assigned + manually added
   const allCommunities = useMemo(() => [
     ...assignments.communities,
-    ...extraCommunities,
-  ], [assignments.communities, extraCommunities]);
-
-  const allBlocks = useMemo(() => [
-    ...allCommunities,
     ...assignments.singleHomes,
-    BOYL_BLOCK,
-    RENOVATIONS_BLOCK,
-  ], [allCommunities, assignments.singleHomes]);
+    ...extraCommunities,
+  ], [assignments.communities, assignments.singleHomes, extraCommunities]);
 
-  // Required = Smartsheet communities + Smartsheet single homes only.
+  // Required = assigned communities + single homes (not manually added ones)
   const requiredBlocks = useMemo(() => [
     ...assignments.communities,
     ...assignments.singleHomes,
   ], [assignments.communities, assignments.singleHomes]);
 
-  // A block is "touched" once it has been opened at least once
   const touchedCount = useMemo(() => {
     let count = 0;
     for (const a of requiredBlocks) {
@@ -115,9 +100,6 @@ export default function App() {
     return count;
   }, [requiredBlocks, openedBlocks]);
 
-  const allRequiredTouched = requiredBlocks.length > 0 && touchedCount >= requiredBlocks.length;
-
-  // Grand totals across all blocks
   const totalAppointments = useMemo(() => {
     let total = 0;
     for (const grid of Object.values(appointments)) {
@@ -140,14 +122,12 @@ export default function App() {
     return total;
   }, [directLeads]);
 
-  // Communities already shown (assigned + added)
   const shownCommunityNames = useMemo(() => {
     const names = new Set();
     for (const a of allCommunities) names.add(a.name || a.assignmentName);
     return names;
   }, [allCommunities]);
 
-  // Available communities for the dropdown (exclude already shown)
   const availableCommunities = useMemo(() =>
     allKnownCommunities.filter(n => !shownCommunityNames.has(n)),
   [allKnownCommunities, shownCommunityNames]);
@@ -166,37 +146,19 @@ export default function App() {
 
   const handleSubmit = async () => {
     setSubmitError('');
-
-    // Bug 3 fix: require market selection for BOYL/Renovations if appointments > 0
-    const boylGrid = appointments['BOYL'] || [[0,0,0],[0,0,0],[0,0,0]];
-    const boylTotal = boylGrid.reduce((s, row) => s + row.reduce((a, v) => a + v, 0), 0);
-    if (boylTotal > 0 && !boylMarket) {
-      setSubmitError('Please select a market for BOYL before submitting.');
-      return;
-    }
-    const renoGrid = appointments['Renovations'] || [[0,0,0],[0,0,0],[0,0,0]];
-    const renoTotal = renoGrid.reduce((s, row) => s + row.reduce((a, v) => a + v, 0), 0);
-    if (renoTotal > 0 && !renovationsMarket) {
-      setSubmitError('Please select a market for Renovations before submitting.');
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const sections = allBlocks.map((a) => {
+      const sections = allCommunities.map((a) => {
         const name = a.name || a.assignmentName;
         const grid = appointments[name] || [[0,0,0],[0,0,0],[0,0,0]];
         const blockProspects = prospects.filter(p => p.community === name);
         const gridTotal = grid.reduce((sum, row) => sum + row.reduce((s, v) => s + v, 0), 0);
-        const blockType = a.assignmentType || 'community';
-        const market = blockType === 'boyl' ? boylMarket : blockType === 'renovation' ? renovationsMarket : '';
-
         const dl = directLeads[name] || { digital: 0, phoneCall: 0 };
 
         return {
           name,
-          type: blockType,
-          market,
+          type: a.assignmentType || 'community',
+          market: '',
           appointments: {
             clientOnly: { virtual: grid[0][0], onsite: grid[0][1], model: grid[0][2] },
             realtorPlusClient: { virtual: grid[1][0], onsite: grid[1][1], model: grid[1][2] },
@@ -252,33 +214,6 @@ export default function App() {
     );
   }
 
-  function renderBlocks(items, type) {
-    return items.map((a) => {
-      const name = a.name || a.assignmentName;
-      return (
-        <CommunityBlock
-          key={name}
-          name={name}
-          type={type}
-          isAdded={!!a.isAdded}
-          prospects={prospects}
-          appointments={appointments[name] || [[0,0,0],[0,0,0],[0,0,0]]}
-          onAppointmentChange={(grid) => handleAppointmentChange(name, grid)}
-          directLeads={directLeads[name] || { digital: 0, phoneCall: 0 }}
-          onDirectLeadsChange={(field, value) => handleDirectLeadsChange(name, field, value)}
-          onProspectUpdate={updateProspect}
-          onAddProspect={addProspect}
-          onMarkSold={markSold}
-          onRemoveProspect={removeProspect}
-          onOpened={handleBlockOpened}
-          forceCollapsed={collapseKey}
-          saveErrors={saveErrors}
-          onRetrySave={retrySave}
-        />
-      );
-    });
-  }
-
   const showSections = selectedRep && !assignmentsLoading;
 
   return (
@@ -288,7 +223,7 @@ export default function App() {
 
       {selectedRep && lastSyncedAt && (Date.now() - lastSyncedAt.getTime()) > 8 * 24 * 60 * 60 * 1000 && (
         <div className="stale-warning">
-          Assignment data is over a week old (last synced {lastSyncedAt.toLocaleDateString()}). Contact your admin to re-sync from Smartsheet.
+          Assignment data is over a week old (last synced {lastSyncedAt.toLocaleDateString()}). Contact your admin to re-sync.
         </div>
       )}
 
@@ -304,17 +239,39 @@ export default function App() {
         </div>
       )}
 
-      {showSections && !allBlocks.length && extraCommunities.length === 0 && (
+      {showSections && !allCommunities.length && (
         <div style={{ textAlign: 'center', color: 'var(--slate)', padding: 20, fontSize: 13 }}>
           No assignments found for {selectedRep}.
         </div>
       )}
 
-      {/* ── Communities ── */}
       {showSections && (
         <>
           <div className="slabel">Communities</div>
-          {renderBlocks(allCommunities, 'community')}
+          {allCommunities.map((a) => {
+            const name = a.name || a.assignmentName;
+            return (
+              <CommunityBlock
+                key={name}
+                name={name}
+                type={a.assignmentType || 'community'}
+                isAdded={!!a.isAdded}
+                prospects={prospects}
+                appointments={appointments[name] || [[0,0,0],[0,0,0],[0,0,0]]}
+                onAppointmentChange={(grid) => handleAppointmentChange(name, grid)}
+                directLeads={directLeads[name] || { digital: 0, phoneCall: 0 }}
+                onDirectLeadsChange={(field, value) => handleDirectLeadsChange(name, field, value)}
+                onProspectUpdate={updateProspect}
+                onAddProspect={addProspect}
+                onMarkSold={markSold}
+                onRemoveProspect={removeProspect}
+                onOpened={handleBlockOpened}
+                forceCollapsed={collapseKey}
+                saveErrors={saveErrors}
+                onRetrySave={retrySave}
+              />
+            );
+          })}
 
           {showPicker && (
             <div className="picker-wrap" style={{ display: 'block' }}>
@@ -342,51 +299,6 @@ export default function App() {
             </svg>
             Add Community
           </button>
-        </>
-      )}
-
-      {/* ── Single Homes ── */}
-      {showSections && assignments.singleHomes.length > 0 && (
-        <>
-          <div className="sdiv" />
-          <div className="slabel">Single Homes</div>
-          {renderBlocks(assignments.singleHomes, 'single-home')}
-        </>
-      )}
-
-      {/* ── BOYL ── */}
-      {showSections && (
-        <>
-          <div className="sdiv" />
-          <div className="slabel">BOYL — Build on Your Lot</div>
-          <div className="market-select">
-            <label className="market-label">Market</label>
-            <select value={boylMarket} onChange={(e) => setBoylMarket(e.target.value)}>
-              <option value="">Select market…</option>
-              <option value="CLT">CLT</option>
-              <option value="TRN">TRN</option>
-              <option value="GVL">GVL</option>
-            </select>
-          </div>
-          {renderBlocks([BOYL_BLOCK], 'boyl')}
-        </>
-      )}
-
-      {/* ── Renovations ── */}
-      {showSections && (
-        <>
-          <div className="sdiv" />
-          <div className="slabel">Renovations</div>
-          <div className="market-select">
-            <label className="market-label">Market</label>
-            <select value={renovationsMarket} onChange={(e) => setRenovationsMarket(e.target.value)}>
-              <option value="">Select market…</option>
-              <option value="CLT">CLT</option>
-              <option value="TRN">TRN</option>
-              <option value="GVL">GVL</option>
-            </select>
-          </div>
-          {renderBlocks([RENOVATIONS_BLOCK], 'renovation')}
         </>
       )}
 
