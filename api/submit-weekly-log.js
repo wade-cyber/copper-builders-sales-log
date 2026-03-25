@@ -20,12 +20,11 @@ export default async function handler(req, res) {
     }
 
     // Always write the full header to ensure all columns exist
-    await updateRange(SALES_APP_SHEET_ID, 'Submissions!A1:P1', [[
+    await updateRange(SALES_APP_SHEET_ID, 'Submissions!A1:N1', [[
       'Timestamp', 'Week Ending', 'Rep Name', 'Community', 'Section Type',
       'Appts Virtual', 'Appts In Person', 'Total Appts',
       'Direct Leads Digital', 'Direct Leads Phone Call',
       'Active Prospects', 'Sold Prospects', 'Removed Prospects',
-      'Sales Count', 'Sales Details',
       'Grand Total Appts',
     ]]);
 
@@ -36,8 +35,6 @@ export default async function handler(req, res) {
       const appts = section.appointments || {};
       const prospects = section.prospects || [];
       const dl = section.directLeads || {};
-      const salesList = section.sales || [];
-      const salesDetails = salesList.map(s => `${s.clientName}${s.lotNumber ? ' (Lot ' + s.lotNumber + ')' : ''}`).join('; ');
 
       rows.push([
         data.timestamp,
@@ -53,8 +50,6 @@ export default async function handler(req, res) {
         prospects.filter(p => p.status === 'active').length,
         prospects.filter(p => p.status === 'sold').length,
         prospects.filter(p => p.status === 'removed').length,
-        salesList.length,
-        salesDetails,
         (data.totals || {}).totalAppointments || 0,
       ]);
     }

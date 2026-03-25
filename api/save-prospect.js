@@ -25,12 +25,11 @@ export default async function handler(req, res) {
 
     // Check if header exists
     const allData = await getSheetData(SALES_APP_SHEET_ID, 'Prospects');
-    if (allData.length === 0 || allData[0][0] !== 'ID') {
-      await updateRange(SALES_APP_SHEET_ID, 'Prospects!A1:I1', [[
-        'ID', 'Rep Name', 'Community', 'Prospect Name', 'Ranking',
-        'Next Step', 'Status', 'Created Date', 'Last Updated'
-      ]]);
-    }
+    // Always write full header to ensure all columns exist
+    await updateRange(SALES_APP_SHEET_ID, 'Prospects!A1:J1', [[
+      'ID', 'Rep Name', 'Community', 'Prospect Name', 'Ranking',
+      'Next Step', 'Status', 'Created Date', 'Last Updated', 'Lot Number'
+    ]]);
 
     const now = new Date().toISOString();
     const rowData = [
@@ -43,6 +42,7 @@ export default async function handler(req, res) {
       data.status || 'active',
       data.createdDate || now,
       now,
+      data.lotNumber || '',
     ];
 
     // Find existing row by ID
@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     }
 
     if (rowIndex > 0) {
-      await updateRange(SALES_APP_SHEET_ID, `Prospects!A${rowIndex}:I${rowIndex}`, [rowData]);
+      await updateRange(SALES_APP_SHEET_ID, `Prospects!A${rowIndex}:J${rowIndex}`, [rowData]);
     } else {
       await appendRows(SALES_APP_SHEET_ID, 'Prospects', [rowData]);
     }

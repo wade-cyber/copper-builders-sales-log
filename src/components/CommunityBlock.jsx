@@ -5,15 +5,11 @@ import AddProspectForm from './AddProspectForm';
 export default function CommunityBlock({
   name,
   type,
-  isAdded,
   prospects,
   appointments,
   onAppointmentChange,
   directLeads,
   onDirectLeadsChange,
-  sales,
-  onAddSale,
-  onRemoveSale,
   onProspectUpdate,
   onAddProspect,
   onMarkSold,
@@ -25,16 +21,9 @@ export default function CommunityBlock({
 }) {
   const [open, setOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [showSaleForm, setShowSaleForm] = useState(false);
-  const [saleClient, setSaleClient] = useState('');
-  const [saleLot, setSaleLot] = useState('');
 
   useEffect(() => {
-    if (forceCollapsed) {
-      setOpen(false);
-      setShowForm(false);
-      setShowSaleForm(false);
-    }
+    if (forceCollapsed) { setOpen(false); setShowForm(false); }
   }, [forceCollapsed]);
 
   const handleToggle = () => {
@@ -43,30 +32,20 @@ export default function CommunityBlock({
     if (willOpen && onOpened) onOpened(name);
   };
 
-  const handleAddSale = () => {
-    if (!saleClient.trim()) return;
-    onAddSale({ clientName: saleClient.trim(), lotNumber: saleLot.trim() });
-    setSaleClient('');
-    setSaleLot('');
-    setShowSaleForm(false);
-  };
-
   const communityProspects = prospects.filter((p) => p.community === name);
   const activeProspects = communityProspects.filter((p) => p.status === 'active' || !p.status);
+  const soldProspects = communityProspects.filter((p) => p.status === 'sold');
   const apptTotal = (appointments[0] || 0) + (appointments[1] || 0);
   const leadsTotal = (directLeads?.digital || 0) + (directLeads?.phoneCall || 0);
 
   return (
     <div className="block">
       <div className={`bh${open ? ' open' : ''}`} onClick={handleToggle}>
-        <span className="bname">
-          {name}
-          {isAdded && <span className="added-badge">Added</span>}
-        </span>
+        <span className="bname">{name}</span>
         <div className="bh-right">
           {leadsTotal > 0 && <span className="bh-badge">Leads: {leadsTotal}</span>}
           {apptTotal > 0 && <span className="bh-badge">Appts: {apptTotal}</span>}
-          {(sales || []).length > 0 && <span className="bh-badge">Sales: {sales.length}</span>}
+          {soldProspects.length > 0 && <span className="bh-badge">Sales: {soldProspects.length}</span>}
           {activeProspects.length > 0 && <span className="bh-badge">Prospects: {activeProspects.length}</span>}
           <div className="chev">{open ? '−' : '+'}</div>
         </div>
@@ -74,7 +53,6 @@ export default function CommunityBlock({
 
       {open && (
         <div className="bb">
-          {/* Leads */}
           <div className="sub">New Leads Received by Sales Agent</div>
           <div className="direct-leads">
             <div className="dl-field">
@@ -89,7 +67,6 @@ export default function CommunityBlock({
             </div>
           </div>
 
-          {/* Appointments */}
           <div className="divl" />
           <div className="sub">Appointments This Week</div>
           <div className="direct-leads">
@@ -105,40 +82,8 @@ export default function CommunityBlock({
             </div>
           </div>
 
-          {/* Sales */}
           <div className="divl" />
-          <div className="sub">Sales This Week</div>
-          {(sales || []).length > 0 && (
-            <div className="sales-list">
-              {sales.map((s, i) => (
-                <div key={i} className="sale-row">
-                  <span className="sale-info">{s.clientName}{s.lotNumber ? ` — Lot ${s.lotNumber}` : ''}</span>
-                  <button className="sale-remove" onClick={() => onRemoveSale(i)}>×</button>
-                </div>
-              ))}
-            </div>
-          )}
-          {showSaleForm ? (
-            <div className="nf">
-              <div className="nf-r3">
-                <div className="nf-field" style={{ gridColumn: 'span 2' }}>
-                  <label>Client Name</label>
-                  <input type="text" value={saleClient} onChange={(e) => setSaleClient(e.target.value)} placeholder="Client name" />
-                </div>
-                <div className="nf-field">
-                  <label>Lot #</label>
-                  <input type="text" value={saleLot} onChange={(e) => setSaleLot(e.target.value)} placeholder="Lot number" />
-                </div>
-              </div>
-              <button className="save-btn" onClick={handleAddSale} disabled={!saleClient.trim()}>Add Sale</button>
-            </div>
-          ) : (
-            <button className="add-link" onClick={() => setShowSaleForm(true)}>+ Add Sale</button>
-          )}
-
-          {/* Prospects */}
-          <div className="divl" />
-          <div className="sub">Prospects</div>
+          <div className="sub">Prospects / Sales</div>
           {communityProspects.length > 0 && (
             <div className="plist">
               {communityProspects.map((p) => (

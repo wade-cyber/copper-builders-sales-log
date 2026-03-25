@@ -20,7 +20,10 @@ export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove,
     <div className={cardClass}>
       <div className="pcard-top">
         <div className="pav">{getInitials(prospect.name)}</div>
-        <span className="pname">{prospect.name}</span>
+        <span className="pname">
+          {prospect.name}
+          {prospect.lotNumber && <span style={{ fontWeight: 400, color: 'var(--slate)', fontSize: 11 }}> — Lot {prospect.lotNumber}</span>}
+        </span>
         <div className={`rank-pill ${rankClass}`}>
           <select
             value={prospect.ranking || 'C'}
@@ -37,10 +40,8 @@ export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove,
       {saveError && (
         <div style={{ fontSize: 11, fontWeight: 600, color: '#c0392b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
           <span>Save failed</span>
-          <button
-            onClick={() => onRetry(prospect.id)}
-            style={{ fontSize: 10, padding: '1px 6px', border: '1px solid #c0392b', borderRadius: 3, background: 'transparent', color: '#c0392b', cursor: 'pointer' }}
-          >
+          <button onClick={() => onRetry(prospect.id)}
+            style={{ fontSize: 10, padding: '1px 6px', border: '1px solid #c0392b', borderRadius: 3, background: 'transparent', color: '#c0392b', cursor: 'pointer' }}>
             Retry
           </button>
         </div>
@@ -48,7 +49,7 @@ export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove,
 
       {isSold && (
         <div style={{ fontSize: 11, fontWeight: 600, fontStyle: 'italic', color: '#3a5e20', marginTop: 4 }}>
-          Sold — won't appear next week
+          Sold — logged as a sale this week
         </div>
       )}
       {isRemoved && (

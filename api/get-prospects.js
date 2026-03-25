@@ -29,6 +29,7 @@ export default async function handler(req, res) {
         status,
         createdDate: row[headers.indexOf('Created Date')],
         lastUpdated: row[headers.indexOf('Last Updated')],
+        lotNumber: row[headers.indexOf('Lot Number')] || '',
       });
     }
 
