@@ -5,7 +5,7 @@ import CommunityBlock from './components/CommunityBlock';
 import SubmitScreen from './components/SubmitScreen';
 import { useAssignments } from './hooks/useAssignments';
 import { useProspects } from './hooks/useProspects';
-import { submitWeeklyLog, fetchAllCommunities, fetchReps } from './utils/api';
+import { submitWeeklyLog, fetchAllCommunities, fetchReps, fetchSubmittedReps } from './utils/api';
 import { getWeekEndingShort } from './utils/dates';
 
 export default function App() {
@@ -23,14 +23,18 @@ export default function App() {
   const [openedBlocks, setOpenedBlocks] = useState(new Set());
   const [collapseKey, setCollapseKey] = useState(0);
   const [reps, setReps] = useState([]);
+  const [submittedReps, setSubmittedReps] = useState([]);
 
   const { assignments, loading: assignmentsLoading, lastSyncedAt } = useAssignments(selectedRep);
   const { prospects, saveErrors, addProspect, updateProspect, removeProspect, markSold, retrySave } =
     useProspects(selectedRep);
 
-  useEffect(() => {
+  const loadReps = useCallback(() => {
     fetchReps().then((data) => { if (Array.isArray(data)) setReps(data); }).catch(() => {});
+    fetchSubmittedReps().then((data) => { if (Array.isArray(data)) setSubmittedReps(data); }).catch(() => {});
   }, []);
+
+  useEffect(() => { loadReps(); }, [loadReps]);
 
   useEffect(() => {
     fetchAllCommunities().then((data) => {
@@ -170,6 +174,8 @@ export default function App() {
       });
 
       setSubmitted(true);
+      // Refresh submitted reps list so this rep is removed from dropdown
+      fetchSubmittedReps().then((data) => { if (Array.isArray(data)) setSubmittedReps(data); }).catch(() => {});
     } catch (err) {
       setSubmitError('Submission failed — please try again or contact support');
     } finally {
@@ -203,7 +209,8 @@ export default function App() {
   return (
     <div className="shell">
       <Header />
-      <RepSelector value={selectedRep} onChange={handleRepChange} reps={reps} />
+      <RepSelector value={selectedRep} onChange={handleRepChange}
+        reps={reps.filter(r => !submittedReps.includes(r))} />
 
       {selectedRep && lastSyncedAt && (Date.now() - lastSyncedAt.getTime()) > 8 * 24 * 60 * 60 * 1000 && (
         <div className="stale-warning">
