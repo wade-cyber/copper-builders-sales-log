@@ -4,12 +4,8 @@
   "outputDirectory": "dist",
   "crons": [
     {
-      "path": "/api/sync-smartsheet",
-      "schedule": "0 4 * * 1"
-    },
-    {
-      "path": "/api/consolidate-dashboard",
-      "schedule": "0 5 * * 2"
+      "path": "/api/monday-night",
+      "schedule": "0 5 * * 1"
     }
   ]
 }

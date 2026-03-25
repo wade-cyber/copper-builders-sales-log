@@ -6,7 +6,9 @@ import { google } from 'googleapis';
 // Sheet IDs from environment
 export const SALES_APP_SHEET_ID = process.env.SALES_APP_SHEET_ID;
 export const LEADS_SHEET_ID = process.env.LEADS_SHEET_ID;
-// Results data now lives in SALES_APP_SHEET_ID (tabs: Sales Data Results, Sales Reports)
+export const ASSIGNMENTS_SHEET_ID = process.env.ASSIGNMENTS_SHEET_ID;
+export const TEMPLATE_SHEET_ID = process.env.TEMPLATE_SHEET_ID;
+export const SCORECARD_SHEET_ID = process.env.SCORECARD_SHEET_ID;
 
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
