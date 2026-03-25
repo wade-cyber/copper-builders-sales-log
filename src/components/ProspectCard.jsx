@@ -1,5 +1,3 @@
-import { NEXT_STEPS } from '../utils/constants';
-
 function getInitials(name) {
   if (!name) return '?';
   const parts = name.trim().split(/\s+/);
@@ -60,20 +58,10 @@ export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove,
       )}
 
       {!disabled && (
-        <div className="pcard-bot">
-          <div className="pcard-actions">
+        <div className="pcard-bot" style={{ justifyContent: 'flex-end' }}>
+          <div className="pcard-actions" style={{ flexDirection: 'row', gap: 6 }}>
             <button className="abtn sbtn" onClick={() => onMarkSold(prospect.id)}>Sold</button>
             <button className="abtn rbtn" onClick={() => onRemove(prospect.id)}>Remove</button>
-          </div>
-          <div className="ns-wrap">
-            <div className="ns-label">Next Step</div>
-            <select
-              value={prospect.nextStep || ''}
-              onChange={(e) => onUpdate(prospect.id, { nextStep: e.target.value })}
-            >
-              <option value="">Select…</option>
-              {NEXT_STEPS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
           </div>
         </div>
       )}

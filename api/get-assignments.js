@@ -13,6 +13,7 @@ export default async function handler(req, res) {
     const headers = data[0];
     const repIdx = headers.indexOf('Rep Name');
     const communityIdx = headers.indexOf('Community Name');
+    const thirdPartyIdx = headers.indexOf('3rd Party');
 
     // Count communities for type determination
     const counts = {};
@@ -29,10 +30,11 @@ export default async function handler(req, res) {
         const name = (data[i][communityIdx] || '').toString().trim();
         if (!name || seen[name]) continue;
         seen[name] = true;
+        const tp = thirdPartyIdx >= 0 ? (data[i][thirdPartyIdx] || '').toString().trim().toLowerCase() : '';
         results.push({
-          name,
-          assignmentName: name,
+          name, assignmentName: name,
           assignmentType: counts[name] > 1 ? 'community' : 'single-home',
+          thirdParty: tp,
         });
       }
       return res.status(200).json(results);
@@ -47,10 +49,11 @@ export default async function handler(req, res) {
       const name = (data[i][communityIdx] || '').toString().trim();
       if (!name || seen.has(name)) continue;
       seen.add(name);
+      const tp = thirdPartyIdx >= 0 ? (data[i][thirdPartyIdx] || '').toString().trim().toLowerCase() : '';
       results.push({
-        name,
-        assignmentName: name,
+        name, assignmentName: name,
         assignmentType: counts[name] > 1 ? 'community' : 'single-home',
+        thirdParty: tp,
       });
     }
     return res.status(200).json(results);

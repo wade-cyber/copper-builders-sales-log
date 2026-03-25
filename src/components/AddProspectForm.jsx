@@ -1,17 +1,14 @@
 import { useState } from 'react';
-import { NEXT_STEPS } from '../utils/constants';
 
 export default function AddProspectForm({ onSave }) {
   const [name, setName] = useState('');
   const [ranking, setRanking] = useState('B');
-  const [nextStep, setNextStep] = useState('');
 
   const handleSave = () => {
     if (!name.trim()) return;
-    onSave({ name: name.trim(), ranking, nextStep });
+    onSave({ name: name.trim(), ranking, nextStep: '' });
     setName('');
     setRanking('B');
-    setNextStep('');
   };
 
   return (
@@ -34,13 +31,6 @@ export default function AddProspectForm({ onSave }) {
             <option value="C">C</option>
           </select>
         </div>
-      </div>
-      <div className="nf-field">
-        <label>Next Step</label>
-        <select value={nextStep} onChange={(e) => setNextStep(e.target.value)}>
-          <option value="">Select…</option>
-          {NEXT_STEPS.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
       </div>
       <button className="save-btn" onClick={handleSave} disabled={!name.trim()}>
         Save Prospect

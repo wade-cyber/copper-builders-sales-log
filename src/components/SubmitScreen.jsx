@@ -11,7 +11,7 @@ function KeySvg() {
   );
 }
 
-export default function SubmitScreen({ repName, totalAppointments, totalDirectLeads, totalProspects, onStartNew }) {
+export default function SubmitScreen({ repName, totalAppointments, totalDirectLeads, totalProspects, totalSales, onStartNew }) {
   return (
     <div className="submit-success" style={{ display: 'block' }}>
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style={{ margin: '0 auto 1rem' }}>
@@ -30,22 +30,24 @@ export default function SubmitScreen({ repName, totalAppointments, totalDirectLe
         {repName && <> &mdash; {repName}</>}
       </div>
 
-      {(totalDirectLeads > 0 || totalAppointments > 0 || totalProspects > 0) && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 16 }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontFamily: "'Libre Baskerville', serif", color: 'var(--slate-dark)' }}>{totalDirectLeads || 0}</div>
-            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--slate)' }}>Leads</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontFamily: "'Libre Baskerville', serif", color: 'var(--slate-dark)' }}>{totalAppointments}</div>
-            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--slate)' }}>Appointments</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontFamily: "'Libre Baskerville', serif", color: 'var(--slate-dark)' }}>{totalProspects}</div>
-            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--slate)' }}>Prospects</div>
-          </div>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 16, flexWrap: 'wrap' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontFamily: "'Libre Baskerville', serif", color: 'var(--slate-dark)' }}>{totalDirectLeads || 0}</div>
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--slate)' }}>Leads</div>
         </div>
-      )}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontFamily: "'Libre Baskerville', serif", color: 'var(--slate-dark)' }}>{totalAppointments}</div>
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--slate)' }}>Appointments</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontFamily: "'Libre Baskerville', serif", color: 'var(--slate-dark)' }}>{totalSales || 0}</div>
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--slate)' }}>Sales</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontFamily: "'Libre Baskerville', serif", color: 'var(--slate-dark)' }}>{totalProspects}</div>
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--slate)' }}>Prospects</div>
+        </div>
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 }}>
         <div style={{ flex: 0, width: 40, height: 1, background: 'var(--gold)' }} />

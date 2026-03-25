@@ -20,14 +20,17 @@ export default async function handler(req, res) {
     }
 
     // Always write the full header to ensure all columns exist
-    await updateRange(SALES_APP_SHEET_ID, 'Submissions!A1:W1', [[
+    await updateRange(SALES_APP_SHEET_ID, 'Submissions!A1:Z1', [[
       'Timestamp', 'Week Ending', 'Rep Name', 'Community', 'Section Type',
-      'Client Only Virtual', 'Client Only Onsite', 'Client Only Model',
-      'Realtor+Client Virtual', 'Realtor+Client Onsite', 'Realtor+Client Model',
-      'Realtor Only Virtual', 'Realtor Only Onsite', 'Realtor Only Model',
+      'Client Only Virtual', 'Client Only In Person',
+      'Realtor+Client Virtual', 'Realtor+Client In Person',
+      'Realtor Only Virtual', 'Realtor Only In Person',
       'Total Appts', 'Active Prospects', 'Sold Prospects', 'Removed Prospects',
-      'Grand Total Appts', 'Grand Total Prospects', 'Market',
-      'Direct Leads Digital', 'Direct Leads Phone Call'
+      'Grand Total Appts', 'Grand Total Prospects',
+      'Direct Leads Digital', 'Direct Leads Phone Call',
+      '3rd Party Digital', '3rd Party In Person', '3rd Party Call-In',
+      'Sales Count', 'Sales Details',
+      'Market',
     ]]);
 
     // Build rows from sections
@@ -39,8 +42,10 @@ export default async function handler(req, res) {
       const rc = appts.realtorPlusClient || {};
       const ro = appts.realtorOnly || {};
       const prospects = section.prospects || [];
-
       const dl = section.directLeads || {};
+      const tp = section.thirdPartyLeads || {};
+      const salesList = section.sales || [];
+      const salesDetails = salesList.map(s => `${s.clientName}${s.lotNumber ? ' (Lot ' + s.lotNumber + ')' : ''}`).join('; ');
 
       rows.push([
         data.timestamp,
@@ -49,23 +54,25 @@ export default async function handler(req, res) {
         section.name,
         section.type,
         co.virtual || 0,
-        co.onsite || 0,
-        co.model || 0,
+        co.inPerson || 0,
         rc.virtual || 0,
-        rc.onsite || 0,
-        rc.model || 0,
+        rc.inPerson || 0,
         ro.virtual || 0,
-        ro.onsite || 0,
-        ro.model || 0,
+        ro.inPerson || 0,
         section.totalAppointments || 0,
         prospects.filter(p => p.status === 'active').length,
         prospects.filter(p => p.status === 'sold').length,
         prospects.filter(p => p.status === 'removed').length,
         (data.totals || {}).totalAppointments || 0,
         (data.totals || {}).totalProspects || 0,
-        section.market || '',
         dl.digital || 0,
         dl.phoneCall || 0,
+        tp.digital || 0,
+        tp.inPerson || 0,
+        tp.callIn || 0,
+        salesList.length,
+        salesDetails,
+        section.market || '',
       ]);
     }
 

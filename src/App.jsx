@@ -15,6 +15,8 @@ export default function App() {
   const [submitError, setSubmitError] = useState('');
   const [appointments, setAppointments] = useState({});
   const [directLeads, setDirectLeads] = useState({});
+  const [thirdPartyLeads, setThirdPartyLeads] = useState({});
+  const [sales, setSales] = useState({});
   const [extraCommunities, setExtraCommunities] = useState([]);
   const [showPicker, setShowPicker] = useState(false);
   const [pickerValue, setPickerValue] = useState('');
@@ -48,6 +50,8 @@ export default function App() {
     setSubmitError('');
     setAppointments({});
     setDirectLeads({});
+    setThirdPartyLeads({});
+    setSales({});
     setExtraCommunities([]);
     setShowPicker(false);
     setOpenedBlocks(new Set());
@@ -62,10 +66,29 @@ export default function App() {
     const num = Math.max(0, parseInt(value) || 0);
     setDirectLeads((prev) => ({
       ...prev,
-      [communityName]: {
-        ...(prev[communityName] || { digital: 0, phoneCall: 0 }),
-        [field]: num,
-      },
+      [communityName]: { ...(prev[communityName] || { digital: 0, phoneCall: 0 }), [field]: num },
+    }));
+  }, []);
+
+  const handleThirdPartyLeadsChange = useCallback((communityName, field, value) => {
+    const num = Math.max(0, parseInt(value) || 0);
+    setThirdPartyLeads((prev) => ({
+      ...prev,
+      [communityName]: { ...(prev[communityName] || { digital: 0, inPerson: 0, callIn: 0 }), [field]: num },
+    }));
+  }, []);
+
+  const handleAddSale = useCallback((communityName, sale) => {
+    setSales((prev) => ({
+      ...prev,
+      [communityName]: [...(prev[communityName] || []), sale],
+    }));
+  }, []);
+
+  const handleRemoveSale = useCallback((communityName, index) => {
+    setSales((prev) => ({
+      ...prev,
+      [communityName]: (prev[communityName] || []).filter((_, i) => i !== index),
     }));
   }, []);
 
@@ -78,14 +101,12 @@ export default function App() {
     });
   }, []);
 
-  // All communities: assigned + manually added
   const allCommunities = useMemo(() => [
     ...assignments.communities,
     ...assignments.singleHomes,
     ...extraCommunities,
   ], [assignments.communities, assignments.singleHomes, extraCommunities]);
 
-  // Required = assigned communities + single homes (not manually added ones)
   const requiredBlocks = useMemo(() => [
     ...assignments.communities,
     ...assignments.singleHomes,
@@ -94,8 +115,7 @@ export default function App() {
   const touchedCount = useMemo(() => {
     let count = 0;
     for (const a of requiredBlocks) {
-      const name = a.name || a.assignmentName;
-      if (openedBlocks.has(name)) count++;
+      if (openedBlocks.has(a.name || a.assignmentName)) count++;
     }
     return count;
   }, [requiredBlocks, openedBlocks]);
@@ -103,24 +123,25 @@ export default function App() {
   const totalAppointments = useMemo(() => {
     let total = 0;
     for (const grid of Object.values(appointments)) {
-      for (const row of grid) {
-        for (const v of row) total += v;
-      }
+      for (const row of grid) for (const v of row) total += v;
     }
     return total;
   }, [appointments]);
 
   const totalActiveProspects = useMemo(() =>
-    prospects.filter(p => p.status === 'active' || !p.status).length,
-  [prospects]);
+    prospects.filter(p => p.status === 'active' || !p.status).length, [prospects]);
 
   const totalDirectLeads = useMemo(() => {
     let total = 0;
-    for (const dl of Object.values(directLeads)) {
-      total += (dl.digital || 0) + (dl.phoneCall || 0);
-    }
+    for (const dl of Object.values(directLeads)) total += (dl.digital || 0) + (dl.phoneCall || 0);
     return total;
   }, [directLeads]);
+
+  const totalSales = useMemo(() => {
+    let total = 0;
+    for (const arr of Object.values(sales)) total += arr.length;
+    return total;
+  }, [sales]);
 
   const shownCommunityNames = useMemo(() => {
     const names = new Set();
@@ -135,10 +156,7 @@ export default function App() {
   const handleAddCommunity = () => {
     if (!pickerValue) return;
     setExtraCommunities(prev => [...prev, {
-      name: pickerValue,
-      assignmentName: pickerValue,
-      assignmentType: 'community',
-      isAdded: true,
+      name: pickerValue, assignmentName: pickerValue, assignmentType: 'community', isAdded: true,
     }]);
     setPickerValue('');
     setShowPicker(false);
@@ -150,27 +168,28 @@ export default function App() {
     try {
       const sections = allCommunities.map((a) => {
         const name = a.name || a.assignmentName;
-        const grid = appointments[name] || [[0,0,0],[0,0,0],[0,0,0]];
+        const grid = appointments[name] || [[0,0],[0,0],[0,0]];
         const blockProspects = prospects.filter(p => p.community === name);
         const gridTotal = grid.reduce((sum, row) => sum + row.reduce((s, v) => s + v, 0), 0);
         const dl = directLeads[name] || { digital: 0, phoneCall: 0 };
+        const tp = thirdPartyLeads[name] || { digital: 0, inPerson: 0, callIn: 0 };
+        const commSales = sales[name] || [];
 
         return {
           name,
           type: a.assignmentType || 'community',
           market: '',
           appointments: {
-            clientOnly: { virtual: grid[0][0], onsite: grid[0][1], model: grid[0][2] },
-            realtorPlusClient: { virtual: grid[1][0], onsite: grid[1][1], model: grid[1][2] },
-            realtorOnly: { virtual: grid[2][0], onsite: grid[2][1], model: grid[2][2] },
+            clientOnly: { virtual: grid[0][0], inPerson: grid[0][1] },
+            realtorPlusClient: { virtual: grid[1][0], inPerson: grid[1][1] },
+            realtorOnly: { virtual: grid[2][0], inPerson: grid[2][1] },
           },
           directLeads: { digital: dl.digital || 0, phoneCall: dl.phoneCall || 0 },
+          thirdPartyLeads: { digital: tp.digital || 0, inPerson: tp.inPerson || 0, callIn: tp.callIn || 0 },
+          sales: commSales,
           totalAppointments: gridTotal,
           prospects: blockProspects.map(p => ({
-            name: p.name,
-            ranking: p.ranking || 'C',
-            nextStep: p.nextStep || '',
-            status: p.status || 'active',
+            name: p.name, ranking: p.ranking || 'C', nextStep: '', status: p.status || 'active',
           })),
         };
       });
@@ -180,10 +199,7 @@ export default function App() {
         weekEnding: getWeekEndingShort(),
         timestamp: new Date().toISOString(),
         sections,
-        totals: {
-          totalAppointments,
-          totalProspects: totalActiveProspects,
-        },
+        totals: { totalAppointments, totalProspects: totalActiveProspects },
       });
 
       setSubmitted(true);
@@ -208,6 +224,7 @@ export default function App() {
           totalAppointments={totalAppointments}
           totalDirectLeads={totalDirectLeads}
           totalProspects={totalActiveProspects}
+          totalSales={totalSales}
           onStartNew={handleStartNew}
         />
       </div>
@@ -234,33 +251,35 @@ export default function App() {
       )}
 
       {assignmentsLoading && (
-        <div style={{ textAlign: 'center', color: 'var(--slate)', padding: 20, fontSize: 13 }}>
-          Loading assignments…
-        </div>
+        <div style={{ textAlign: 'center', color: 'var(--slate)', padding: 20, fontSize: 13 }}>Loading assignments…</div>
       )}
 
       {showSections && !allCommunities.length && (
-        <div style={{ textAlign: 'center', color: 'var(--slate)', padding: 20, fontSize: 13 }}>
-          No assignments found for {selectedRep}.
-        </div>
+        <div style={{ textAlign: 'center', color: 'var(--slate)', padding: 20, fontSize: 13 }}>No assignments found for {selectedRep}.</div>
       )}
 
       {showSections && (
         <>
           <div className="slabel">Communities</div>
           {allCommunities.map((a) => {
-            const name = a.name || a.assignmentName;
+            const cname = a.name || a.assignmentName;
             return (
               <CommunityBlock
-                key={name}
-                name={name}
+                key={cname}
+                name={cname}
                 type={a.assignmentType || 'community'}
                 isAdded={!!a.isAdded}
+                thirdParty={a.thirdParty || ''}
                 prospects={prospects}
-                appointments={appointments[name] || [[0,0,0],[0,0,0],[0,0,0]]}
-                onAppointmentChange={(grid) => handleAppointmentChange(name, grid)}
-                directLeads={directLeads[name] || { digital: 0, phoneCall: 0 }}
-                onDirectLeadsChange={(field, value) => handleDirectLeadsChange(name, field, value)}
+                appointments={appointments[cname] || [[0,0],[0,0],[0,0]]}
+                onAppointmentChange={(grid) => handleAppointmentChange(cname, grid)}
+                directLeads={directLeads[cname] || { digital: 0, phoneCall: 0 }}
+                onDirectLeadsChange={(field, value) => handleDirectLeadsChange(cname, field, value)}
+                thirdPartyLeads={thirdPartyLeads[cname] || { digital: 0, inPerson: 0, callIn: 0 }}
+                onThirdPartyLeadsChange={(field, value) => handleThirdPartyLeadsChange(cname, field, value)}
+                sales={sales[cname] || []}
+                onAddSale={(sale) => handleAddSale(cname, sale)}
+                onRemoveSale={(idx) => handleRemoveSale(cname, idx)}
                 onProspectUpdate={updateProspect}
                 onAddProspect={addProspect}
                 onMarkSold={markSold}
@@ -276,15 +295,10 @@ export default function App() {
           {showPicker && (
             <div className="picker-wrap" style={{ display: 'block' }}>
               <div className="picker-row">
-                <select
-                  value={pickerValue}
-                  onChange={(e) => setPickerValue(e.target.value)}
-                  style={{ flex: 1, height: 32, border: '1px solid var(--border)', borderRadius: 3, padding: '0 8px', fontSize: 12, background: 'var(--white)', color: 'var(--slate-dark)' }}
-                >
+                <select value={pickerValue} onChange={(e) => setPickerValue(e.target.value)}
+                  style={{ flex: 1, height: 32, border: '1px solid var(--border)', borderRadius: 3, padding: '0 8px', fontSize: 12, background: 'var(--white)', color: 'var(--slate-dark)' }}>
                   <option value="">Select a community…</option>
-                  {availableCommunities.map((name) => (
-                    <option key={name} value={name}>{name}</option>
-                  ))}
+                  {availableCommunities.map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
                 <button className="picker-add-btn" onClick={handleAddCommunity} disabled={!pickerValue}>Add</button>
               </div>
@@ -302,34 +316,31 @@ export default function App() {
         </>
       )}
 
-      {/* ── Submit ── */}
       {showSections && (
         <>
           <div className="sdiv" />
-          <div className="totals-bar totals-bar-3">
+          <div className="totals-bar totals-bar-4">
             <div className="totals-card">
-              <div className="totals-label">Direct Leads</div>
+              <div className="totals-label">Leads</div>
               <div className="totals-number">{totalDirectLeads}</div>
             </div>
             <div className="totals-card">
-              <div className="totals-label">Total Appts</div>
+              <div className="totals-label">Appts</div>
               <div className="totals-number">{totalAppointments}</div>
             </div>
             <div className="totals-card">
-              <div className="totals-label">Total Prospects</div>
+              <div className="totals-label">Sales</div>
+              <div className="totals-number">{totalSales}</div>
+            </div>
+            <div className="totals-card">
+              <div className="totals-label">Prospects</div>
               <div className="totals-number">{totalActiveProspects}</div>
             </div>
           </div>
-          <button
-            className="submit-btn"
-            onClick={handleSubmit}
-            disabled={submitting}
-          >
+          <button className="submit-btn" onClick={handleSubmit} disabled={submitting}>
             {submitting ? 'Submitting…' : 'Submit Weekly Log'}
           </button>
-          {submitError && (
-            <div className="submit-error">{submitError}</div>
-          )}
+          {submitError && <div className="submit-error">{submitError}</div>}
         </>
       )}
     </div>

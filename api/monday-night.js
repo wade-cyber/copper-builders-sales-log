@@ -247,22 +247,25 @@ async function cacheAssignmentsLocally() {
 
   const headers = data[0];
   const repIdx = headers.indexOf('Rep Name');
-  const communityIdx = headers.indexOf('Community Name');
+  // Handle both column name variants
+  let communityIdx = headers.indexOf('Community Name');
+  if (communityIdx < 0) communityIdx = headers.indexOf('Community or House Name');
   const divisionIdx = headers.indexOf('Division');
-  // Load all assignments (filter column is optional — if not present, include all)
+  const thirdPartyIdx = headers.indexOf('3rd Party?');
   const reportToolIdx = headers.indexOf('Sales reporting tool report this week?');
 
   const rows = [];
   for (let i = 1; i < data.length; i++) {
-    // If filter column exists, only include "yes" rows. Otherwise include all.
     if (reportToolIdx >= 0) {
       const reportThisWeek = (data[i][reportToolIdx] || '').toString().trim().toLowerCase();
       if (reportThisWeek !== 'yes') continue;
     }
     const rep = (data[i][repIdx] || '').toString().trim();
-    const comm = (data[i][communityIdx] || '').toString().trim();
+    const comm = communityIdx >= 0 ? (data[i][communityIdx] || '').toString().trim() : '';
     if (!rep || !comm) continue;
-    rows.push([rep, comm, (data[i][divisionIdx] || '').toString().trim()]);
+    const division = divisionIdx >= 0 ? (data[i][divisionIdx] || '').toString().trim() : '';
+    const tp = thirdPartyIdx >= 0 ? (data[i][thirdPartyIdx] || '').toString().trim().toLowerCase() : '';
+    rows.push([rep, comm, division, tp]);
   }
 
   // Ensure Weekly Assignments tab exists
@@ -274,17 +277,17 @@ async function cacheAssignmentsLocally() {
   }
 
   // Clear and write
-  try { await clearRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!A1:C500"); } catch {}
+  try { await clearRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!A1:D500"); } catch {}
 
-  await updateRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!A1:C1", [
-    ['Rep Name', 'Community Name', 'Division']
+  await updateRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!A1:D1", [
+    ['Rep Name', 'Community Name', 'Division', '3rd Party']
   ]);
 
   if (rows.length > 0) {
-    await updateRange(SALES_APP_SHEET_ID, `'Weekly Assignments'!A2:C${1 + rows.length}`, rows);
+    await updateRange(SALES_APP_SHEET_ID, `'Weekly Assignments'!A2:D${1 + rows.length}`, rows);
   }
 
-  await updateRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!E1:F1", [
+  await updateRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!F1:G1", [
     ['Last Synced', new Date().toISOString()]
   ]);
 
