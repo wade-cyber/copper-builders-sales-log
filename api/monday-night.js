@@ -135,14 +135,23 @@ async function runPhase2() {
     statsResult = { success: false, message: e.message };
   }
 
+  // Step 2d: Pull OSC lead data to Assignments sheet (columns I-L)
+  let oscResult = { success: false, message: 'skipped' };
+  try {
+    oscResult = await pullOSCLeadsToAssignments();
+  } catch (e) {
+    oscResult = { success: false, message: e.message };
+  }
+
   await logToSystemLog('monday-night-phase2', 'success',
-    `Assignments: ${assignmentResult.count || 0}. Consolidation: ${consolidateResult.success}. Stats: ${statsResult.rowsUpdated || 0} rows.`);
+    `Assignments: ${assignmentResult.count || 0}. Consolidation: ${consolidateResult.success}. Stats: ${statsResult.rowsUpdated || 0}. OSC: ${oscResult.rowsUpdated || 0}.`);
 
   return {
     success: true,
     assignments: assignmentResult,
     consolidation: consolidateResult,
     weeklyStats: statsResult,
+    oscLeads: oscResult,
   };
 }
 
@@ -242,6 +251,62 @@ async function writeWeeklyStatsToAssignments() {
 
   if (statsRows.length > 0) {
     await updateRange(ASSIGNMENTS_SHEET_ID, `Assignments!D2:H${1 + statsRows.length}`, statsRows);
+  }
+
+  return { success: true, rowsUpdated };
+}
+
+// ═══════════════════════════════════════════════════════════
+// PULL OSC LEAD DATA TO ASSIGNMENTS SHEET (columns I-L)
+// ═══════════════════════════════════════════════════════════
+
+async function pullOSCLeadsToAssignments() {
+  const OSC_SHEET_ID = TEMPLATE_SHEET_ID; // Same sheet the OSC fills out
+
+  // Read OSC data from Dashboard Template rows 7+ (cols A-F)
+  const oscData = await getSheetData(OSC_SHEET_ID, "'Dashboard Template'!A7:F");
+  if (!oscData || oscData.length === 0) return { success: true, rowsUpdated: 0 };
+
+  // Build lookup: community name (lowercase) → { digital, inPerson, callIn }
+  const oscByCommunity = {};
+  for (const row of oscData) {
+    const name = (row[0] || '').toString().trim();
+    if (!name) continue;
+    oscByCommunity[name.toLowerCase()] = {
+      digital: toNum(row[2]),   // Col C: Total Digital
+      inPerson: toNum(row[3]),  // Col D: Total In Person
+      callIn: toNum(row[4]),    // Col E: Total Calls
+    };
+  }
+
+  // Read Assignments sheet to get community names per row
+  const assignData = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Assignments');
+  if (assignData.length < 2) return { success: true, rowsUpdated: 0 };
+
+  const aHeaders = assignData[0];
+  let aCommunityIdx = aHeaders.indexOf('Community Name');
+  if (aCommunityIdx < 0) aCommunityIdx = aHeaders.indexOf('Community or House Name');
+
+  // Build values for columns I-L for each row
+  const oscRows = [];
+  let rowsUpdated = 0;
+
+  for (let i = 1; i < assignData.length; i++) {
+    const comm = aCommunityIdx >= 0 ? (assignData[i][aCommunityIdx] || '').toString().trim() : '';
+    const osc = oscByCommunity[comm.toLowerCase()];
+
+    if (osc && (osc.digital > 0 || osc.inPerson > 0 || osc.callIn > 0)) {
+      const total = osc.digital + osc.inPerson + osc.callIn;
+      oscRows.push([osc.digital, osc.inPerson, osc.callIn, total]);
+      rowsUpdated++;
+    } else {
+      oscRows.push([0, 0, 0, 0]);
+    }
+  }
+
+  // Write columns I-L (rows 2 onwards)
+  if (oscRows.length > 0) {
+    await updateRange(ASSIGNMENTS_SHEET_ID, `Assignments!I2:L${1 + oscRows.length}`, oscRows);
   }
 
   return { success: true, rowsUpdated };
