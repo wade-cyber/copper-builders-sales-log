@@ -6,7 +6,7 @@
 import {
   getSheetData, updateRange, clearRange, getSheetId, batchUpdate,
   getCurrentWeekEndingShort, logToSystemLog, toNum,
-  SALES_APP_SHEET_ID, ASSIGNMENTS_SHEET_ID,
+  SALES_APP_SHEET_ID, ASSIGNMENTS_SHEET_ID, TEMPLATE_SHEET_ID,
 } from './_lib/sheets.js';
 import { getCommunitiesFromAssignmentsSheet, getRepsFromAssignmentsSheet } from './_lib/sync-from-assignments-sheet.js';
 
