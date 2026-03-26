@@ -14,7 +14,7 @@
 
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--cream); font-family: 'Open Sans', sans-serif; }
+body { background: var(--cream); font-family: 'Open Sans', sans-serif; overflow-x: hidden; }
 .shell { max-width: 520px; margin: 0 auto; padding: 1rem; }
 
 
@@ -72,7 +72,7 @@ body { background: var(--cream); font-family: 'Open Sans', sans-serif; }
 .agrl { background: var(--sage-light); padding: 6px 8px; font-size: 10px; color: var(--slate); border-right: 1px solid var(--border); border-top: 1px solid var(--border); display: flex; align-items: center; line-height: 1.3; }
 .agc { border-right: 1px solid var(--border); border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: center; padding: 4px; }
 .agc:last-child { border-right: none; }
-.agi { width: 46px; height: 28px; border: 1px solid var(--border); border-radius: 3px; text-align: center; font-size: 14px; font-weight: 600; color: var(--slate-dark); background: var(--white); }
+.agi { width: 100%; max-width: 46px; height: 28px; border: 1px solid var(--border); border-radius: 3px; text-align: center; font-size: 16px; font-weight: 600; color: var(--slate-dark); background: var(--white); min-width: 0; }
 .agi:focus { outline: none; border-color: var(--gold); }
 
 
@@ -80,7 +80,7 @@ body { background: var(--cream); font-family: 'Open Sans', sans-serif; }
 .direct-leads { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
 .dl-field { display: flex; flex-direction: column; }
 .dl-field label { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); margin-bottom: 4px; }
-.dl-field input { height: 32px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-size: 14px; font-weight: 600; background: var(--white); color: var(--slate-dark); text-align: center; }
+.dl-field input { height: 32px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-size: 16px; font-weight: 600; background: var(--white); color: var(--slate-dark); text-align: center; }
 .dl-field input:focus { outline: none; border-color: var(--gold); }
 
 /* 3-COL DIRECT LEADS (for 3rd party) */
@@ -106,7 +106,7 @@ body { background: var(--cream); font-family: 'Open Sans', sans-serif; }
 .pcard-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .pav { width: 28px; height: 28px; border-radius: 50%; background: var(--sage-light); border: 1px solid var(--sage); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--slate-dark); flex-shrink: 0; font-family: 'Libre Baskerville', serif; }
 .pname { font-size: 13px; font-weight: 600; color: var(--slate-dark); flex: 1; min-width: 0; }
-.rank-pill select { height: 20px; border: 1px solid var(--border); border-radius: 3px; padding: 0 5px; font-size: 10px; font-weight: 600; cursor: pointer; letter-spacing: .06em; }
+.rank-pill select { height: 20px; border: 1px solid var(--border); border-radius: 3px; padding: 0 5px; font-size: 16px; font-weight: 600; cursor: pointer; letter-spacing: .06em; }
 .rank-a select { background: #eef5e4; border-color: #8fae73; color: #3a5e20; }
 .rank-b select { background: #fdf5e4; border-color: var(--gold); color: #7a5e10; }
 .rank-c select { background: #fdf0ec; border-color: #c8856a; color: #7a3318; }
@@ -117,7 +117,7 @@ body { background: var(--cream); font-family: 'Open Sans', sans-serif; }
 .rbtn { background: #fdf0ec; border: 1px solid #c8856a; color: #7a3318; }
 .ns-wrap { flex: 1; min-width: 0; }
 .ns-label { font-size: 9px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--slate); margin-bottom: 3px; }
-.ns-wrap select { width: 100%; height: 28px; border: 1px solid var(--border); border-radius: 3px; padding: 0 6px; font-size: 12px; background: var(--white); color: var(--slate-dark); }
+.ns-wrap select { width: 100%; height: 28px; border: 1px solid var(--border); border-radius: 3px; padding: 0 6px; font-size: 16px; background: var(--white); color: var(--slate-dark); }
 
 
 /* ADD PROSPECT BUTTON */
@@ -129,7 +129,7 @@ body { background: var(--cream); font-family: 'Open Sans', sans-serif; }
 .nf-r3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .nf-field { margin-bottom: 8px; }
 .nf-field label { display: block; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); margin-bottom: 3px; }
-.nf-field input, .nf-field select { width: 100%; height: 28px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-size: 12px; background: var(--white); color: var(--slate-dark); }
+.nf-field input, .nf-field select { width: 100%; height: 28px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-size: 16px; background: var(--white); color: var(--slate-dark); }
 .save-btn { width: 100%; height: 28px; background: var(--slate-dark); color: var(--white); border: none; border-radius: 3px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; margin-top: 4px; }
 
 
@@ -140,7 +140,7 @@ body { background: var(--cream); font-family: 'Open Sans', sans-serif; }
 /* COMMUNITY PICKER */
 .picker-wrap { background: var(--cream); border: 1px solid var(--border); border-radius: 4px; padding: 12px; margin-bottom: 10px; }
 .picker-row { display: flex; gap: 8px; }
-.picker-row input { flex: 1; height: 32px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-size: 12px; background: var(--white); color: var(--slate-dark); }
+.picker-row input { flex: 1; height: 32px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-size: 16px; background: var(--white); color: var(--slate-dark); }
 .picker-add-btn { height: 32px; padding: 0 14px; background: var(--slate-dark); color: var(--white); border: none; border-radius: 3px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
 
 
@@ -170,7 +170,7 @@ body { background: var(--cream); font-family: 'Open Sans', sans-serif; }
 /* MARKET SELECTOR */
 .market-select { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .market-label { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--slate); }
-.market-select select { height: 28px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-size: 12px; background: var(--white); color: var(--slate-dark); }
+.market-select select { height: 28px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-size: 16px; background: var(--white); color: var(--slate-dark); }
 
 /* STALE DATA WARNING */
 .stale-warning { background: #fdf5e4; border: 1px solid var(--gold); border-radius: 4px; padding: 10px 14px; text-align: center; font-size: 12px; color: #7a5e10; margin-bottom: 1.25rem; }
@@ -179,3 +179,20 @@ body { background: var(--cream); font-family: 'Open Sans', sans-serif; }
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; }
+
+
+/* MOBILE RESPONSIVE */
+@media (max-width: 400px) {
+  .shell { padding: 0.75rem; }
+
+  /* Totals bar 4-col → 2x2 on very small screens */
+  .totals-bar-4 { grid-template-columns: 1fr 1fr; }
+
+  /* Add prospect form 3-col → single col */
+  .nf-r3 { grid-template-columns: 1fr; }
+
+  /* Touch targets */
+  .abtn { height: 36px; font-size: 11px; }
+  .chev { width: 36px; height: 36px; }
+  .add-link { height: 36px; }
+}

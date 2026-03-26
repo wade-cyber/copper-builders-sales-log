@@ -5,7 +5,7 @@ import CommunityBlock from './components/CommunityBlock';
 import SubmitScreen from './components/SubmitScreen';
 import { useAssignments } from './hooks/useAssignments';
 import { useProspects } from './hooks/useProspects';
-import { submitWeeklyLog, fetchReps, fetchSubmittedReps } from './utils/api';
+import { submitWeeklyLog, fetchReps } from './utils/api';
 import { getWeekEndingShort } from './utils/dates';
 
 export default function App() {
@@ -18,18 +18,14 @@ export default function App() {
   const [openedBlocks, setOpenedBlocks] = useState(new Set());
   const [collapseKey, setCollapseKey] = useState(0);
   const [reps, setReps] = useState([]);
-  const [submittedReps, setSubmittedReps] = useState([]);
 
   const { assignments, loading: assignmentsLoading, lastSyncedAt } = useAssignments(selectedRep);
   const { prospects, saveErrors, addProspect, updateProspect, removeProspect, markSold, retrySave } =
     useProspects(selectedRep);
 
-  const loadReps = useCallback(() => {
+  useEffect(() => {
     fetchReps().then((data) => { if (Array.isArray(data)) setReps(data); }).catch(() => {});
-    fetchSubmittedReps().then((data) => { if (Array.isArray(data)) setSubmittedReps(data); }).catch(() => {});
   }, []);
-
-  useEffect(() => { loadReps(); }, [loadReps]);
 
   const handleRepChange = useCallback((rep) => {
     setSelectedRep(rep);
@@ -122,7 +118,6 @@ export default function App() {
       });
 
       setSubmitted(true);
-      fetchSubmittedReps().then((data) => { if (Array.isArray(data)) setSubmittedReps(data); }).catch(() => {});
     } catch (err) {
       setSubmitError('Submission failed — please try again or contact support');
     } finally {
@@ -156,8 +151,7 @@ export default function App() {
   return (
     <div className="shell">
       <Header />
-      <RepSelector value={selectedRep} onChange={handleRepChange}
-        reps={reps.filter(r => !submittedReps.includes(r))} />
+      <RepSelector value={selectedRep} onChange={handleRepChange} reps={reps} />
 
       {selectedRep && lastSyncedAt && (Date.now() - lastSyncedAt.getTime()) > 8 * 24 * 60 * 60 * 1000 && (
         <div className="stale-warning">

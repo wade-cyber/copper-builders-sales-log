@@ -54,12 +54,6 @@ export async function fetchAllCommunities() {
   return res.json();
 }
 
-export async function fetchSubmittedReps() {
-  const url = `${API_BASE}/get-submitted-reps?t=${Date.now()}`;
-  const res = await fetchWithRetry(url);
-  return res.json();
-}
-
 export async function saveProspect(prospect) {
   const res = await fetchWithRetry(`${API_BASE}/save-prospect`, {
     method: 'POST',
