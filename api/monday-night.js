@@ -331,6 +331,9 @@ async function cacheAssignmentsLocally() {
     const rep = (data[i][repIdx] || '').toString().trim();
     const comm = communityIdx >= 0 ? (data[i][communityIdx] || '').toString().trim() : '';
     if (!rep || !comm) continue;
+    // Skip placeholder reps — these are leads-only entries, not sales rep assignments
+    const repLower = rep.toLowerCase();
+    if (repLower === 'n/a' || repLower === 'none' || repLower === 'na') continue;
     const division = divisionIdx >= 0 ? (data[i][divisionIdx] || '').toString().trim() : '';
     const tp = thirdPartyIdx >= 0 ? (data[i][thirdPartyIdx] || '').toString().trim().toLowerCase() : '';
     rows.push([rep, comm, division, tp]);

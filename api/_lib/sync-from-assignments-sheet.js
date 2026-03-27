@@ -107,7 +107,8 @@ export async function getRepsFromAssignmentsSheet() {
     if (reportToolIdx >= 0 && !isYes(row[reportToolIdx])) continue;
 
     const name = (row[repIdx] || '').toString().trim();
-    if (name && !seen[name]) {
+    const nameLower = name.toLowerCase();
+    if (name && !seen[name] && nameLower !== 'n/a' && nameLower !== 'none' && nameLower !== 'na') {
       seen[name] = true;
       results.push(name);
     }
