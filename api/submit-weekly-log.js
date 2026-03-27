@@ -20,10 +20,10 @@ export default async function handler(req, res) {
     }
 
     // Always write the full header to ensure all columns exist
-    await updateRange(SALES_APP_SHEET_ID, 'Submissions!A1:N1', [[
+    await updateRange(SALES_APP_SHEET_ID, 'Submissions!A1:O1', [[
       'Timestamp', 'Week Ending', 'Rep Name', 'Community', 'Section Type',
       'Appts Virtual', 'Appts In Person', 'Total Appts',
-      'Direct Leads Digital', 'Direct Leads Phone Call',
+      'Direct Leads Digital', 'Direct Leads Phone Call', 'Direct Leads In Person',
       'Active Prospects', 'Sold Prospects', 'Removed Prospects',
       'Grand Total Appts',
     ]]);
@@ -47,6 +47,7 @@ export default async function handler(req, res) {
         section.totalAppointments || 0,
         dl.digital || 0,
         dl.phoneCall || 0,
+        dl.inPerson || 0,
         prospects.filter(p => p.status === 'active').length,
         prospects.filter(p => p.status === 'sold').length,
         prospects.filter(p => p.status === 'removed').length,
@@ -117,3 +118,4 @@ function colLetter(idx) {
   if (idx < 26) return String.fromCharCode(65 + idx);
   return colLetter(Math.floor(idx / 26) - 1) + String.fromCharCode(65 + (idx % 26));
 }
+// rebuild 1774580449

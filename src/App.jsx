@@ -45,7 +45,7 @@ export default function App() {
     const num = Math.max(0, parseInt(value) || 0);
     setDirectLeads((prev) => ({
       ...prev,
-      [communityName]: { ...(prev[communityName] || { digital: 0, phoneCall: 0 }), [field]: num },
+      [communityName]: { ...(prev[communityName] || { digital: 0, phoneCall: 0, inPerson: 0 }), [field]: num },
     }));
   }, []);
 
@@ -82,7 +82,7 @@ export default function App() {
 
   const totalDirectLeads = useMemo(() => {
     let total = 0;
-    for (const dl of Object.values(directLeads)) total += (dl.digital || 0) + (dl.phoneCall || 0);
+    for (const dl of Object.values(directLeads)) total += (dl.digital || 0) + (dl.phoneCall || 0) + (dl.inPerson || 0);
     return total;
   }, [directLeads]);
 
@@ -94,14 +94,14 @@ export default function App() {
         const name = a.name || a.assignmentName;
         const appts = appointments[name] || [0, 0];
         const blockProspects = prospects.filter(p => p.community === name);
-        const dl = directLeads[name] || { digital: 0, phoneCall: 0 };
+        const dl = directLeads[name] || { digital: 0, phoneCall: 0, inPerson: 0 };
 
         return {
           name,
           type: a.assignmentType || 'community',
           market: '',
           appointments: { virtual: appts[0] || 0, inPerson: appts[1] || 0 },
-          directLeads: { digital: dl.digital || 0, phoneCall: dl.phoneCall || 0 },
+          directLeads: { digital: dl.digital || 0, phoneCall: dl.phoneCall || 0, inPerson: dl.inPerson || 0 },
           totalAppointments: (appts[0] || 0) + (appts[1] || 0),
           prospects: blockProspects.map(p => ({
             name: p.name, ranking: p.ranking || 'C', nextStep: '', status: p.status || 'active',
@@ -186,7 +186,7 @@ export default function App() {
                 prospects={prospects}
                 appointments={appointments[cname] || [0, 0]}
                 onAppointmentChange={(arr) => handleAppointmentChange(cname, arr)}
-                directLeads={directLeads[cname] || { digital: 0, phoneCall: 0 }}
+                directLeads={directLeads[cname] || { digital: 0, phoneCall: 0, inPerson: 0 }}
                 onDirectLeadsChange={(field, value) => handleDirectLeadsChange(cname, field, value)}
                 onProspectUpdate={updateProspect}
                 onAddProspect={addProspect}

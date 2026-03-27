@@ -77,14 +77,14 @@ body { background: var(--cream); font-family: 'Open Sans', sans-serif; overflow-
 
 
 /* DIRECT LEADS */
-.direct-leads { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.direct-leads { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; margin-bottom: 12px; }
 .dl-field { display: flex; flex-direction: column; }
 .dl-field label { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); margin-bottom: 4px; }
 .dl-field input { height: 32px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-size: 16px; font-weight: 600; background: var(--white); color: var(--slate-dark); text-align: center; }
 .dl-field input:focus { outline: none; border-color: var(--gold); }
 
 /* 3-COL DIRECT LEADS (for 3rd party) */
-.dl-3col { grid-template-columns: 1fr 1fr 1fr; }
+.dl-3col { grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap: 6px; }
 
 /* SALES LIST */
 .sales-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
@@ -182,17 +182,37 @@ input[type="number"] { -moz-appearance: textfield; }
 
 
 /* MOBILE RESPONSIVE */
-@media (max-width: 400px) {
-  .shell { padding: 0.75rem; }
+@media (max-width: 520px) {
+  /* Shell: tighter padding to maximize content width */
+  .shell { padding: 0.625rem; }
 
-  /* Totals bar 4-col → 2x2 on very small screens */
+  /* Block body: less padding so inner content has more room */
+  .bb { padding: 10px; }
+
+  /* Direct leads: scale columns to fit, never overflow */
+  .direct-leads { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 6px; }
+  .dl-3col { grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap: 4px; }
+  .dl-field input { padding: 0 2px; font-size: 16px; }
+  .dl-field label { font-size: 8px; letter-spacing: .04em; }
+
+  /* Appointment grid: use % columns so it always fits the container */
+  .ag { grid-template-columns: 28% 1fr 1fr; font-size: 9px; }
+  .agh { padding: 5px 2px; font-size: 9px; letter-spacing: 0; }
+  .agrl { padding: 5px 3px; font-size: 9px; line-height: 1.2; }
+  .agc { padding: 3px 2px; }
+  .agi { width: 100%; max-width: none; min-width: 0; height: 30px; font-size: 14px; padding: 0; }
+
+  /* Totals bar: keep side-by-side but scaled */
   .totals-bar-4 { grid-template-columns: 1fr 1fr; }
+  .totals-number { font-size: 22px; }
+  .totals-label { font-size: 9px; }
 
-  /* Add prospect form 3-col → single col */
-  .nf-r3 { grid-template-columns: 1fr; }
-
-  /* Touch targets */
+  /* Prospect card: scale touch targets */
   .abtn { height: 36px; font-size: 11px; }
-  .chev { width: 36px; height: 36px; }
+  .chev { width: 36px; height: 36px; font-size: 14px; }
   .add-link { height: 36px; }
+
+  /* Add prospect form: 3-col → single col on small screens */
+  .nf-r3 { grid-template-columns: 1fr; }
+  .nf-field input, .nf-field select { font-size: 16px; }
 }

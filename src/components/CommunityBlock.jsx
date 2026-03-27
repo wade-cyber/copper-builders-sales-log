@@ -36,7 +36,7 @@ export default function CommunityBlock({
   const activeProspects = communityProspects.filter((p) => p.status === 'active' || !p.status);
   const soldProspects = communityProspects.filter((p) => p.status === 'sold');
   const apptTotal = (appointments[0] || 0) + (appointments[1] || 0);
-  const leadsTotal = (directLeads?.digital || 0) + (directLeads?.phoneCall || 0);
+  const leadsTotal = (directLeads?.digital || 0) + (directLeads?.phoneCall || 0) + (directLeads?.inPerson || 0);
 
   return (
     <div className="block">
@@ -54,7 +54,7 @@ export default function CommunityBlock({
       {open && (
         <div className="bb">
           <div className="sub">New Leads Received by Sales Agent</div>
-          <div className="direct-leads">
+          <div className="direct-leads dl-3col">
             <div className="dl-field">
               <label>Digital</label>
               <input type="number" min="0" value={directLeads.digital || 0}
@@ -64,6 +64,11 @@ export default function CommunityBlock({
               <label>Phone Call</label>
               <input type="number" min="0" value={directLeads.phoneCall || 0}
                 onChange={(e) => onDirectLeadsChange('phoneCall', e.target.value)} />
+            </div>
+            <div className="dl-field">
+              <label>In Person</label>
+              <input type="number" min="0" value={directLeads.inPerson || 0}
+                onChange={(e) => onDirectLeadsChange('inPerson', e.target.value)} />
             </div>
           </div>
 
