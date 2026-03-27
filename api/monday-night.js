@@ -135,14 +135,23 @@ async function runPhase2() {
     resultsResult = { success: false, message: e.message };
   }
 
+  // Step 2d: Rotate OSC leads sheet (archive current, prep next week)
+  let oscRotateResult = { success: false, message: 'skipped' };
+  try {
+    oscRotateResult = await rotateOSCLeadsSheet();
+  } catch (e) {
+    oscRotateResult = { success: false, message: e.message };
+  }
+
   await logToSystemLog('monday-night-phase2', 'success',
-    `Assignments: ${assignmentResult.count || 0}. Consolidation: ${consolidateResult.success}. Results: ${resultsResult.rowsWritten || 0}.`);
+    `Assignments: ${assignmentResult.count || 0}. Consolidation: ${consolidateResult.success}. Results: ${resultsResult.rowsWritten || 0}. OSC rotate: ${oscRotateResult.success}.`);
 
   return {
     success: true,
     assignments: assignmentResult,
     consolidation: consolidateResult,
     weeklyResults: resultsResult,
+    oscRotation: oscRotateResult,
   };
 }
 
@@ -304,6 +313,152 @@ async function writeWeeklyResults() {
   }
 
   return { success: true, rowsWritten: rows.length };
+}
+
+// ═══════════════════════════════════════════════════════════
+// ROTATE OSC LEADS SHEET
+// ═══════════════════════════════════════════════════════════
+
+async function rotateOSCLeadsSheet() {
+  const OSC_SHEET = TEMPLATE_SHEET_ID;
+  const DASHBOARD_TAB = 'Dashboard Template';
+  const TOTAL_COLS = 39; // A through AM
+
+  // Calculate dates
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const daysToNextSun = dayOfWeek === 0 ? 7 : 7 - dayOfWeek;
+  const nextSunday = new Date(today);
+  nextSunday.setDate(today.getDate() + daysToNextSun);
+  const currentSunday = new Date(nextSunday);
+  currentSunday.setDate(nextSunday.getDate() - 7);
+
+  const archiveName = formatTabName(currentSunday);
+  const nextWeekDate = `${nextSunday.getMonth() + 1}/${nextSunday.getDate()}/${String(nextSunday.getFullYear()).slice(2)}`;
+
+  // Step 1: Archive — duplicate Dashboard Template as "Week of [date]"
+  const existingArchive = await getSheetId(OSC_SHEET, archiveName);
+  if (existingArchive !== null) {
+    return { success: true, message: `Archive "${archiveName}" already exists — skipped` };
+  }
+
+  const dashSheetId = await getSheetId(OSC_SHEET, DASHBOARD_TAB);
+  if (dashSheetId === null) {
+    return { success: false, message: 'Dashboard Template tab not found' };
+  }
+
+  // Duplicate preserves ALL formatting and data
+  await batchUpdate(OSC_SHEET, [{
+    duplicateSheet: {
+      sourceSheetId: dashSheetId,
+      newSheetName: archiveName,
+    }
+  }]);
+
+  // Step 2: Clear data cells in Dashboard Template (preserve formatting)
+  // Read to find last row
+  const allData = await getSheetData(OSC_SHEET, `'${DASHBOARD_TAB}'!A1:A`);
+  const lastRow = allData.length;
+
+  if (lastRow >= 6) {
+    // Set data columns C-AM to 0 for rows 6+ (totals, evergreen, communities)
+    const clearRows = lastRow - 5; // rows 6 through lastRow
+    const zeroRow = Array(TOTAL_COLS - 2).fill(0); // cols C through AM
+    const zeros = Array.from({ length: clearRows }, () => [...zeroRow]);
+    await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!C6:AM${lastRow}`, zeros);
+  }
+
+  // Step 3: Update week ending date to next Sunday
+  await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!B2`, [[nextWeekDate]]);
+
+  // Step 4: Sync communities (rows 13+) from Assignments sheet
+  const { getCommunitiesFromAssignmentsSheet } = await import('./_lib/sync-from-assignments-sheet.js');
+  const newCommunities = await getCommunitiesFromAssignmentsSheet();
+
+  // Read current communities
+  const currentComms = await getSheetData(OSC_SHEET, `'${DASHBOARD_TAB}'!A13:B`);
+  const currentNames = currentComms.filter(r => r[0]).map(r => r[0].trim());
+  const newNames = newCommunities.map(c => c.name);
+
+  // Only update if communities changed
+  const communitiesMatch = currentNames.length === newNames.length &&
+    currentNames.every((n, i) => n === newNames[i]);
+
+  let communitiesUpdated = 0;
+  if (!communitiesMatch) {
+    // Delete existing community rows (13 through last)
+    const lastCommRow = 12 + currentNames.length;
+    if (currentNames.length > 0) {
+      await batchUpdate(OSC_SHEET, [{
+        deleteDimension: {
+          range: {
+            sheetId: dashSheetId,
+            dimension: 'ROWS',
+            startIndex: 12, // 0-based row 13
+            endIndex: lastCommRow,
+          }
+        }
+      }]);
+    }
+
+    // Insert new rows after row 12
+    if (newCommunities.length > 0) {
+      await batchUpdate(OSC_SHEET, [{
+        insertDimension: {
+          range: {
+            sheetId: dashSheetId,
+            dimension: 'ROWS',
+            startIndex: 12,
+            endIndex: 12 + newCommunities.length,
+          },
+          inheritFromBefore: true,
+        }
+      }]);
+
+      // Copy formatting from row 12 (last evergreen row)
+      await batchUpdate(OSC_SHEET, [{
+        copyPaste: {
+          source: {
+            sheetId: dashSheetId,
+            startRowIndex: 11, // row 12, 0-based
+            endRowIndex: 12,
+            startColumnIndex: 0,
+            endColumnIndex: TOTAL_COLS,
+          },
+          destination: {
+            sheetId: dashSheetId,
+            startRowIndex: 12,
+            endRowIndex: 12 + newCommunities.length,
+            startColumnIndex: 0,
+            endColumnIndex: TOTAL_COLS,
+          },
+          pasteType: 'PASTE_FORMAT',
+        }
+      }]);
+
+      // Write community names + divisions + zeros
+      const dataRows = newCommunities.map(c => {
+        const row = Array(TOTAL_COLS).fill(0);
+        row[0] = c.name;
+        row[1] = c.market;
+        return row;
+      });
+
+      await updateRange(OSC_SHEET,
+        `'${DASHBOARD_TAB}'!A13:AM${12 + newCommunities.length}`,
+        dataRows
+      );
+      communitiesUpdated = newCommunities.length;
+    }
+  }
+
+  return {
+    success: true,
+    archived: archiveName,
+    nextWeekDate,
+    communitiesUpdated,
+    communitiesChanged: !communitiesMatch,
+  };
 }
 
 // ═══════════════════════════════════════════════════════════
