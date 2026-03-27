@@ -5,7 +5,7 @@
 
 import {
   getSheetData, updateRange, clearRange, getSheetId, batchUpdate,
-  getCurrentWeekEndingShort, logToSystemLog, toNum,
+  getCurrentWeekEndingShort, logToSystemLog, toNum, formatTabName,
   SALES_APP_SHEET_ID, ASSIGNMENTS_SHEET_ID, TEMPLATE_SHEET_ID,
 } from './_lib/sheets.js';
 import { getCommunitiesFromAssignmentsSheet, getRepsFromAssignmentsSheet } from './_lib/sync-from-assignments-sheet.js';
@@ -372,7 +372,6 @@ async function rotateOSCLeadsSheet() {
   await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!B2`, [[nextWeekDate]]);
 
   // Step 4: Sync communities (rows 13+) from Assignments sheet
-  const { getCommunitiesFromAssignmentsSheet } = await import('./_lib/sync-from-assignments-sheet.js');
   const newCommunities = await getCommunitiesFromAssignmentsSheet();
 
   // Read current communities
