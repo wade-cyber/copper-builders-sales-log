@@ -183,6 +183,7 @@ async function writeWeeklyStatsToAssignments() {
       const sApptsIdx = sH.indexOf('Total Appts');
       const sDLDigIdx = sH.indexOf('Direct Leads Digital');
       const sDLPhIdx = sH.indexOf('Direct Leads Phone Call');
+      const sDLIPIdx = sH.indexOf('Direct Leads In Person');
       const sSoldIdx = sH.indexOf('Sold Prospects');
 
       for (let i = 1; i < sData.length; i++) {
@@ -200,6 +201,7 @@ async function writeWeeklyStatsToAssignments() {
             appts: toNum(sData[i][sApptsIdx]),
             dlDigital: sDLDigIdx >= 0 ? toNum(sData[i][sDLDigIdx]) : 0,
             dlPhone: sDLPhIdx >= 0 ? toNum(sData[i][sDLPhIdx]) : 0,
+            dlInPerson: sDLIPIdx >= 0 ? toNum(sData[i][sDLIPIdx]) : 0,
             sold: sSoldIdx >= 0 ? toNum(sData[i][sSoldIdx]) : 0,
           };
         }
@@ -242,7 +244,7 @@ async function writeWeeklyStatsToAssignments() {
 
     if (sub) {
       const reportDate = sub.ts ? new Date(sub.ts).toLocaleDateString('en-US') : '';
-      statsRows.push([reportDate, sub.sold || 0, prospects, sub.appts || 0, sub.dlDigital + sub.dlPhone]);
+      statsRows.push([reportDate, sub.sold || 0, prospects, sub.appts || 0, sub.dlDigital + sub.dlPhone + sub.dlInPerson]);
       rowsUpdated++;
     } else {
       statsRows.push(['', 0, prospects, 0, 0]);
@@ -405,6 +407,7 @@ async function runConsolidation() {
       const sTimestampIdx = sH.indexOf('Timestamp');
       const sDigitalIdx = sH.indexOf('Direct Leads Digital');
       const sPhoneIdx = sH.indexOf('Direct Leads Phone Call');
+      const sInPersonIdx = sH.indexOf('Direct Leads In Person');
       const sSoldIdx = sH.indexOf('Sold Prospects');
 
       if (sCommunityIdx >= 0 && sApptsIdx >= 0) {
@@ -422,6 +425,7 @@ async function runConsolidation() {
               appts: toNum(sData[i][sApptsIdx]),
               digital: sDigitalIdx >= 0 ? toNum(sData[i][sDigitalIdx]) : 0,
               phoneCall: sPhoneIdx >= 0 ? toNum(sData[i][sPhoneIdx]) : 0,
+              inPerson: sInPersonIdx >= 0 ? toNum(sData[i][sInPersonIdx]) : 0,
               sold: sSoldIdx >= 0 ? toNum(sData[i][sSoldIdx]) : 0,
             };
           }
@@ -430,9 +434,10 @@ async function runConsolidation() {
           const key = entry.community.toLowerCase();
           apptCounts[key] = (apptCounts[key] || 0) + entry.appts;
           soldCounts[key] = (soldCounts[key] || 0) + entry.sold;
-          if (!directLeadCounts[key]) directLeadCounts[key] = { digital: 0, phoneCall: 0 };
+          if (!directLeadCounts[key]) directLeadCounts[key] = { digital: 0, phoneCall: 0, inPerson: 0 };
           directLeadCounts[key].digital += entry.digital;
           directLeadCounts[key].phoneCall += entry.phoneCall;
+          directLeadCounts[key].inPerson += entry.inPerson;
         }
       }
     }
@@ -453,7 +458,7 @@ async function runConsolidation() {
 
   const headerRow = [
     'Community', 'Division', 'Sales', 'Active Prospects', 'Appointments Held',
-    'Rep Direct Digital', 'Rep Direct Phone Call', 'Total Rep Leads',
+    'Rep Direct Digital', 'Rep Direct Phone Call', 'Rep Direct In Person', 'Total Rep Leads',
   ];
 
   const dataRows = allRows.map(([name, market]) => {
@@ -461,14 +466,14 @@ async function runConsolidation() {
     const prospects = prospectCounts[key] || 0;
     const appts = apptCounts[key] || 0;
     const sales = soldCounts[key] || 0;
-    const dl = directLeadCounts[key] || { digital: 0, phoneCall: 0 };
+    const dl = directLeadCounts[key] || { digital: 0, phoneCall: 0, inPerson: 0 };
 
-    return [name, market, sales, prospects, appts, dl.digital, dl.phoneCall, dl.digital + dl.phoneCall];
+    return [name, market, sales, prospects, appts, dl.digital, dl.phoneCall, dl.inPerson, dl.digital + dl.phoneCall + dl.inPerson];
   });
 
-  await updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!A1:H1`, [headerRow]);
+  await updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!A1:I1`, [headerRow]);
   if (dataRows.length > 0) {
-    await updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!A2:H${1 + dataRows.length}`, dataRows);
+    await updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!A2:I${1 + dataRows.length}`, dataRows);
   }
 
   return { success: true, rowsWritten: dataRows.length };
