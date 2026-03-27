@@ -153,18 +153,23 @@ async function runPhase2() {
 async function writeWeeklyResults() {
   const currentWeekEnding = getCurrentWeekEndingShort();
 
-  // Step 1: Archive existing "Last Weeks Results" tab if it exists
+  // Step 1: Archive or delete existing "Last Weeks Results" tab
   const existingId = await getSheetId(SALES_APP_SHEET_ID, 'Last Weeks Results');
   if (existingId !== null) {
     const archiveName = `Results — ${currentWeekEnding}`;
-    // Check if archive already exists (idempotent)
     const archiveId = await getSheetId(SALES_APP_SHEET_ID, archiveName);
     if (archiveId === null) {
+      // Rename to archive
       await batchUpdate(SALES_APP_SHEET_ID, [{
         updateSheetProperties: {
           properties: { sheetId: existingId, title: archiveName },
           fields: 'title',
         }
+      }]);
+    } else {
+      // Archive already exists (re-run) — just delete the old Last Weeks Results
+      await batchUpdate(SALES_APP_SHEET_ID, [{
+        deleteSheet: { sheetId: existingId }
       }]);
     }
   }
