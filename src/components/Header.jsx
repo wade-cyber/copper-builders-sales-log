@@ -30,7 +30,7 @@ export default function Header() {
         <div className="key-line" />
       </div>
       <div className="page-title">Weekly Sales Log</div>
-      <div className="due-note">Reports due Mondays</div>
+      <div className="due-note">Reports due Monday by 10:00 AM</div>
     </div>
   );
 }
