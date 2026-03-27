@@ -270,7 +270,7 @@ async function writeWeeklyResults() {
   const header = [
     'Week Ending', 'Rep Name', 'Community', 'Division', 'Report Date',
     'Sales', 'Prospects', 'Appts Held', 'Sales Rep Leads',
-    'OSC Digital Leads', 'OSC In Person Leads', 'OSC Call-In Leads', 'OSC Total Leads',
+    'OSC Digital Leads', 'OSC In Person Leads', 'OSC Call-In Leads', 'Total Leads',
   ];
 
   const rows = [];
@@ -293,7 +293,7 @@ async function writeWeeklyResults() {
     rows.push([
       currentWeekEnding, rep, comm, div, reportDate,
       sales, prospects, appts, repLeads,
-      osc.digital, osc.inPerson, osc.callIn, oscTotal,
+      osc.digital, osc.inPerson, osc.callIn, repLeads + oscTotal,
     ]);
   }
 
