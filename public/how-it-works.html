@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How It Works — Copper Builders Sales Log</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root { --gold: #B09245; --slate: #566263; --slate-dark: #3a4344; --sage-light: #d8e8e3; --cream: #F5F5EF; --white: #fff; --border: #d4cfc6; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--cream); font-family: 'Open Sans', sans-serif; color: var(--slate-dark); line-height: 1.6; }
+.wrap { max-width: 620px; margin: 0 auto; padding: 2rem 1rem; }
+h1 { font-family: 'Libre Baskerville', serif; font-size: 22px; font-weight: 400; color: var(--slate-dark); margin-bottom: 4px; }
+.brand { font-size: 9px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--gold); margin-bottom: 1.5rem; }
+h2 { font-family: 'Libre Baskerville', serif; font-size: 15px; font-weight: 700; color: var(--slate-dark); letter-spacing: .06em; margin: 2rem 0 0.75rem; padding-bottom: 6px; border-bottom: 1px solid var(--gold); }
+h3 { font-size: 13px; font-weight: 700; color: var(--slate-dark); margin: 1.25rem 0 0.5rem; }
+p, li { font-size: 13px; color: var(--slate); margin-bottom: 0.5rem; }
+ul, ol { padding-left: 1.25rem; margin-bottom: 1rem; }
+li { margin-bottom: 0.4rem; }
+strong { color: var(--slate-dark); }
+.card { background: var(--white); border: 1px solid var(--border); border-radius: 6px; padding: 16px; margin: 1rem 0; }
+.card-title { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+.step { display: flex; gap: 12px; margin-bottom: 12px; }
+.step-num { width: 28px; height: 28px; border-radius: 50%; background: var(--sage-light); border: 1px solid var(--gold); display: flex; align-items: center; justify-content: center; font-family: 'Libre Baskerville', serif; font-size: 13px; font-weight: 700; color: var(--slate-dark); flex-shrink: 0; }
+.step-text { flex: 1; font-size: 13px; color: var(--slate); padding-top: 3px; }
+.note { background: #fdf5e4; border: 1px solid var(--gold); border-radius: 4px; padding: 12px; font-size: 12px; color: #7a5e10; margin: 1rem 0; }
+.back-link { display: inline-block; margin-top: 2rem; font-size: 12px; color: var(--gold); text-decoration: none; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.back-link:hover { text-decoration: underline; }
+table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 12px; }
+th { background: var(--sage-light); text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--slate-dark); border: 1px solid var(--border); }
+td { padding: 6px 10px; border: 1px solid var(--border); color: var(--slate); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>How It Works</h1>
+<div class="brand">Copper Builders — Weekly Sales Log</div>
+
+<p>This app is where sales reps submit their weekly activity report. It takes about 2 minutes to fill out each week.</p>
+
+<h2>What You'll Report Each Week</h2>
+
+<p>For each project you're assigned to, you'll enter:</p>
+
+<div class="card">
+<div class="card-title">New Leads</div>
+<p>How many new leads did you receive directly this week? Enter counts for:</p>
+<ul>
+<li><strong>Digital</strong> — website inquiries, email, online forms</li>
+<li><strong>Phone Call</strong> — inbound phone calls</li>
+<li><strong>In Person</strong> — walk-ins, open house visitors</li>
+</ul>
+</div>
+
+<div class="card">
+<div class="card-title">Appointments</div>
+<p>How many appointments did you hold this week?</p>
+<ul>
+<li><strong>Virtual</strong> — phone calls, video meetings</li>
+<li><strong>In Person</strong> — on-site visits, model tours</li>
+</ul>
+</div>
+
+<div class="card">
+<div class="card-title">Prospects / Sales</div>
+<p>Track your active buyers and log sales:</p>
+<ul>
+<li><strong>Add a prospect</strong> — enter their name, ranking (A/B/C), and optional lot number</li>
+<li><strong>Mark as Sold</strong> — click "Sold" next to a prospect to log a sale for the week</li>
+<li><strong>Remove</strong> — click "Remove" if a prospect is no longer active</li>
+</ul>
+<p>Prospects carry over week to week. Sold prospects are logged as sales and removed from your active list.</p>
+</div>
+
+<h2>Step by Step</h2>
+
+<div class="step">
+<div class="step-num">1</div>
+<div class="step-text"><strong>Open the app</strong> — go to <a href="/" style="color: var(--gold)">copper-builders-log.vercel.app</a> on your phone or computer</div>
+</div>
+
+<div class="step">
+<div class="step-num">2</div>
+<div class="step-text"><strong>Select your name</strong> from the dropdown. Your assigned projects will load automatically.</div>
+</div>
+
+<div class="step">
+<div class="step-num">3</div>
+<div class="step-text"><strong>Tap a project</strong> to expand it. Fill in your leads, appointments, and prospect updates for that project.</div>
+</div>
+
+<div class="step">
+<div class="step-num">4</div>
+<div class="step-text"><strong>Repeat</strong> for each of your assigned projects. The progress bar at the top tracks how many you've reviewed.</div>
+</div>
+
+<div class="step">
+<div class="step-num">5</div>
+<div class="step-text"><strong>Click "Submit Weekly Log"</strong> at the bottom. You'll see a confirmation with your totals.</div>
+</div>
+
+<div class="note">
+<strong>Deadline:</strong> Reports are due every <strong>Monday by 10:00 AM</strong>. You can submit anytime during the week — the report covers activity through the previous Sunday.
+</div>
+
+<h2>What Happens to Your Data</h2>
+
+<p>After you submit:</p>
+<ul>
+<li>Your data is saved immediately to Google Sheets</li>
+<li>On Monday at 10:30 AM, all reports are automatically consolidated into a weekly summary</li>
+<li>Your sales manager can see who submitted and who didn't</li>
+<li>If you need to update your report, just select your name and submit again — the latest submission is what counts</li>
+</ul>
+
+<h2>Ranking Guide</h2>
+
+<table>
+<tr><th>Rank</th><th>Meaning</th><th>When to Use</th></tr>
+<tr><td><strong>A</strong></td><td>Hot — ready to buy</td><td>Actively looking, likely to close soon</td></tr>
+<tr><td><strong>B</strong></td><td>Warm — interested</td><td>Engaged but not ready yet, needs follow-up</td></tr>
+<tr><td><strong>C</strong></td><td>Cold — early stage</td><td>Initial contact, browsing, long timeline</td></tr>
+</table>
+
+<h2>Tips</h2>
+
+<ul>
+<li>You can submit from your <strong>phone, tablet, or computer</strong> — just open the link in any browser</li>
+<li>If you enter zeros for a project, that's fine — it just means no activity that week</li>
+<li>Prospects stay in your list until you mark them Sold or Remove them</li>
+<li>If you don't see a project you're working on, let your sales manager know — they manage the assignment list</li>
+</ul>
+
+<h2>Questions?</h2>
+
+<p>Contact your sales manager if you have issues with assignments, missing projects, or need help using the app.</p>
+
+<a href="/" class="back-link">&larr; Back to Sales Log</a>
+
+</div>
+</body>
+</html>
