@@ -127,50 +127,66 @@ async function runPhase2() {
     consolidateResult = { success: false, message: e.message };
   }
 
-  // Step 2c: Write weekly stats to Assignments sheet (columns D-H)
-  let statsResult = { success: false, message: 'skipped' };
+  // Step 2c: Write weekly results to "Last Weeks Results" tab (archive previous)
+  let resultsResult = { success: false, message: 'skipped' };
   try {
-    statsResult = await writeWeeklyStatsToAssignments();
+    resultsResult = await writeWeeklyResults();
   } catch (e) {
-    statsResult = { success: false, message: e.message };
-  }
-
-  // Step 2d: Pull OSC lead data to Assignments sheet (columns I-L)
-  let oscResult = { success: false, message: 'skipped' };
-  try {
-    oscResult = await pullOSCLeadsToAssignments();
-  } catch (e) {
-    oscResult = { success: false, message: e.message };
+    resultsResult = { success: false, message: e.message };
   }
 
   await logToSystemLog('monday-night-phase2', 'success',
-    `Assignments: ${assignmentResult.count || 0}. Consolidation: ${consolidateResult.success}. Stats: ${statsResult.rowsUpdated || 0}. OSC: ${oscResult.rowsUpdated || 0}.`);
+    `Assignments: ${assignmentResult.count || 0}. Consolidation: ${consolidateResult.success}. Results: ${resultsResult.rowsWritten || 0}.`);
 
   return {
     success: true,
     assignments: assignmentResult,
     consolidation: consolidateResult,
-    weeklyStats: statsResult,
-    oscLeads: oscResult,
+    weeklyResults: resultsResult,
   };
 }
 
 // ═══════════════════════════════════════════════════════════
-// WRITE WEEKLY STATS TO ASSIGNMENTS SHEET
+// WRITE WEEKLY RESULTS — separate tab, archived each week
 // ═══════════════════════════════════════════════════════════
 
-async function writeWeeklyStatsToAssignments() {
+async function writeWeeklyResults() {
   const currentWeekEnding = getCurrentWeekEndingShort();
 
+  // Step 1: Archive existing "Last Weeks Results" tab if it exists
+  const existingId = await getSheetId(SALES_APP_SHEET_ID, 'Last Weeks Results');
+  if (existingId !== null) {
+    const archiveName = `Results — ${currentWeekEnding}`;
+    // Check if archive already exists (idempotent)
+    const archiveId = await getSheetId(SALES_APP_SHEET_ID, archiveName);
+    if (archiveId === null) {
+      await batchUpdate(SALES_APP_SHEET_ID, [{
+        updateSheetProperties: {
+          properties: { sheetId: existingId, title: archiveName },
+          fields: 'title',
+        }
+      }]);
+    }
+  }
+
+  // Step 2: Create fresh "Last Weeks Results" tab
+  await batchUpdate(SALES_APP_SHEET_ID, [{
+    addSheet: { properties: { title: 'Last Weeks Results' } }
+  }]);
+
+  // Step 3: Read all data sources
+
+  // 3a: Assignments (rep + community + division)
   const assignData = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Assignments');
-  if (assignData.length < 2) return { success: true, rowsUpdated: 0 };
+  if (assignData.length < 2) return { success: true, rowsWritten: 0 };
 
   const aHeaders = assignData[0];
   const aRepIdx = aHeaders.indexOf('Rep Name');
   let aCommunityIdx = aHeaders.indexOf('Community Name');
   if (aCommunityIdx < 0) aCommunityIdx = aHeaders.indexOf('Community or House Name');
+  const aDivisionIdx = aHeaders.indexOf('Division');
 
-  // Read Submissions for this week (deduplicated)
+  // 3b: Submissions (deduplicated by rep+community for current week)
   const subsByRepComm = {};
   try {
     const sData = await getSheetData(SALES_APP_SHEET_ID, 'Submissions');
@@ -209,7 +225,7 @@ async function writeWeeklyStatsToAssignments() {
     }
   } catch {}
 
-  // Read Prospects for active counts per rep+community
+  // 3c: Prospects (active counts per rep+community)
   const prospectsByRepComm = {};
   try {
     const pData = await getSheetData(SALES_APP_SHEET_ID, 'Prospects');
@@ -230,88 +246,59 @@ async function writeWeeklyStatsToAssignments() {
     }
   } catch {}
 
-  // Build values for columns D-H for each Assignments row
-  const statsRows = [];
-  let rowsUpdated = 0;
+  // 3d: OSC leads
+  const oscByCommunity = {};
+  try {
+    const oscData = await getSheetData(TEMPLATE_SHEET_ID, "'Dashboard Template'!A7:F");
+    for (const row of (oscData || [])) {
+      const name = (row[0] || '').toString().trim();
+      if (!name) continue;
+      oscByCommunity[name.toLowerCase()] = {
+        digital: toNum(row[2]),
+        inPerson: toNum(row[3]),
+        callIn: toNum(row[4]),
+      };
+    }
+  } catch {}
 
+  // Step 4: Build results rows
+  const header = [
+    'Week Ending', 'Rep Name', 'Community', 'Division', 'Report Date',
+    'Sales', 'Prospects', 'Appts Held', 'Sales Rep Leads',
+    'OSC Digital Leads', 'OSC In Person Leads', 'OSC Call-In Leads', 'OSC Total Leads',
+  ];
+
+  const rows = [];
   for (let i = 1; i < assignData.length; i++) {
     const rep = (assignData[i][aRepIdx] || '').toString().trim();
     const comm = aCommunityIdx >= 0 ? (assignData[i][aCommunityIdx] || '').toString().trim() : '';
+    const div = aDivisionIdx >= 0 ? (assignData[i][aDivisionIdx] || '').toString().trim() : '';
     const key = `${rep}||${comm}`;
 
     const sub = subsByRepComm[key];
     const prospects = prospectsByRepComm[key] || 0;
+    const osc = oscByCommunity[comm.toLowerCase()] || { digital: 0, inPerson: 0, callIn: 0 };
+    const oscTotal = osc.digital + osc.inPerson + osc.callIn;
 
-    if (sub) {
-      const reportDate = sub.ts ? new Date(sub.ts).toLocaleDateString('en-US') : '';
-      statsRows.push([reportDate, sub.sold || 0, prospects, sub.appts || 0, sub.dlDigital + sub.dlPhone + sub.dlInPerson]);
-      rowsUpdated++;
-    } else {
-      statsRows.push(['', 0, prospects, 0, 0]);
-    }
+    const reportDate = sub?.ts ? new Date(sub.ts).toLocaleDateString('en-US') : '';
+    const sales = sub?.sold || 0;
+    const appts = sub?.appts || 0;
+    const repLeads = (sub?.dlDigital || 0) + (sub?.dlPhone || 0) + (sub?.dlInPerson || 0);
+
+    rows.push([
+      currentWeekEnding, rep, comm, div, reportDate,
+      sales, prospects, appts, repLeads,
+      osc.digital, osc.inPerson, osc.callIn, oscTotal,
+    ]);
   }
 
-  if (statsRows.length > 0) {
-    await updateRange(ASSIGNMENTS_SHEET_ID, `Assignments!D2:H${1 + statsRows.length}`, statsRows);
+  // Step 5: Write to "Last Weeks Results" tab
+  await updateRange(SALES_APP_SHEET_ID, `'Last Weeks Results'!A1:M1`, [header]);
+  if (rows.length > 0) {
+    await updateRange(SALES_APP_SHEET_ID, `'Last Weeks Results'!A2:M${1 + rows.length}`, rows);
   }
 
-  return { success: true, rowsUpdated };
-}
-
-// ═══════════════════════════════════════════════════════════
-// PULL OSC LEAD DATA TO ASSIGNMENTS SHEET (columns I-L)
-// ═══════════════════════════════════════════════════════════
-
-async function pullOSCLeadsToAssignments() {
-  const OSC_SHEET_ID = TEMPLATE_SHEET_ID; // Same sheet the OSC fills out
-
-  // Read OSC data from Dashboard Template rows 7+ (cols A-F)
-  const oscData = await getSheetData(OSC_SHEET_ID, "'Dashboard Template'!A7:F");
-  if (!oscData || oscData.length === 0) return { success: true, rowsUpdated: 0 };
-
-  // Build lookup: community name (lowercase) → { digital, inPerson, callIn }
-  const oscByCommunity = {};
-  for (const row of oscData) {
-    const name = (row[0] || '').toString().trim();
-    if (!name) continue;
-    oscByCommunity[name.toLowerCase()] = {
-      digital: toNum(row[2]),   // Col C: Total Digital
-      inPerson: toNum(row[3]),  // Col D: Total In Person
-      callIn: toNum(row[4]),    // Col E: Total Calls
-    };
-  }
-
-  // Read Assignments sheet to get community names per row
-  const assignData = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Assignments');
-  if (assignData.length < 2) return { success: true, rowsUpdated: 0 };
-
-  const aHeaders = assignData[0];
-  let aCommunityIdx = aHeaders.indexOf('Community Name');
-  if (aCommunityIdx < 0) aCommunityIdx = aHeaders.indexOf('Community or House Name');
-
-  // Build values for columns I-L for each row
-  const oscRows = [];
-  let rowsUpdated = 0;
-
-  for (let i = 1; i < assignData.length; i++) {
-    const comm = aCommunityIdx >= 0 ? (assignData[i][aCommunityIdx] || '').toString().trim() : '';
-    const osc = oscByCommunity[comm.toLowerCase()];
-
-    if (osc && (osc.digital > 0 || osc.inPerson > 0 || osc.callIn > 0)) {
-      const total = osc.digital + osc.inPerson + osc.callIn;
-      oscRows.push([osc.digital, osc.inPerson, osc.callIn, total]);
-      rowsUpdated++;
-    } else {
-      oscRows.push([0, 0, 0, 0]);
-    }
-  }
-
-  // Write columns I-L (rows 2 onwards)
-  if (oscRows.length > 0) {
-    await updateRange(ASSIGNMENTS_SHEET_ID, `Assignments!I2:L${1 + oscRows.length}`, oscRows);
-  }
-
-  return { success: true, rowsUpdated };
+  return { success: true, rowsWritten: rows.length };
 }
 
 // ═══════════════════════════════════════════════════════════
