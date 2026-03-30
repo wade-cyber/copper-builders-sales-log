@@ -23,10 +23,10 @@ body { background: var(--cream); font-family: 'Open Sans', sans-serif; overflow-
 .header-top { display: flex; align-items: flex-start; justify-content: space-between; }
 .brand-name { font-family: 'Libre Baskerville', serif; font-size: 15px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--slate-dark); }
 .brand-sub { font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold); margin-top: 1px; }
-.page-title-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; }
+.page-title-row { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
 .page-title { font-family: 'Libre Baskerville', serif; font-size: 22px; font-weight: 400; color: var(--slate-dark); }
-.help-btn { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); border-radius: 4px; padding: 3px 10px; text-decoration: none; transition: background .2s, color .2s; }
-.help-btn:hover { background: var(--gold); color: #fff; }
+.help-btn { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #fff; background: var(--slate); border: none; border-radius: 4px; padding: 5px 14px; text-decoration: none; transition: background .2s; }
+.help-btn:hover { background: var(--slate-dark); }
 .due-note { font-size: 11px; color: var(--slate); margin-top: 3px; }
 .rt-label { font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); text-align: right; }
 .rt-date { font-family: 'Libre Baskerville', serif; font-size: 13px; color: var(--slate-dark); text-align: right; margin-top: 2px; }
