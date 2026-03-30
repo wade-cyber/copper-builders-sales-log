@@ -27,7 +27,7 @@ const DIVISION_OVERRIDES = {
   'Edenburgh': 'CLT',
   'Oberlin': 'TRN',
   'Sunset Reach': 'TRN',
-  'The Manors at Eastover': 'CLT',
+  'The Laurel at Eastover': 'CLT',
   'Greenway': 'GVL',
   'Earp Farm': 'CLT',
   'Meadowood': 'CLT',

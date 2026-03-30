@@ -9,6 +9,8 @@ import {
   SALES_APP_SHEET_ID, ASSIGNMENTS_SHEET_ID, TEMPLATE_SHEET_ID,
 } from './_lib/sheets.js';
 import { getCommunitiesFromAssignmentsSheet, getRepsFromAssignmentsSheet } from './_lib/sync-from-assignments-sheet.js';
+import { supabase } from './_lib/db.js';
+import { resolveOrCreateRep, resolveOrCreateCommunity, clearResolverCache } from './_lib/resolve-names.js';
 
 export default async function handler(req, res) {
   let body = {};
@@ -494,6 +496,32 @@ async function cacheAssignmentsLocally() {
   await updateRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!F1:G1", [
     ['Last Synced', new Date().toISOString()]
   ]);
+
+  // === Dual-write: sync assignments to Supabase ===
+  try {
+    clearResolverCache();
+    const weekEnding = getCurrentWeekEndingShort();
+    // Parse week ending to ISO date
+    const sun = getWeekEndingSunday();
+    const weekEndingDate = sun.toISOString().slice(0, 10);
+
+    let dbCount = 0;
+    for (const [repName, commName, division, tp] of rows) {
+      const rep = await resolveOrCreateRep(repName);
+      const community = await resolveOrCreateCommunity(commName, division || 'CLT');
+      await supabase.from('assignments').upsert({
+        rep_id: rep.id,
+        community_id: community.id,
+        week_ending: weekEndingDate,
+        source: 'smartsheet',
+        third_party: tp || null,
+      }, { onConflict: 'rep_id,community_id,week_ending' });
+      dbCount++;
+    }
+    console.log(`[cacheAssignments] Synced ${dbCount} assignments to Supabase`);
+  } catch (dbErr) {
+    console.error('[cacheAssignments] Supabase sync failed:', dbErr.message);
+  }
 
   return { success: true, count: rows.length };
 }
