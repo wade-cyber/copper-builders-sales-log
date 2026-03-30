@@ -272,10 +272,11 @@ async function writeWeeklyResults() {
     }
   } catch {}
 
-  // 3d: OSC leads — read full width (A through AM = 39 cols) to capture all data
+  // 3d: OSC leads — read from "This Week's Report" (the active weekly tab)
   const oscByCommunity = {};
   try {
-    const oscData = await getSheetData(TEMPLATE_SHEET_ID, "'Dashboard Template'!A7:AM");
+    const oscTabName = "This Week's Report";
+    const oscData = await getSheetData(TEMPLATE_SHEET_ID, `'${oscTabName}'!A7:AM`);
     for (const row of (oscData || [])) {
       const name = (row[0] || '').toString().trim();
       if (!name) continue;
@@ -333,89 +334,97 @@ async function writeWeeklyResults() {
 
 async function rotateOSCLeadsSheet(targetDate = null) {
   const OSC_SHEET = TEMPLATE_SHEET_ID;
-  const DASHBOARD_TAB = 'Dashboard Template';
+  const TEMPLATE_TAB = 'Dashboard Template';
+  const REPORT_TAB = "This Week's Report";
   const TOTAL_COLS = 39; // A through AM
+  const DATA_START_COL = 6; // column G (0-based index 6)
+  const DATA_COL_COUNT = TOTAL_COLS - DATA_START_COL; // G through AM = 33 cols
 
-  // Calculate dates using shared utility — consistent with getCurrentWeekEndingShort()
+  // Calculate dates
   const currentSunday = getWeekEndingSunday(targetDate);
   const previousSunday = new Date(currentSunday);
   previousSunday.setDate(currentSunday.getDate() - 7);
-
   const archiveName = formatTabName(previousSunday);
   const weekEndingDate = `${currentSunday.getMonth() + 1}/${currentSunday.getDate()}/${String(currentSunday.getFullYear()).slice(2)}`;
 
-  const dashSheetId = await getSheetId(OSC_SHEET, DASHBOARD_TAB);
-  if (dashSheetId === null) {
+  const templateSheetId = await getSheetId(OSC_SHEET, TEMPLATE_TAB);
+  if (templateSheetId === null) {
     return { success: false, message: 'Dashboard Template tab not found' };
   }
 
-  // Step 1: Archive — duplicate Dashboard Template as "Week of [date]"
+  // Step 1: Archive existing "This Week's Report" → rename to "Week of [date]"
   let archiveSkipped = false;
-  const existingArchive = await getSheetId(OSC_SHEET, archiveName);
-  if (existingArchive !== null) {
-    console.log(`Archive tab '${archiveName}' already exists, skipping archive step`);
-    archiveSkipped = true;
-  } else {
-    // Duplicate preserves ALL formatting and data (including protections on the copy)
-    try {
-      await batchUpdate(OSC_SHEET, [{
-        duplicateSheet: {
-          sourceSheetId: dashSheetId,
-          newSheetName: archiveName,
-        }
-      }]);
-    } catch (e) {
-      console.error('[OSC Rotate] Step 1 (archive) failed:', e.message);
+  const existingReport = await getSheetId(OSC_SHEET, REPORT_TAB);
+  if (existingReport !== null) {
+    const existingArchive = await getSheetId(OSC_SHEET, archiveName);
+    if (existingArchive !== null) {
+      // Archive already exists — delete the old report tab
+      console.log(`Archive '${archiveName}' already exists, deleting stale report tab`);
+      try {
+        await batchUpdate(OSC_SHEET, [{ deleteSheet: { sheetId: existingReport } }]);
+      } catch (e) {
+        console.error('[OSC Rotate] Delete stale report failed:', e.message);
+      }
       archiveSkipped = true;
+    } else {
+      // Rename current report to archive
+      try {
+        await batchUpdate(OSC_SHEET, [{
+          updateSheetProperties: {
+            properties: { sheetId: existingReport, title: archiveName },
+            fields: 'title',
+          }
+        }]);
+      } catch (e) {
+        console.error('[OSC Rotate] Archive rename failed:', e.message);
+        archiveSkipped = true;
+      }
     }
+  } else {
+    archiveSkipped = true; // no existing report to archive
   }
 
-  // All remaining steps run regardless of archive status
+  // Step 2: Create fresh "This Week's Report" by duplicating Dashboard Template
+  await batchUpdate(OSC_SHEET, [{
+    duplicateSheet: {
+      sourceSheetId: templateSheetId,
+      newSheetName: REPORT_TAB,
+    }
+  }]);
 
-  // Step 2: Clear community data cells in Dashboard Template (preserve formatting)
-  // Only clear rows 13+ (community data). Skip protected columns C-F.
-  const allData = await getSheetData(OSC_SHEET, `'${DASHBOARD_TAB}'!A1:A`);
+  // Step 3: Clear data columns G:AM for rows 7+ (fixed communities 7-12 AND dynamic 13+)
+  // Write blank strings (not zeros) so the OSC can enter data cleanly.
+  const allData = await getSheetData(OSC_SHEET, `'${REPORT_TAB}'!A1:A`);
   const lastRow = allData.length;
 
-  if (lastRow >= 13) {
-    const dataRowCount = lastRow - 13 + 1;
-    // Only zero out G through AM (33 cols), skip protected C-F.
-    const zeroRow = Array(TOTAL_COLS - 6).fill(0); // cols G through AM = 33 cols
-    const zeros = Array.from({ length: dataRowCount }, () => [...zeroRow]);
-    try {
-      await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!G13:AM${lastRow}`, zeros);
-    } catch (e) {
-      console.error('[OSC Rotate] Step 2 (clear G13:AM) failed:', e.message);
-    }
+  if (lastRow >= 7) {
+    const clearRowCount = lastRow - 7 + 1;
+    const blankRow = Array(DATA_COL_COUNT).fill('');
+    const blanks = Array.from({ length: clearRowCount }, () => [...blankRow]);
+    await updateRange(OSC_SHEET, `'${REPORT_TAB}'!G7:AM${lastRow}`, blanks);
   }
 
-  // Step 3: Update week ending date
-  try {
-    await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!B2`, [[weekEndingDate]]);
-  } catch (e) {
-    console.error('[OSC Rotate] Step 3 (update B2 date) failed:', e.message);
-  }
+  // Step 4: Update week ending date
+  await updateRange(OSC_SHEET, `'${REPORT_TAB}'!B2`, [[weekEndingDate]]);
 
-  // Step 4: Sync communities (rows 13+) from Assignments sheet
-  // Overwrite in place — no row delete/insert (protected columns block structural changes).
+  // Step 5: Sync dynamic communities (rows 13+) from Assignments sheet
   const newCommunities = await getCommunitiesFromAssignmentsSheet();
-
   let communitiesUpdated = 0;
+
   if (newCommunities.length > 0) {
-    // Write community names + divisions into A13:B (skip protected C-F)
     const nameRows = newCommunities.map(c => [c.name, c.market]);
     await updateRange(OSC_SHEET,
-      `'${DASHBOARD_TAB}'!A13:B${12 + newCommunities.length}`,
+      `'${REPORT_TAB}'!A13:B${12 + newCommunities.length}`,
       nameRows
     );
     communitiesUpdated = newCommunities.length;
 
-    // If there were more old rows than new, clear the leftover names
+    // Clear leftover community names if fewer than before
     if (lastRow > 12 + newCommunities.length) {
       const extraRows = lastRow - (12 + newCommunities.length);
       const blankRows = Array.from({ length: extraRows }, () => ['', '']);
       await updateRange(OSC_SHEET,
-        `'${DASHBOARD_TAB}'!A${13 + newCommunities.length}:B${lastRow}`,
+        `'${REPORT_TAB}'!A${13 + newCommunities.length}:B${lastRow}`,
         blankRows
       );
     }
@@ -423,8 +432,9 @@ async function rotateOSCLeadsSheet(targetDate = null) {
 
   return {
     success: true,
-    archived: archiveSkipped ? `${archiveName} (already existed)` : archiveName,
+    archived: archiveSkipped ? `${archiveName} (skipped)` : archiveName,
     archiveSkipped,
+    reportTab: REPORT_TAB,
     weekEndingDate,
     communitiesUpdated,
     communitiesChanged: communitiesUpdated > 0,
