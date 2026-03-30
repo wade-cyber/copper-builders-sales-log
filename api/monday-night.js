@@ -374,9 +374,10 @@ async function rotateOSCLeadsSheet(targetDate = null) {
 
   if (lastRow >= 13) {
     const dataRowCount = lastRow - 13 + 1;
-    const zeroRow = Array(TOTAL_COLS - 2).fill(0); // cols C through AM = 37 cols
+    // Skip protected columns C-F. Only zero out G through AM (33 cols).
+    const zeroRow = Array(TOTAL_COLS - 6).fill(0); // cols G through AM = 33 cols
     const zeros = Array.from({ length: dataRowCount }, () => [...zeroRow]);
-    await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!C13:AM${lastRow}`, zeros);
+    await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!G13:AM${lastRow}`, zeros);
   }
 
   // Step 3: Update week ending date to next Sunday
@@ -426,37 +427,54 @@ async function rotateOSCLeadsSheet(targetDate = null) {
       }]);
 
       // Copy formatting from row 12 (last evergreen row)
-      await batchUpdate(OSC_SHEET, [{
-        copyPaste: {
-          source: {
-            sheetId: dashSheetId,
-            startRowIndex: 11, // row 12, 0-based
-            endRowIndex: 12,
-            startColumnIndex: 0,
-            endColumnIndex: TOTAL_COLS,
-          },
-          destination: {
-            sheetId: dashSheetId,
-            startRowIndex: 12,
-            endRowIndex: 12 + newCommunities.length,
-            startColumnIndex: 0,
-            endColumnIndex: TOTAL_COLS,
-          },
-          pasteType: 'PASTE_FORMAT',
-        }
-      }]);
+      // Split into two operations to skip protected columns C-F (index 2-6)
+      await batchUpdate(OSC_SHEET, [
+        // Columns A-B (index 0-2)
+        {
+          copyPaste: {
+            source: {
+              sheetId: dashSheetId,
+              startRowIndex: 11, endRowIndex: 12,
+              startColumnIndex: 0, endColumnIndex: 2,
+            },
+            destination: {
+              sheetId: dashSheetId,
+              startRowIndex: 12, endRowIndex: 12 + newCommunities.length,
+              startColumnIndex: 0, endColumnIndex: 2,
+            },
+            pasteType: 'PASTE_FORMAT',
+          }
+        },
+        // Columns G-AM (index 6-39)
+        {
+          copyPaste: {
+            source: {
+              sheetId: dashSheetId,
+              startRowIndex: 11, endRowIndex: 12,
+              startColumnIndex: 6, endColumnIndex: TOTAL_COLS,
+            },
+            destination: {
+              sheetId: dashSheetId,
+              startRowIndex: 12, endRowIndex: 12 + newCommunities.length,
+              startColumnIndex: 6, endColumnIndex: TOTAL_COLS,
+            },
+            pasteType: 'PASTE_FORMAT',
+          }
+        },
+      ]);
 
-      // Write community names + divisions + zeros
-      const dataRows = newCommunities.map(c => {
-        const row = Array(TOTAL_COLS).fill(0);
-        row[0] = c.name;
-        row[1] = c.market;
-        return row;
-      });
-
+      // Write community names + divisions (A:B only, skip protected C-F)
+      const nameRows = newCommunities.map(c => [c.name, c.market]);
       await updateRange(OSC_SHEET,
-        `'${DASHBOARD_TAB}'!A13:AM${12 + newCommunities.length}`,
-        dataRows
+        `'${DASHBOARD_TAB}'!A13:B${12 + newCommunities.length}`,
+        nameRows
+      );
+
+      // Zero out data columns G through AM (skip protected C-F)
+      const zeroRows = newCommunities.map(() => Array(TOTAL_COLS - 6).fill(0)); // 33 cols
+      await updateRange(OSC_SHEET,
+        `'${DASHBOARD_TAB}'!G13:AM${12 + newCommunities.length}`,
+        zeroRows
       );
       communitiesUpdated = newCommunities.length;
     }
