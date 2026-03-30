@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Copper Builders — Admin Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --gold:#B09245; --slate:#566263; --slate-dark:#3a4344; --sage:#BFD1CB; --sage-light:#d8e8e3; --cream:#F5F5EF; --white:#fff; --border:#d4cfc6; --red:#c0392b; --green:#27ae60; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--cream); font-family:'Open Sans',sans-serif; color:var(--slate-dark); font-size:14px; }
+    .wrap { max-width:960px; margin:0 auto; padding:1rem; }
+    h1 { font-family:'Libre Baskerville',serif; font-size:22px; font-weight:400; color:var(--slate-dark); }
+    h2 { font-family:'Libre Baskerville',serif; font-size:16px; font-weight:400; margin-bottom:12px; }
+    .header { display:flex; align-items:center; justify-content:space-between; padding:1rem 0; border-bottom:2px solid var(--gold); margin-bottom:1rem; }
+    .header-left { display:flex; align-items:baseline; gap:12px; }
+    .brand { font-family:'Libre Baskerville',serif; font-size:13px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--slate-dark); }
+    .home-link { font-size:11px; color:var(--gold); text-decoration:none; border:1px solid var(--gold); border-radius:4px; padding:3px 10px; }
+    .home-link:hover { background:var(--gold); color:#fff; }
+
+    /* Tabs */
+    .tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:1.5rem; }
+    .tab { padding:8px 16px; cursor:pointer; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--slate); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all .2s; }
+    .tab:hover { color:var(--slate-dark); }
+    .tab.active { color:var(--gold); border-bottom-color:var(--gold); }
+    .panel { display:none; }
+    .panel.active { display:block; }
+
+    /* Cards */
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:1.5rem; }
+    .card { background:var(--white); border:1px solid var(--border); border-radius:6px; padding:14px; text-align:center; }
+    .card-val { font-family:'Libre Baskerville',serif; font-size:28px; color:var(--slate-dark); }
+    .card-label { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--slate); margin-top:4px; }
+
+    /* Tables */
+    table { width:100%; border-collapse:collapse; background:var(--white); border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:1rem; }
+    th { background:var(--sage-light); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--slate); padding:8px 10px; text-align:left; font-weight:600; }
+    td { padding:8px 10px; border-top:1px solid var(--border); font-size:13px; }
+    tr:hover td { background:#f9f8f5; }
+    .badge { display:inline-block; font-size:10px; font-weight:600; padding:2px 8px; border-radius:10px; }
+    .badge-green { background:#e8f5e9; color:var(--green); }
+    .badge-red { background:#fdecea; color:var(--red); }
+    .badge-gray { background:#eee; color:#888; }
+    .badge-gold { background:#fdf3e0; color:var(--gold); }
+
+    /* Forms */
+    .form-row { display:flex; gap:8px; margin-bottom:12px; align-items:flex-end; flex-wrap:wrap; }
+    .form-group { display:flex; flex-direction:column; }
+    .form-group label { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--slate); margin-bottom:3px; font-weight:600; }
+    input, select { font-family:'Open Sans',sans-serif; font-size:13px; padding:6px 10px; border:1px solid var(--border); border-radius:4px; background:var(--white); }
+    input:focus, select:focus { outline:none; border-color:var(--gold); }
+    .btn { font-family:'Open Sans',sans-serif; font-size:12px; font-weight:600; padding:7px 16px; border:none; border-radius:4px; cursor:pointer; transition:background .2s; }
+    .btn-gold { background:var(--gold); color:#fff; }
+    .btn-gold:hover { background:#9a7f3a; }
+    .btn-slate { background:var(--slate); color:#fff; }
+    .btn-slate:hover { background:var(--slate-dark); }
+    .btn-red { background:var(--red); color:#fff; }
+    .btn-red:hover { background:#a93226; }
+    .btn-sm { padding:4px 10px; font-size:11px; }
+    .btn:disabled { opacity:.5; cursor:not-allowed; }
+
+    /* Alerts */
+    .alert { padding:10px 14px; border-radius:6px; margin-bottom:1rem; font-size:13px; }
+    .alert-warn { background:#fff3cd; border:1px solid #ffc107; color:#856404; }
+    .alert-ok { background:#d4edda; border:1px solid #28a745; color:#155724; }
+
+    /* Non-reporters */
+    .nr-list { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:1rem; }
+    .nr-chip { font-size:12px; background:#fdecea; color:var(--red); padding:4px 10px; border-radius:12px; }
+
+    /* Status dot */
+    .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+    .dot-green { background:var(--green); }
+    .dot-red { background:var(--red); }
+    .dot-gold { background:var(--gold); }
+
+    .loading { text-align:center; padding:2rem; color:var(--slate); }
+    .muted { color:var(--slate); font-size:12px; }
+    .mt { margin-top:1rem; }
+    .mb { margin-bottom:1rem; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="header-left">
+      <span class="brand">Copper Builders</span>
+      <h1>Admin Dashboard</h1>
+    </div>
+    <a href="/" class="home-link">Sales Log</a>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="overview">Overview</div>
+    <div class="tab" data-tab="communities">Communities</div>
+    <div class="tab" data-tab="reps">Reps</div>
+    <div class="tab" data-tab="assignments">Assignments</div>
+    <div class="tab" data-tab="system">System</div>
+  </div>
+
+  <!-- ===== OVERVIEW ===== -->
+  <div id="overview" class="panel active">
+    <div id="overview-cards" class="cards"></div>
+    <div id="nr-section"></div>
+    <h2>Community Activity</h2>
+    <div id="overview-table"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- ===== COMMUNITIES ===== -->
+  <div id="communities" class="panel">
+    <h2>Manage Communities</h2>
+    <div class="form-row">
+      <div class="form-group"><label>Name</label><input id="comm-name" placeholder="e.g. Bella Ridge"></div>
+      <div class="form-group"><label>Division</label>
+        <select id="comm-div"><option>CLT</option><option>CLB</option><option>TRN</option><option>GVL</option><option>WIL</option></select>
+      </div>
+      <button class="btn btn-gold" onclick="addCommunity()">Add Community</button>
+    </div>
+    <div id="comm-table"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- ===== REPS ===== -->
+  <div id="reps" class="panel">
+    <h2>Manage Sales Reps</h2>
+    <div class="form-row">
+      <div class="form-group"><label>Name</label><input id="rep-name" placeholder="e.g. John Smith"></div>
+      <div class="form-group"><label>Email (optional)</label><input id="rep-email" placeholder="john@example.com"></div>
+      <button class="btn btn-gold" onclick="addRep()">Add Rep</button>
+    </div>
+    <div id="rep-table"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- ===== ASSIGNMENTS ===== -->
+  <div id="assignments" class="panel">
+    <h2>Weekly Assignments</h2>
+    <div class="form-row">
+      <div class="form-group"><label>Week Ending</label><input id="assign-week" type="date"></div>
+      <button class="btn btn-slate" onclick="loadAssignments()">Load</button>
+    </div>
+    <div class="form-row mt">
+      <div class="form-group"><label>Rep</label><select id="assign-rep"></select></div>
+      <div class="form-group"><label>Community</label><select id="assign-comm"></select></div>
+      <button class="btn btn-gold" onclick="addAssignment()">Assign</button>
+    </div>
+    <div id="assign-table"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- ===== SYSTEM ===== -->
+  <div id="system" class="panel">
+    <h2>System Health</h2>
+    <div id="health-section"><div class="loading">Loading...</div></div>
+    <div class="form-row mt">
+      <button class="btn btn-slate" onclick="triggerJob('monday-night')" id="btn-monday">Run Monday Night Job</button>
+      <button class="btn btn-slate" onclick="triggerJob('import-leads')" id="btn-leads">Import Leads</button>
+    </div>
+    <h2 class="mt">Run History</h2>
+    <div id="run-table"><div class="loading">Loading...</div></div>
+    <h2 class="mt">Recent Errors</h2>
+    <div id="error-table"><div class="loading">Loading...</div></div>
+  </div>
+</div>
+
+<script>
+const API = '';
+
+// ===== TAB SWITCHING =====
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById(t.dataset.tab).classList.add('active');
+    loadTab(t.dataset.tab);
+  });
+});
+
+function loadTab(tab) {
+  if (tab === 'overview') loadOverview();
+  if (tab === 'communities') loadCommunities();
+  if (tab === 'reps') loadReps();
+  if (tab === 'assignments') { populateDropdowns(); loadAssignments(); }
+  if (tab === 'system') loadSystem();
+}
+
+// ===== OVERVIEW =====
+async function loadOverview() {
+  const r = await fetch(API + '/api/reports?type=weekly-summary').then(r => r.json());
+  if (!r.success) return;
+  const d = r.data;
+  const s = d.summary;
+
+  const totalAppts = d.communities.reduce((a, c) => a + c.total_appts, 0);
+  const totalLeads = d.communities.reduce((a, c) => a + c.leads_digital + c.leads_phone + c.leads_in_person, 0);
+  const totalProspects = d.communities.reduce((a, c) => a + c.active_prospects, 0);
+  const totalSold = d.communities.reduce((a, c) => a + c.sold, 0);
+
+  document.getElementById('overview-cards').innerHTML = `
+    <div class="card"><div class="card-val">${s.total_submissions}</div><div class="card-label">Submissions</div></div>
+    <div class="card"><div class="card-val">${s.total_non_reporters}</div><div class="card-label">Non-Reporters</div></div>
+    <div class="card"><div class="card-val">${totalAppts}</div><div class="card-label">Appointments</div></div>
+    <div class="card"><div class="card-val">${totalLeads}</div><div class="card-label">Direct Leads</div></div>
+    <div class="card"><div class="card-val">${totalProspects}</div><div class="card-label">Prospects</div></div>
+    <div class="card"><div class="card-val">${totalSold}</div><div class="card-label">Sales</div></div>
+  `;
+
+  // Non-reporters
+  const nrHtml = d.non_reporters.length > 0
+    ? `<div class="alert alert-warn">Missing Reports (${d.non_reporters.length})</div>
+       <div class="nr-list">${d.non_reporters.map(n => `<span class="nr-chip">${n.rep} — ${n.community}</span>`).join('')}</div>`
+    : '<div class="alert alert-ok">All reps have submitted!</div>';
+  document.getElementById('nr-section').innerHTML = nrHtml;
+
+  // Community table
+  if (d.communities.length === 0) {
+    document.getElementById('overview-table').innerHTML = '<p class="muted">No submissions yet for this week.</p>';
+    return;
+  }
+  let html = '<table><tr><th>Community</th><th>Division</th><th>Appts</th><th>Leads</th><th>Prospects</th><th>Sales</th><th>Reps</th></tr>';
+  for (const c of d.communities.sort((a,b) => a.division.localeCompare(b.division) || a.community.localeCompare(b.community))) {
+    const leads = c.leads_digital + c.leads_phone + c.leads_in_person;
+    html += `<tr><td>${c.community}</td><td><span class="badge badge-gold">${c.division}</span></td><td>${c.total_appts}</td><td>${leads}</td><td>${c.active_prospects}</td><td>${c.sold}</td><td>${c.reps_reporting.join(', ')}</td></tr>`;
+  }
+  html += '</table>';
+  document.getElementById('overview-table').innerHTML = html;
+}
+
+// ===== COMMUNITIES =====
+async function loadCommunities() {
+  const r = await fetch(API + '/api/admin?action=list-communities').then(r => r.json());
+  let html = '<table><tr><th>Name</th><th>Division</th><th>Status</th><th>Actions</th></tr>';
+  for (const c of r.data) {
+    html += `<tr>
+      <td>${c.name}</td>
+      <td><span class="badge badge-gold">${c.division}</span></td>
+      <td>${c.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-gray">Inactive</span>'}</td>
+      <td><button class="btn btn-sm ${c.is_active ? 'btn-red' : 'btn-gold'}" onclick="toggleCommunity(${c.id},'${c.name}','${c.division}',${!c.is_active})">${c.is_active ? 'Deactivate' : 'Activate'}</button></td>
+    </tr>`;
+  }
+  html += '</table>';
+  document.getElementById('comm-table').innerHTML = html;
+}
+
+async function addCommunity() {
+  const name = document.getElementById('comm-name').value.trim();
+  const division = document.getElementById('comm-div').value;
+  if (!name) return alert('Enter a community name');
+  await fetch(API + '/api/admin?action=upsert-community', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name, division })
+  });
+  document.getElementById('comm-name').value = '';
+  loadCommunities();
+}
+
+async function toggleCommunity(id, name, division, is_active) {
+  await fetch(API + '/api/admin?action=upsert-community', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ id, name, division, is_active })
+  });
+  loadCommunities();
+}
+
+// ===== REPS =====
+async function loadReps() {
+  const r = await fetch(API + '/api/admin?action=list-reps').then(r => r.json());
+  let html = '<table><tr><th>Name</th><th>Email</th><th>Status</th><th>Actions</th></tr>';
+  for (const rep of r.data) {
+    html += `<tr>
+      <td>${rep.name}</td>
+      <td class="muted">${rep.email || '—'}</td>
+      <td>${rep.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-gray">Inactive</span>'}</td>
+      <td><button class="btn btn-sm ${rep.is_active ? 'btn-red' : 'btn-gold'}" onclick="toggleRep(${rep.id},'${rep.name.replace(/'/g,"\\'")}',${!rep.is_active})">${rep.is_active ? 'Deactivate' : 'Activate'}</button></td>
+    </tr>`;
+  }
+  html += '</table>';
+  document.getElementById('rep-table').innerHTML = html;
+}
+
+async function addRep() {
+  const name = document.getElementById('rep-name').value.trim();
+  const email = document.getElementById('rep-email').value.trim();
+  if (!name) return alert('Enter a rep name');
+  await fetch(API + '/api/admin?action=upsert-rep', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name, email: email || null })
+  });
+  document.getElementById('rep-name').value = '';
+  document.getElementById('rep-email').value = '';
+  loadReps();
+}
+
+async function toggleRep(id, name, is_active) {
+  await fetch(API + '/api/admin?action=upsert-rep', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ id, name, is_active })
+  });
+  loadReps();
+}
+
+// ===== ASSIGNMENTS =====
+let _reps = [], _comms = [];
+async function populateDropdowns() {
+  const [rr, cr] = await Promise.all([
+    fetch(API + '/api/admin?action=list-reps').then(r => r.json()),
+    fetch(API + '/api/admin?action=list-communities').then(r => r.json()),
+  ]);
+  _reps = rr.data.filter(r => r.is_active);
+  _comms = cr.data.filter(c => c.is_active);
+
+  const repSel = document.getElementById('assign-rep');
+  repSel.innerHTML = _reps.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+  const commSel = document.getElementById('assign-comm');
+  commSel.innerHTML = _comms.map(c => `<option value="${c.id}">${c.name} (${c.division})</option>`).join('');
+
+  // Default week ending to next Sunday
+  const today = new Date();
+  const day = today.getDay();
+  const diff = day === 0 ? 0 : 7 - day;
+  const sun = new Date(today);
+  sun.setDate(today.getDate() + diff);
+  document.getElementById('assign-week').value = sun.toISOString().slice(0, 10);
+}
+
+async function loadAssignments() {
+  const week = document.getElementById('assign-week').value;
+  const r = await fetch(API + '/api/admin?action=list-assignments&week_ending=' + week).then(r => r.json());
+  if (!r.data || r.data.length === 0) {
+    document.getElementById('assign-table').innerHTML = '<p class="muted">No assignments for this week.</p>';
+    return;
+  }
+  let html = '<table><tr><th>Rep</th><th>Community</th><th>Division</th><th>Source</th><th></th></tr>';
+  for (const a of r.data) {
+    html += `<tr>
+      <td>${a.reps.name}</td>
+      <td>${a.communities.name}</td>
+      <td><span class="badge badge-gold">${a.communities.division}</span></td>
+      <td class="muted">${a.source}</td>
+      <td><button class="btn btn-sm btn-red" onclick="removeAssignment(${a.id})">Remove</button></td>
+    </tr>`;
+  }
+  html += '</table>';
+  document.getElementById('assign-table').innerHTML = html;
+}
+
+async function addAssignment() {
+  const rep_id = parseInt(document.getElementById('assign-rep').value);
+  const community_id = parseInt(document.getElementById('assign-comm').value);
+  const week_ending = document.getElementById('assign-week').value;
+  if (!week_ending) return alert('Select a week');
+  await fetch(API + '/api/admin?action=set-assignments', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ rep_id, community_id, week_ending })
+  });
+  loadAssignments();
+}
+
+async function removeAssignment(id) {
+  if (!confirm('Remove this assignment?')) return;
+  await fetch(API + '/api/admin?action=remove-assignment', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ id })
+  });
+  loadAssignments();
+}
+
+// ===== SYSTEM =====
+async function loadSystem() {
+  // Health
+  const h = await fetch(API + '/api/health').then(r => r.json());
+  const dot = h.status === 'healthy' ? 'dot-green' : h.status === 'degraded' ? 'dot-gold' : 'dot-red';
+  document.getElementById('health-section').innerHTML = `
+    <div class="card" style="text-align:left;display:flex;gap:1.5rem;flex-wrap:wrap;">
+      <div><span class="dot ${dot}"></span><strong>${h.status.toUpperCase()}</strong></div>
+      <div><span class="muted">DB:</span> ${h.database}</div>
+      <div><span class="muted">Communities:</span> ${h.tables?.communities || 0}</div>
+      <div><span class="muted">Reps:</span> ${h.tables?.reps || 0}</div>
+      <div><span class="muted">Submissions:</span> ${h.tables?.submissions || 0}</div>
+      <div><span class="muted">Prospects:</span> ${h.tables?.prospects || 0}</div>
+      <div><span class="muted">Errors (24h):</span> ${h.errors_last_24h || 0}</div>
+    </div>`;
+
+  // Run history
+  const rr = await fetch(API + '/api/admin?action=run-history').then(r => r.json());
+  if (rr.data && rr.data.length > 0) {
+    let html = '<table><tr><th>Type</th><th>Status</th><th>Started</th><th>Records</th><th>Summary</th></tr>';
+    for (const run of rr.data) {
+      const badge = run.status === 'success' ? 'badge-green' : run.status === 'running' ? 'badge-gold' : 'badge-red';
+      const started = new Date(run.started_at).toLocaleString('en-US', { timeZone: 'America/New_York', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+      html += `<tr><td>${run.run_type}</td><td><span class="badge ${badge}">${run.status}</span></td><td class="muted">${started}</td><td>${run.records_processed}</td><td class="muted">${run.summary || '—'}</td></tr>`;
+    }
+    html += '</table>';
+    document.getElementById('run-table').innerHTML = html;
+  } else {
+    document.getElementById('run-table').innerHTML = '<p class="muted">No runs recorded yet.</p>';
+  }
+
+  // Error log
+  const er = await fetch(API + '/api/admin?action=error-log').then(r => r.json());
+  if (er.data && er.data.length > 0) {
+    let html = '<table><tr><th>Type</th><th>Message</th><th>Time</th></tr>';
+    for (const e of er.data) {
+      const time = new Date(e.created_at).toLocaleString('en-US', { timeZone: 'America/New_York', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+      html += `<tr><td><span class="badge badge-red">${e.error_type}</span></td><td>${e.message.slice(0,120)}</td><td class="muted">${time}</td></tr>`;
+    }
+    html += '</table>';
+    document.getElementById('error-table').innerHTML = html;
+  } else {
+    document.getElementById('error-table').innerHTML = '<p class="muted">No errors recorded.</p>';
+  }
+}
+
+async function triggerJob(job) {
+  const btn = document.getElementById(job === 'import-leads' ? 'btn-leads' : 'btn-monday');
+  btn.disabled = true;
+  btn.textContent = 'Running...';
+  try {
+    const r = await fetch(API + '/api/admin?action=trigger-job', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ job })
+    }).then(r => r.json());
+    alert(job + ' completed: ' + JSON.stringify(r.result?.success ?? r));
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = job === 'import-leads' ? 'Import Leads' : 'Run Monday Night Job';
+  loadSystem();
+}
+
+// Load default tab
+loadOverview();
+</script>
+</body>
+</html>
