@@ -6,14 +6,6 @@
     {
       "path": "/api/monday-night",
       "schedule": "30 14 * * 1"
-    },
-    {
-      "path": "/api/import-leads",
-      "schedule": "0 14 * * 1"
-    },
-    {
-      "path": "/api/health",
-      "schedule": "0 */6 * * *"
     }
   ],
   "headers": [
