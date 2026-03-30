@@ -29,7 +29,10 @@ export default function Header() {
         <KeySvg />
         <div className="key-line" />
       </div>
-      <div className="page-title">Weekly Sales Log</div>
+      <div className="page-title-row">
+        <div className="page-title">Weekly Sales Log</div>
+        <a href="/how-it-works.html" className="help-btn">Help</a>
+      </div>
       <div className="due-note">Reports due Monday by 10:00 AM</div>
     </div>
   );
