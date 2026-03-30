@@ -356,32 +356,45 @@ async function rotateOSCLeadsSheet(targetDate = null) {
     console.log(`Archive tab '${archiveName}' already exists, skipping archive step`);
     archiveSkipped = true;
   } else {
-    // Duplicate preserves ALL formatting and data
-    await batchUpdate(OSC_SHEET, [{
-      duplicateSheet: {
-        sourceSheetId: dashSheetId,
-        newSheetName: archiveName,
-      }
-    }]);
+    // Duplicate preserves ALL formatting and data (including protections on the copy)
+    try {
+      await batchUpdate(OSC_SHEET, [{
+        duplicateSheet: {
+          sourceSheetId: dashSheetId,
+          newSheetName: archiveName,
+        }
+      }]);
+    } catch (e) {
+      console.error('[OSC Rotate] Step 1 (archive) failed:', e.message);
+      archiveSkipped = true;
+    }
   }
 
   // All remaining steps run regardless of archive status
 
   // Step 2: Clear community data cells in Dashboard Template (preserve formatting)
-  // Only clear rows 13+ (community data). Rows 6-12 contain formulas and must NOT be touched.
+  // Only clear rows 13+ (community data). Skip protected columns C-F.
   const allData = await getSheetData(OSC_SHEET, `'${DASHBOARD_TAB}'!A1:A`);
   const lastRow = allData.length;
 
   if (lastRow >= 13) {
     const dataRowCount = lastRow - 13 + 1;
-    // Skip protected columns C-F. Only zero out G through AM (33 cols).
+    // Only zero out G through AM (33 cols), skip protected C-F.
     const zeroRow = Array(TOTAL_COLS - 6).fill(0); // cols G through AM = 33 cols
     const zeros = Array.from({ length: dataRowCount }, () => [...zeroRow]);
-    await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!G13:AM${lastRow}`, zeros);
+    try {
+      await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!G13:AM${lastRow}`, zeros);
+    } catch (e) {
+      console.error('[OSC Rotate] Step 2 (clear G13:AM) failed:', e.message);
+    }
   }
 
-  // Step 3: Update week ending date to next Sunday
-  await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!B2`, [[weekEndingDate]]);
+  // Step 3: Update week ending date
+  try {
+    await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!B2`, [[weekEndingDate]]);
+  } catch (e) {
+    console.error('[OSC Rotate] Step 3 (update B2 date) failed:', e.message);
+  }
 
   // Step 4: Sync communities (rows 13+) from Assignments sheet
   const newCommunities = await getCommunitiesFromAssignmentsSheet();
