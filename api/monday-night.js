@@ -5,7 +5,7 @@
 
 import {
   getSheetData, updateRange, clearRange, getSheetId, batchUpdate,
-  getCurrentWeekEndingShort, logToSystemLog, toNum, formatTabName,
+  getCurrentWeekEndingShort, getWeekEndingSunday, logToSystemLog, toNum, formatTabName,
   SALES_APP_SHEET_ID, ASSIGNMENTS_SHEET_ID, TEMPLATE_SHEET_ID,
 } from './_lib/sheets.js';
 import { getCommunitiesFromAssignmentsSheet, getRepsFromAssignmentsSheet } from './_lib/sync-from-assignments-sheet.js';
@@ -16,6 +16,7 @@ export default async function handler(req, res) {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   }
   const phase = body.phase || 1;
+  const targetDate = body.targetDate || null;
 
   try {
     if (phase === 1) {
@@ -25,13 +26,19 @@ export default async function handler(req, res) {
       fetch(`${baseUrl}/api/monday-night`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: 2 }),
-      }).catch(() => {});
+        body: JSON.stringify({ phase: 2, targetDate }),
+      }).catch((error) => {
+        console.error('[PHASE 2 TRIGGER FAILURE]', {
+          message: error.message,
+          stack: error.stack,
+          timestamp: new Date().toISOString(),
+        });
+      });
       return res.status(200).json({ phase: 1, ...result });
     }
 
     if (phase === 2) {
-      const result = await runPhase2();
+      const result = await runPhase2(targetDate);
       return res.status(200).json({ phase: 2, ...result });
     }
 
@@ -110,12 +117,13 @@ async function runPhase1() {
 // PHASE 2: Cache assignments + consolidate + write stats
 // ═══════════════════════════════════════════════════════════
 
-async function runPhase2() {
+async function runPhase2(targetDate = null) {
   // Step 2a: Cache assignments locally for fast app loading
   let assignmentResult = { success: false, message: 'skipped' };
   try {
     assignmentResult = await cacheAssignmentsLocally();
   } catch (e) {
+    console.error('[Phase 2] Cache assignments failed:', { message: e.message, stack: e.stack });
     assignmentResult = { success: false, message: e.message };
   }
 
@@ -124,6 +132,7 @@ async function runPhase2() {
   try {
     consolidateResult = await runConsolidation();
   } catch (e) {
+    console.error('[Phase 2] Consolidation failed:', { message: e.message, stack: e.stack });
     consolidateResult = { success: false, message: e.message };
   }
 
@@ -132,19 +141,22 @@ async function runPhase2() {
   try {
     resultsResult = await writeWeeklyResults();
   } catch (e) {
+    console.error('[Phase 2] Write weekly results failed:', { message: e.message, stack: e.stack });
     resultsResult = { success: false, message: e.message };
   }
 
   // Step 2d: Rotate OSC leads sheet (archive current, prep next week)
   let oscRotateResult = { success: false, message: 'skipped' };
   try {
-    oscRotateResult = await rotateOSCLeadsSheet();
+    oscRotateResult = await rotateOSCLeadsSheet(targetDate);
   } catch (e) {
+    console.error('[Phase 2] OSC rotate failed:', { message: e.message, stack: e.stack });
     oscRotateResult = { success: false, message: e.message };
   }
 
-  await logToSystemLog('monday-night-phase2', 'success',
-    `Assignments: ${assignmentResult.count || 0}. Consolidation: ${consolidateResult.success}. Results: ${resultsResult.rowsWritten || 0}. OSC rotate: ${oscRotateResult.success}.`);
+  await logToSystemLog('monday-night-phase2',
+    (assignmentResult.success && consolidateResult.success && resultsResult.success && oscRotateResult.success) ? 'success' : 'partial',
+    `Assignments: ${assignmentResult.success ? assignmentResult.count || 0 : 'FAILED: ' + assignmentResult.message}. Consolidation: ${consolidateResult.success || 'FAILED: ' + consolidateResult.message}. Results: ${resultsResult.success ? resultsResult.rowsWritten || 0 : 'FAILED: ' + resultsResult.message}. OSC rotate: ${oscRotateResult.success || 'FAILED: ' + oscRotateResult.message}.`);
 
   return {
     success: true,
@@ -260,10 +272,10 @@ async function writeWeeklyResults() {
     }
   } catch {}
 
-  // 3d: OSC leads
+  // 3d: OSC leads — read full width (A through AM = 39 cols) to capture all data
   const oscByCommunity = {};
   try {
-    const oscData = await getSheetData(TEMPLATE_SHEET_ID, "'Dashboard Template'!A7:F");
+    const oscData = await getSheetData(TEMPLATE_SHEET_ID, "'Dashboard Template'!A7:AM");
     for (const row of (oscData || [])) {
       const name = (row[0] || '').toString().trim();
       if (!name) continue;
@@ -319,57 +331,56 @@ async function writeWeeklyResults() {
 // ROTATE OSC LEADS SHEET
 // ═══════════════════════════════════════════════════════════
 
-async function rotateOSCLeadsSheet() {
+async function rotateOSCLeadsSheet(targetDate = null) {
   const OSC_SHEET = TEMPLATE_SHEET_ID;
   const DASHBOARD_TAB = 'Dashboard Template';
   const TOTAL_COLS = 39; // A through AM
 
-  // Calculate dates
-  const today = new Date();
-  const dayOfWeek = today.getDay();
-  const daysToNextSun = dayOfWeek === 0 ? 7 : 7 - dayOfWeek;
-  const nextSunday = new Date(today);
-  nextSunday.setDate(today.getDate() + daysToNextSun);
-  const currentSunday = new Date(nextSunday);
-  currentSunday.setDate(nextSunday.getDate() - 7);
+  // Calculate dates using shared utility — consistent with getCurrentWeekEndingShort()
+  const currentSunday = getWeekEndingSunday(targetDate);
+  const previousSunday = new Date(currentSunday);
+  previousSunday.setDate(currentSunday.getDate() - 7);
 
-  const archiveName = formatTabName(currentSunday);
-  const nextWeekDate = `${nextSunday.getMonth() + 1}/${nextSunday.getDate()}/${String(nextSunday.getFullYear()).slice(2)}`;
-
-  // Step 1: Archive — duplicate Dashboard Template as "Week of [date]"
-  const existingArchive = await getSheetId(OSC_SHEET, archiveName);
-  if (existingArchive !== null) {
-    return { success: true, message: `Archive "${archiveName}" already exists — skipped` };
-  }
+  const archiveName = formatTabName(previousSunday);
+  const weekEndingDate = `${currentSunday.getMonth() + 1}/${currentSunday.getDate()}/${String(currentSunday.getFullYear()).slice(2)}`;
 
   const dashSheetId = await getSheetId(OSC_SHEET, DASHBOARD_TAB);
   if (dashSheetId === null) {
     return { success: false, message: 'Dashboard Template tab not found' };
   }
 
-  // Duplicate preserves ALL formatting and data
-  await batchUpdate(OSC_SHEET, [{
-    duplicateSheet: {
-      sourceSheetId: dashSheetId,
-      newSheetName: archiveName,
-    }
-  }]);
+  // Step 1: Archive — duplicate Dashboard Template as "Week of [date]"
+  let archiveSkipped = false;
+  const existingArchive = await getSheetId(OSC_SHEET, archiveName);
+  if (existingArchive !== null) {
+    console.log(`Archive tab '${archiveName}' already exists, skipping archive step`);
+    archiveSkipped = true;
+  } else {
+    // Duplicate preserves ALL formatting and data
+    await batchUpdate(OSC_SHEET, [{
+      duplicateSheet: {
+        sourceSheetId: dashSheetId,
+        newSheetName: archiveName,
+      }
+    }]);
+  }
 
-  // Step 2: Clear data cells in Dashboard Template (preserve formatting)
-  // Read to find last row
+  // All remaining steps run regardless of archive status
+
+  // Step 2: Clear community data cells in Dashboard Template (preserve formatting)
+  // Only clear rows 13+ (community data). Rows 6-12 contain formulas and must NOT be touched.
   const allData = await getSheetData(OSC_SHEET, `'${DASHBOARD_TAB}'!A1:A`);
   const lastRow = allData.length;
 
-  if (lastRow >= 6) {
-    // Set data columns C-AM to 0 for rows 6+ (totals, evergreen, communities)
-    const clearRows = lastRow - 5; // rows 6 through lastRow
-    const zeroRow = Array(TOTAL_COLS - 2).fill(0); // cols C through AM
-    const zeros = Array.from({ length: clearRows }, () => [...zeroRow]);
-    await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!C6:AM${lastRow}`, zeros);
+  if (lastRow >= 13) {
+    const dataRowCount = lastRow - 13 + 1;
+    const zeroRow = Array(TOTAL_COLS - 2).fill(0); // cols C through AM = 37 cols
+    const zeros = Array.from({ length: dataRowCount }, () => [...zeroRow]);
+    await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!C13:AM${lastRow}`, zeros);
   }
 
   // Step 3: Update week ending date to next Sunday
-  await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!B2`, [[nextWeekDate]]);
+  await updateRange(OSC_SHEET, `'${DASHBOARD_TAB}'!B2`, [[weekEndingDate]]);
 
   // Step 4: Sync communities (rows 13+) from Assignments sheet
   const newCommunities = await getCommunitiesFromAssignmentsSheet();
@@ -453,8 +464,9 @@ async function rotateOSCLeadsSheet() {
 
   return {
     success: true,
-    archived: archiveName,
-    nextWeekDate,
+    archived: archiveSkipped ? `${archiveName} (already existed)` : archiveName,
+    archiveSkipped,
+    weekEndingDate,
     communitiesUpdated,
     communitiesChanged: !communitiesMatch,
   };

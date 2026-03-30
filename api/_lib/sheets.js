@@ -101,6 +101,24 @@ export async function getSheetId(spreadsheetId, sheetName) {
   return match ? match.properties.sheetId : null;
 }
 
+/**
+ * Returns current date/time in Eastern Time as a Date object.
+ * Handles EST/EDT automatically.
+ */
+export function nowET() {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(new Date());
+  const get = (type) => parts.find(p => p.type === type).value;
+  return new Date(
+    `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`
+  );
+}
+
 export function toNum(val) {
   if (val === '' || val === null || val === undefined) return 0;
   const n = Number(val);
@@ -115,12 +133,23 @@ export function formatWeekEndingSlash(d) {
   return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
 }
 
-export function getCurrentWeekEndingShort() {
-  const today = new Date();
-  const day = today.getDay();
-  const diff = day === 0 ? 0 : 7 - day;
-  const sun = new Date(today);
-  sun.setDate(today.getDate() + diff);
+/**
+ * Returns the Sunday that ends the current business week.
+ * If today IS Sunday, returns today. If Mon-Sat, returns the upcoming Sunday.
+ * @param {Date|string|null} referenceDate - optional date to calculate from
+ * @returns {Date}
+ */
+export function getWeekEndingSunday(referenceDate = null) {
+  const date = referenceDate ? new Date(referenceDate) : nowET();
+  const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const daysUntilSunday = dayOfWeek === 0 ? 0 : (7 - dayOfWeek);
+  const sunday = new Date(date);
+  sunday.setDate(date.getDate() + daysUntilSunday);
+  return sunday;
+}
+
+export function getCurrentWeekEndingShort(referenceDate = null) {
+  const sun = getWeekEndingSunday(referenceDate);
   return MONTHS_SHORT[sun.getMonth()] + ' ' + sun.getDate();
 }
 

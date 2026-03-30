@@ -1,7 +1,6 @@
 // Reads rep→community assignments from the Sales Rep Assignments Google Sheet.
-// Respects two filter columns:
+// Filter column:
 //   "Sales reporting tool report this week?" = "yes" → included in the rep app
-//   "Report Leads this Week?" = "yes" → included on the leads dashboard
 
 import {
   getSheetData, ASSIGNMENTS_SHEET_ID,
@@ -29,37 +28,6 @@ async function readAssignmentsSheet() {
 /** Returns true if a cell value is "yes" (case-insensitive). */
 function isYes(val) {
   return (val || '').toString().trim().toLowerCase() === 'yes';
-}
-
-/**
- * Reads unique communities where "Report Leads this Week?" = "yes".
- * Used by dashboard creation to populate community rows on the leads report.
- * @returns {Array<{name: string, market: string}>}
- */
-export async function getCommunitiesForLeadsReport() {
-  const { rows, communityIdx, divisionIdx, reportLeadsIdx } = await readAssignmentsSheet();
-  if (communityIdx < 0) return [];
-
-  const seen = {};
-  const results = [];
-
-  for (const row of rows) {
-    if (reportLeadsIdx >= 0 && !isYes(row[reportLeadsIdx])) continue;
-
-    const name = (row[communityIdx] || '').toString().trim();
-    if (!name || seen[name]) continue;
-    seen[name] = true;
-
-    const market = divisionIdx >= 0 ? (row[divisionIdx] || '').toString().trim() : '';
-    results.push({ name, market });
-  }
-
-  results.sort((a, b) => {
-    const divCmp = a.market.localeCompare(b.market);
-    return divCmp !== 0 ? divCmp : a.name.localeCompare(b.name);
-  });
-
-  return results;
 }
 
 /**
