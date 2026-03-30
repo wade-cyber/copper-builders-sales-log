@@ -397,99 +397,27 @@ async function rotateOSCLeadsSheet(targetDate = null) {
   }
 
   // Step 4: Sync communities (rows 13+) from Assignments sheet
+  // Overwrite in place — no row delete/insert (protected columns block structural changes).
   const newCommunities = await getCommunitiesFromAssignmentsSheet();
 
-  // Read current communities
-  const currentComms = await getSheetData(OSC_SHEET, `'${DASHBOARD_TAB}'!A13:B`);
-  const currentNames = currentComms.filter(r => r[0]).map(r => r[0].trim());
-  const newNames = newCommunities.map(c => c.name);
-
-  // Only update if communities changed
-  const communitiesMatch = currentNames.length === newNames.length &&
-    currentNames.every((n, i) => n === newNames[i]);
-
   let communitiesUpdated = 0;
-  if (!communitiesMatch) {
-    // Delete existing community rows (13 through last)
-    const lastCommRow = 12 + currentNames.length;
-    if (currentNames.length > 0) {
-      await batchUpdate(OSC_SHEET, [{
-        deleteDimension: {
-          range: {
-            sheetId: dashSheetId,
-            dimension: 'ROWS',
-            startIndex: 12, // 0-based row 13
-            endIndex: lastCommRow,
-          }
-        }
-      }]);
-    }
+  if (newCommunities.length > 0) {
+    // Write community names + divisions into A13:B (skip protected C-F)
+    const nameRows = newCommunities.map(c => [c.name, c.market]);
+    await updateRange(OSC_SHEET,
+      `'${DASHBOARD_TAB}'!A13:B${12 + newCommunities.length}`,
+      nameRows
+    );
+    communitiesUpdated = newCommunities.length;
 
-    // Insert new rows after row 12
-    if (newCommunities.length > 0) {
-      await batchUpdate(OSC_SHEET, [{
-        insertDimension: {
-          range: {
-            sheetId: dashSheetId,
-            dimension: 'ROWS',
-            startIndex: 12,
-            endIndex: 12 + newCommunities.length,
-          },
-          inheritFromBefore: true,
-        }
-      }]);
-
-      // Copy formatting from row 12 (last evergreen row)
-      // Split into two operations to skip protected columns C-F (index 2-6)
-      await batchUpdate(OSC_SHEET, [
-        // Columns A-B (index 0-2)
-        {
-          copyPaste: {
-            source: {
-              sheetId: dashSheetId,
-              startRowIndex: 11, endRowIndex: 12,
-              startColumnIndex: 0, endColumnIndex: 2,
-            },
-            destination: {
-              sheetId: dashSheetId,
-              startRowIndex: 12, endRowIndex: 12 + newCommunities.length,
-              startColumnIndex: 0, endColumnIndex: 2,
-            },
-            pasteType: 'PASTE_FORMAT',
-          }
-        },
-        // Columns G-AM (index 6-39)
-        {
-          copyPaste: {
-            source: {
-              sheetId: dashSheetId,
-              startRowIndex: 11, endRowIndex: 12,
-              startColumnIndex: 6, endColumnIndex: TOTAL_COLS,
-            },
-            destination: {
-              sheetId: dashSheetId,
-              startRowIndex: 12, endRowIndex: 12 + newCommunities.length,
-              startColumnIndex: 6, endColumnIndex: TOTAL_COLS,
-            },
-            pasteType: 'PASTE_FORMAT',
-          }
-        },
-      ]);
-
-      // Write community names + divisions (A:B only, skip protected C-F)
-      const nameRows = newCommunities.map(c => [c.name, c.market]);
+    // If there were more old rows than new, clear the leftover names
+    if (lastRow > 12 + newCommunities.length) {
+      const extraRows = lastRow - (12 + newCommunities.length);
+      const blankRows = Array.from({ length: extraRows }, () => ['', '']);
       await updateRange(OSC_SHEET,
-        `'${DASHBOARD_TAB}'!A13:B${12 + newCommunities.length}`,
-        nameRows
+        `'${DASHBOARD_TAB}'!A${13 + newCommunities.length}:B${lastRow}`,
+        blankRows
       );
-
-      // Zero out data columns G through AM (skip protected C-F)
-      const zeroRows = newCommunities.map(() => Array(TOTAL_COLS - 6).fill(0)); // 33 cols
-      await updateRange(OSC_SHEET,
-        `'${DASHBOARD_TAB}'!G13:AM${12 + newCommunities.length}`,
-        zeroRows
-      );
-      communitiesUpdated = newCommunities.length;
     }
   }
 
