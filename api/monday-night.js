@@ -427,7 +427,7 @@ async function rotateOSCLeadsSheet(targetDate = null) {
     archiveSkipped,
     weekEndingDate,
     communitiesUpdated,
-    communitiesChanged: !communitiesMatch,
+    communitiesChanged: communitiesUpdated > 0,
   };
 }
 
