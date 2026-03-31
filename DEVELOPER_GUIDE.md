@@ -1,6 +1,6 @@
 # Copper Builders Sales Log — Developer Guide
 
-**Last Updated:** March 27, 2026
+**Last Updated:** March 30, 2026
 
 This guide is for anyone pulling up this codebase for the first time — everything you need to understand, run, and modify the app.
 
@@ -8,9 +8,10 @@ This guide is for anyone pulling up this codebase for the first time — everyth
 
 ## Overview
 
-A standalone web app where sales reps submit weekly activity (leads, appointments, prospects, sales). Data is stored in Google Sheets. Every Monday at 10:30 AM ET, the system automatically consolidates all submissions into a weekly results report.
+A standalone web app where sales reps submit weekly activity (leads, appointments, prospects, sales). Data is dual-written to **Supabase PostgreSQL** (primary) and **Google Sheets** (backward-compatible). Every Monday at 10:30 AM ET, the system consolidates all submissions into a weekly results report.
 
 **Live App:** https://copper-builders-log.vercel.app/
+**Admin Dashboard:** https://copper-builders-log.vercel.app/dashboard.html
 **Help Page:** https://copper-builders-log.vercel.app/how-it-works.html
 **GitHub:** https://github.com/wade-cyber/copper-builders-sales-log
 
@@ -21,8 +22,9 @@ A standalone web app where sales reps submit weekly activity (leads, appointment
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 19 + Vite 8 |
-| Backend | Vercel Serverless Functions (7 routes) |
-| Data | Google Sheets API v4 |
+| Backend | Vercel Serverless Functions (11 routes) |
+| Primary Database | Supabase PostgreSQL |
+| Legacy Data | Google Sheets API v4 |
 | Auth | google-auth-library (service account) |
 | Styling | Vanilla CSS (no framework) |
 | Deployment | Vercel (auto-deploys on git push) |
@@ -39,21 +41,20 @@ npm install
 ```
 
 ### 2. Set up environment
-Copy `.env.example` to `.env` and fill in the values:
-```bash
-cp .env.example .env
-```
+Copy `.env.example` to `.env` and fill in the values. Required variables:
 
-Required variables:
 ```
+# Google Sheets (backward-compatible writes)
 GOOGLE_SERVICE_ACCOUNT_EMAIL=copper-builders-sheets@axial-diagram-489522-n6.iam.gserviceaccount.com
 GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 SALES_APP_SHEET_ID=1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4
 ASSIGNMENTS_SHEET_ID=1vCDaPFo-R_2Wpv2lfGtjA8Q6XeJx1_D0abAC0y3eq3Y
 TEMPLATE_SHEET_ID=1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU
-```
 
-The service account must have **Editor** access to the Sales App Reporting and Sales Rep Assignments sheets, and **Viewer** access to the OSC Leads Report sheet.
+# Supabase (primary database)
+SUPABASE_URL=https://bhmjgfjybpfgjxwtbked.supabase.co
+SUPABASE_SERVICE_KEY=<service_role key from Supabase Settings > API>
+```
 
 ### 3. Run locally
 ```bash
@@ -74,22 +75,36 @@ git push        # Auto-deploys to Vercel
 copper-builders-sales-log/
 ├── api/                              # Vercel serverless functions
 │   ├── _lib/
-│   │   ├── sheets.js                 # Google Sheets API wrapper (auth + CRUD)
-│   │   └── sync-from-assignments-sheet.js  # Read/filter assignments
+│   │   ├── db.js                     # Supabase client (primary database)
+│   │   ├── sheets.js                 # Google Sheets API wrapper + date utilities
+│   │   ├── resolve-names.js          # Community/rep name → DB ID resolution
+│   │   ├── sync-from-assignments-sheet.js  # Read/filter assignments from Sheets
+│   │   ├── logger.js                 # Structured logging to run_log/error_log
+│   │   └── retry.js                  # Exponential backoff wrapper
 │   ├── get-reps.js                   # GET — list rep names
 │   ├── get-assignments.js            # GET — rep's assigned projects
 │   ├── get-prospects.js              # GET — rep's prospect pipeline
 │   ├── get-last-sync.js              # GET — last sync timestamp
-│   ├── save-prospect.js              # POST — create/update prospect
-│   ├── submit-weekly-log.js          # POST — submit weekly report
-│   └── monday-night.js               # POST/Cron — weekly consolidation
+│   ├── save-prospect.js              # POST — create/update prospect (dual-write)
+│   ├── submit-weekly-log.js          # POST — submit weekly report (dual-write)
+│   ├── monday-night.js               # POST/Cron — weekly consolidation + OSC rotation
+│   ├── reports.js                    # GET — consolidated reporting (8 report types)
+│   ├── admin.js                      # GET/POST — admin CRUD operations
+│   ├── health.js                     # GET — system health check
+│   └── import-leads.js               # POST — import OSC leads to database
+│
+├── db/
+│   ├── migrations/                   # SQL schema files (run in Supabase SQL Editor)
+│   │   ├── 000_run_all.sql           # Combined migration (all tables)
+│   │   ├── 001-007_*.sql             # Individual table migrations
+│   └── seed.js                       # Seed communities + reps from live app
 │
 ├── src/
 │   ├── App.jsx                       # Main app (state, submission flow)
 │   ├── main.jsx                      # React entry point
 │   ├── index.css                     # All styles (responsive)
 │   ├── components/
-│   │   ├── Header.jsx                # App header with deadline
+│   │   ├── Header.jsx                # App header with Help button
 │   │   ├── RepSelector.jsx           # Name dropdown
 │   │   ├── CommunityBlock.jsx        # Per-project data entry
 │   │   ├── ProspectCard.jsx          # Individual prospect row
@@ -105,77 +120,64 @@ copper-builders-sales-log/
 │       └── constants.js              # Shared constants
 │
 ├── public/
+│   ├── dashboard.html                # Admin dashboard (6 tabs)
 │   └── how-it-works.html             # User help page (with Loom video)
 │
 ├── vercel.json                       # Cron schedule + security headers
 ├── package.json                      # Dependencies + scripts
-├── .env.example                      # Required env vars
 └── COPPER_BUILDERS_REPORTING_BRIEF.md  # User/manager documentation
 ```
 
 ---
 
-## Google Sheets
+## Database (Supabase PostgreSQL)
 
-### Sheets Used
+### Tables
 
-| Env Var | Sheet | Purpose |
-|---------|-------|---------|
-| `SALES_APP_SHEET_ID` | [Sales App Reporting](https://docs.google.com/spreadsheets/d/1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4) | All app data (submissions, prospects, results) |
-| `ASSIGNMENTS_SHEET_ID` | [Sales Rep Assignments](https://docs.google.com/spreadsheets/d/1vCDaPFo-R_2Wpv2lfGtjA8Q6XeJx1_D0abAC0y3eq3Y) | Rep→project assignments (managed by sales manager) |
-| `TEMPLATE_SHEET_ID` | [OSC Leads Report](https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU) | Weekly lead data entered by the OSC |
+| Table | Purpose |
+|-------|---------|
+| `communities` | Master list with name, division (CLT/TRN/GVL/etc), active status |
+| `reps` | Sales rep records with name, email, active status |
+| `assignments` | Weekly rep→community assignments (unique per rep+community+week) |
+| `weekly_submissions` | Form submissions with granular fields (appts by type, leads by source, prospect counts) |
+| `prospects` | Individual prospect records (name, ranking A/B/C, next step, status, lot number) |
+| `leads` | OSC lead data by community and week (digital, in-person, call-in) |
+| `run_log` | Job execution history (type, status, timing, errors) |
+| `error_log` | Granular error tracking linked to runs |
 
-### Tabs in Sales App Reporting
+### Schema location
+SQL files in `db/migrations/`. The combined file `000_run_all.sql` can be pasted into the Supabase SQL Editor to recreate all tables.
 
-| Tab | What It Stores |
-|-----|---------------|
-| Submissions | Raw weekly entries (one row per rep per project per week) |
-| Prospects | Full prospect pipeline (name, ranking, lot #, status) |
-| Weekly Assignments | Cached copy of assignments for fast app loading |
-| Last Weeks Results | Current week's consolidated results (stable name for external tools) |
-| Results — [date] | Archived weekly results (one per week) |
-| Sales Reports | Which reps submitted vs. missing |
-| Sales Data Results | Consolidated metrics by community |
-| System Log | Automation audit trail |
-
-### Auth Pattern
-
-Uses `google-auth-library` with direct `fetch` calls to the Sheets API (not the heavy `googleapis` package — that caused Vercel cold start timeouts).
-
-```javascript
-// api/_lib/sheets.js
-import { GoogleAuth } from 'google-auth-library';
-
-const auth = new GoogleAuth({
-  credentials: {
-    client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-  },
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-});
-```
-
-All sheet operations (read, write, append, clear, batchUpdate) go through helper functions in `sheets.js`.
+### Dual-Write Architecture
+During the migration period, all writes go to **both** Supabase and Google Sheets:
+- Supabase write happens first (primary)
+- If Supabase fails, Google Sheets write continues as fallback
+- If Sheets fails, the submission is still saved in Supabase
+- Zero data loss in either failure mode
 
 ---
 
-## API Routes
+## API Routes (11 total, Hobby plan max is 12)
 
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/get-reps` | GET | Sorted list of active rep names (from Weekly Assignments cache) |
-| `/api/get-assignments?rep=Name` | GET | Projects assigned to a rep (with thirdParty flag) |
-| `/api/get-prospects?rep=Name` | GET | Active prospects for a rep (excludes sold/removed) |
+| `/api/get-reps` | GET | Sorted list of active rep names |
+| `/api/get-assignments?rep=Name` | GET | Projects assigned to a rep |
+| `/api/get-prospects?rep=Name` | GET | Active prospects for a rep |
 | `/api/get-last-sync` | GET | Timestamp of last Monday night sync |
-| `/api/save-prospect` | POST | Upsert a prospect (by ID) |
-| `/api/submit-weekly-log` | POST | Submit a rep's full weekly report |
+| `/api/save-prospect` | POST | Upsert prospect (dual-write: Supabase + Sheets) |
+| `/api/submit-weekly-log` | POST | Submit weekly report (dual-write: Supabase + Sheets) |
 | `/api/monday-night` | POST | Weekly consolidation (`{"phase":1}` or `{"phase":2}`) |
+| `/api/reports?type=...` | GET | 9 report types (see below) |
+| `/api/admin?action=...` | GET/POST | Admin CRUD (communities, reps, assignments, jobs) |
+| `/api/health` | GET | System health check |
+| `/api/import-leads` | POST | Import OSC leads from Sheets to database |
 
-**Vercel limit:** 7 routes (Hobby plan max is 12).
+### Report Types (`/api/reports?type=`)
+`weekly-summary`, `non-reporters`, `rep-activity`, `division-summary`, `lead-summary`, `trends`, `submission-timeline`, `community-detail`, `community-results`
 
-**Error handling:** All routes catch errors and return generic messages (no stack traces exposed). Errors logged server-side via `console.error`.
-
-**Retry logic:** Frontend `api.js` retries 3 times with exponential backoff (1s, 2s, 4s). 4xx errors fail immediately.
+### Admin Actions (`/api/admin?action=`)
+`list-communities`, `upsert-community`, `list-reps`, `upsert-rep`, `list-assignments`, `set-assignments`, `remove-assignment`, `trigger-job`, `run-history`, `error-log`
 
 ---
 
@@ -184,143 +186,135 @@ All sheet operations (read, write, append, clear, batchUpdate) go through helper
 **Cron:** `30 14 * * 1` = Monday 10:30 AM ET (14:30 UTC)
 
 ### Phase 1 — Submission Status Report
-- Reads all reps from Assignments sheet (skips N/A, none, blank)
+- Reads all reps from Assignments sheet
 - Checks Submissions tab for who submitted this week
 - Writes "Sales Reports" tab: rep name, submitted/missing, timestamp
 
-### Phase 2 — Consolidate + Cache + Results
-1. **Cache assignments** — reads Assignments sheet, writes "Weekly Assignments" tab (filtered, fast)
-2. **Consolidate** — aggregates submissions + prospects into "Sales Data Results" tab
-3. **Write weekly results** — builds "Last Weeks Results" with rep data + OSC data, archives previous week as "Results — [date]"
+### Phase 2 — Consolidate + Cache + Results + OSC Rotation
+1. **Cache assignments** — reads Assignments sheet, writes "Weekly Assignments" tab + syncs to Supabase
+2. **Consolidate** — aggregates submissions into "Sales Data Results" tab
+3. **Write weekly results** — builds "Last Weeks Results" with rep + OSC data, archives previous week
+4. **Rotate OSC leads sheet** — archives "This Week's Report" as "Week of [date]", duplicates Dashboard Template to create fresh "This Week's Report", updates week ending date, syncs communities, clears data columns (blanks, not zeros)
 
-**Chaining:** Phase 1 fires Phase 2 via fire-and-forget `fetch`. Can also trigger phases independently for testing:
+### OSC Leads Sheet Details
+- **Dashboard Template** — master template, never modified directly
+- **"This Week's Report"** — fresh duplicate created each week for the OSC to fill in
+- Protected areas (on Dashboard Template): rows 4-6, columns C-F, cells A7:B12
+- The weekly duplicate inherits these protections but the code only writes to unprotected areas
+- Communities synced to rows 13+ (A:B), data cleared in G:AM with blank strings
+
+### Manual Triggers
 ```bash
+# Phase 1 only (submission report)
 curl -X POST https://copper-builders-log.vercel.app/api/monday-night \
   -H "Content-Type: application/json" -d '{"phase":1}'
+
+# Phase 2 (full consolidation)
+curl -X POST https://copper-builders-log.vercel.app/api/monday-night \
+  -H "Content-Type: application/json" -d '{"phase":2}'
+
+# Phase 2 for a specific week
+curl -X POST https://copper-builders-log.vercel.app/api/monday-night \
+  -H "Content-Type: application/json" -d '{"phase":2,"targetDate":"2026-03-29"}'
+
+# Import OSC leads to database
+curl -X POST https://copper-builders-log.vercel.app/api/import-leads
 ```
+
+Or use the Admin Dashboard → System tab → trigger buttons.
 
 ---
 
 ## Key Design Decisions
 
-### Why Google Sheets instead of a database?
-- Sales manager needs to view and edit data directly
-- No migration or schema management needed
-- Familiar interface for non-technical users
-- Free tier is sufficient for this scale
+### Why dual-write (Supabase + Google Sheets)?
+- Database is the primary store; Sheets is the fallback during migration
+- Sales manager and VP still view data in Google Sheets
+- Zero data loss if either system fails
+- Will remove Sheets reads in a future phase once DB is fully proven
 
-### Why google-auth-library instead of googleapis?
-- `googleapis` package is ~50MB, caused Vercel cold start timeouts (>10s)
-- `google-auth-library` is ~2MB, cold starts in <3s
-- Same functionality via direct `fetch` calls to Sheets API
+### Why Supabase instead of raw PostgreSQL?
+- Free tier generous (500MB, 50K rows)
+- Hosted with REST API — works well with Vercel serverless
+- Built-in dashboard for ad-hoc queries
+- `@supabase/supabase-js` is lightweight (~2MB)
 
-### Why cache assignments locally?
-- Reduces Sheets API calls on every page load
-- App loads faster (reads from same sheet as submissions)
-- Cache refreshed weekly on Monday night
+### Why a static dashboard.html instead of React routing?
+- Keeps the rep-facing form completely untouched
+- No new dependencies (no react-router)
+- Stays within Vercel Hobby plan's 12-function limit
+- Same deployment — just a static HTML file in `public/`
 
-### Why "Last Weeks Results" instead of writing to Assignments sheet?
-- Sales manager edits assignments (add/remove reps, communities)
-- If results were in the same sheet, edits would corrupt the data
-- Separate tab with stable name for external tools to reference
-- Archived each week for historical tracking
+### Why "This Week's Report" instead of modifying Dashboard Template?
+- Dashboard Template has protected cells that block structural changes
+- Duplicating to a fresh tab each week preserves all formatting
+- The template stays clean as a master reference
+- Archive tabs ("Week of [date]") preserve historical data
+
+---
+
+## Environment Variables (Vercel)
+
+| Variable | Purpose |
+|----------|---------|
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Service account for Sheets API |
+| `GOOGLE_PRIVATE_KEY` | Service account private key |
+| `SALES_APP_SHEET_ID` | Sales App Reporting sheet |
+| `ASSIGNMENTS_SHEET_ID` | Sales Rep Assignments sheet |
+| `TEMPLATE_SHEET_ID` | OSC Leads Report sheet |
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_SERVICE_KEY` | Supabase service_role key |
 
 ---
 
 ## Deployment
 
-### Vercel Configuration (vercel.json)
-```json
-{
-  "framework": "vite",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "crons": [{ "path": "/api/monday-night", "schedule": "30 14 * * 1" }],
-  "headers": [{
-    "source": "/api/(.*)",
-    "headers": [
-      { "key": "X-Content-Type-Options", "value": "nosniff" },
-      { "key": "X-Frame-Options", "value": "DENY" },
-      { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
-    ]
-  }]
-}
-```
+Auto-deploys on `git push origin main` (~30 seconds).
 
-### Environment Variables on Vercel
-Set these in Vercel project settings → Environment Variables (all environments):
-- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-- `GOOGLE_PRIVATE_KEY`
-- `SALES_APP_SHEET_ID`
-- `ASSIGNMENTS_SHEET_ID`
-- `TEMPLATE_SHEET_ID`
-
-### Deploying Changes
 ```bash
 git add .
 git commit -m "Description of change"
-git push origin main    # Auto-deploys to Vercel in ~30 seconds
+git push origin main
 ```
 
-To force a fresh deploy if caching issues occur:
+Force deploy if needed:
 ```bash
-npx vercel deploy --prod --force
+npx vercel deploy --prod
 ```
+
+### Vercel Hobby Plan Constraints
+- **12 serverless functions max** — currently using 11
+- **1 daily cron max** — Monday night job only; lead import and health check are manual
+- Best-effort cron scheduling — no guaranteed execution
 
 ---
 
 ## Common Tasks
 
-### Refresh assignments cache now
+### Check system health
 ```bash
-curl -X POST https://copper-builders-log.vercel.app/api/monday-night \
-  -H "Content-Type: application/json" -d '{"phase":2}'
+curl https://copper-builders-log.vercel.app/api/health
 ```
 
-### Manually run weekly consolidation
+### View weekly results
+Open Admin Dashboard → Results tab, or:
 ```bash
-# Phase 1: submission report
-curl -X POST https://copper-builders-log.vercel.app/api/monday-night \
-  -H "Content-Type: application/json" -d '{"phase":1}'
-
-# Phase 2: consolidate + cache + results
-curl -X POST https://copper-builders-log.vercel.app/api/monday-night \
-  -H "Content-Type: application/json" -d '{"phase":2}'
+curl "https://copper-builders-log.vercel.app/api/reports?type=community-results"
 ```
 
-### Check if the app is working
-```bash
-curl https://copper-builders-log.vercel.app/api/get-reps
-```
+### Add a new community
+Admin Dashboard → Communities tab → fill in name + division → Add Community
 
-### View function logs
+### Add a new rep
+Admin Dashboard → Reps tab → fill in name → Add Rep
+
+### Assign a rep to a community
+Admin Dashboard → Assignments tab → select rep, community, week → Assign
+
+### View Vercel function logs
 ```bash
 npx vercel logs https://copper-builders-log.vercel.app --follow
 ```
-
----
-
-## Submission Data Structure
-
-What gets written to the Submissions tab when a rep submits:
-
-| Column | Field |
-|--------|-------|
-| A | Timestamp (ISO) |
-| B | Week Ending (e.g., "Mar 29") |
-| C | Rep Name |
-| D | Community |
-| E | Section Type |
-| F | Appts Virtual |
-| G | Appts In Person |
-| H | Total Appts |
-| I | Direct Leads Digital |
-| J | Direct Leads Phone Call |
-| K | Direct Leads In Person |
-| L | Active Prospects |
-| M | Sold Prospects |
-| N | Removed Prospects |
-| O | Grand Total Appts |
 
 ---
 

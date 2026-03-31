@@ -1,6 +1,6 @@
 # Copper Builders — Weekly Sales Reporting Tool
 
-**Last Updated:** March 27, 2026
+**Last Updated:** March 30, 2026
 
 ---
 
@@ -8,11 +8,14 @@
 
 | Resource | Link |
 |----------|------|
-| **Sales Log App** | [copper-builders-log.vercel.app](https://copper-builders-log.vercel.app/) |
-| **Sales App Reporting** (data storage) | [Google Sheet](https://docs.google.com/spreadsheets/d/1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4) |
+| **Sales Log App** (reps) | [copper-builders-log.vercel.app](https://copper-builders-log.vercel.app/) |
+| **Admin Dashboard** (managers) | [copper-builders-log.vercel.app/dashboard.html](https://copper-builders-log.vercel.app/dashboard.html) |
+| **Help Page** (reps) | [copper-builders-log.vercel.app/how-it-works.html](https://copper-builders-log.vercel.app/how-it-works.html) |
+| **Sales App Reporting** (data) | [Google Sheet](https://docs.google.com/spreadsheets/d/1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4) |
 | **Sales Rep Assignments** (managed by sales manager) | [Google Sheet](https://docs.google.com/spreadsheets/d/1vCDaPFo-R_2Wpv2lfGtjA8Q6XeJx1_D0abAC0y3eq3Y) |
-| **OSC Leads Report** (filled by OSC weekly) | [Google Sheet](https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU) |
+| **OSC Leads Report** | [Google Sheet](https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU) |
 | **GitHub Repo** | [wade-cyber/copper-builders-sales-log](https://github.com/wade-cyber/copper-builders-sales-log) |
+| **Supabase Dashboard** | [supabase.com/dashboard/project/bhmjgfjybpfgjxwtbked](https://supabase.com/dashboard/project/bhmjgfjybpfgjxwtbked) |
 
 ---
 
@@ -25,7 +28,7 @@ A standalone web app where sales reps submit their weekly activity. Each week, r
 - **Prospects** — add, rank (A/B/C), and track prospects per project
 - **Sales** — mark a prospect as "Sold" to log a sale (with optional lot number)
 
-On Monday night, the system automatically consolidates all rep submissions and OSC lead data into a weekly results report.
+On Monday morning, the system automatically consolidates all rep submissions and OSC lead data into a weekly results report.
 
 ---
 
@@ -41,137 +44,108 @@ On Monday night, the system automatically consolidates all rep submissions and O
    - Add/update prospects (name, ranking, optional lot number)
    - Mark prospects as "Sold" to log a sale
 4. Click **Submit Weekly Log**
+5. Click **Help** button for a walkthrough video and instructions
 
 ### For the Sales Manager
 
-Manage assignments in the [Sales Rep Assignments](https://docs.google.com/spreadsheets/d/1vCDaPFo-R_2Wpv2lfGtjA8Q6XeJx1_D0abAC0y3eq3Y) Google Sheet:
+**Option A — Admin Dashboard (recommended):**
+Go to [/dashboard.html](https://copper-builders-log.vercel.app/dashboard.html) to:
+- View weekly results by community (Results tab)
+- See who submitted and who hasn't (Overview tab)
+- Manage communities and reps (Communities / Reps tabs)
+- Manage weekly assignments (Assignments tab)
+- Trigger jobs manually and view system health (System tab)
 
-| Column | What It Does |
-|--------|-------------|
-| **A: Rep Name** | The sales rep's name (use "N/A" or leave blank for leads-only communities) |
-| **B: Community or House Name** | The project/community name |
-| **C: Division** | Market code (CLT, TRN, GVL, CLB, WIL) |
-
-- Add or remove rows to change assignments
-- Reps with "N/A", "none", or blank names won't appear in the app — their communities are tracked for OSC leads only
-- Changes take effect after the Monday night sync
+**Option B — Google Sheet:**
+Manage assignments in the [Sales Rep Assignments](https://docs.google.com/spreadsheets/d/1vCDaPFo-R_2Wpv2lfGtjA8Q6XeJx1_D0abAC0y3eq3Y) Google Sheet. Changes take effect after the Monday sync.
 
 ### For the OSC
 
-Fill out the [OSC Leads Report](https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU) each week:
-
-| Column | Data |
-|--------|------|
-| **A: Community** | Pre-filled community names |
-| **C: Total Digital** | Digital lead count |
-| **D: Total In Person** | In-person lead count |
-| **E: Total Calls** | Call-in lead count |
+Fill out the **"This Week's Report"** tab in the [OSC Leads Report](https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU) each week. The system creates a fresh tab from the Dashboard Template every Monday.
 
 ---
 
-## Monday Night Automation
+## Monday Morning Automation
 
-Every Monday at **12:00 AM ET** (5:00 AM UTC), the system automatically runs two phases:
+Every Monday at **10:30 AM ET**, the system automatically runs:
 
-### Phase 1: Submission Status Report
+### Phase 1 — Submission Status Report
 - Checks which reps submitted their weekly log
 - Writes "Sales Reports" tab showing Submitted vs. MISSING per rep
 
-### Phase 2: Consolidate + Cache + Results
-- **Caches assignments** from the Sales Rep Assignments sheet into the app for fast loading
-- **Consolidates all data** into the "Sales Data Results" tab (by community)
-- **Writes "Last Weeks Results"** tab with the full weekly report:
-  - Archives previous week's results as "Results — [date]"
-  - Creates fresh results combining rep data + OSC data
+### Phase 2 — Consolidate + Cache + Results + OSC Rotation
+1. **Cache assignments** from the Assignments sheet into the app + Supabase database
+2. **Consolidate** all submissions into "Sales Data Results" tab
+3. **Write weekly results** — builds "Last Weeks Results" with rep data + OSC data
+4. **Rotate OSC leads sheet** — archives current "This Week's Report" tab as "Week of [date]", duplicates Dashboard Template to create a fresh "This Week's Report", updates the week ending date, syncs communities, clears data columns
 
 ---
 
-## Where Data Lives
+## Data Storage
 
-### Sales App Reporting Sheet
+### Supabase PostgreSQL (primary database)
+All data is dual-written to both Supabase and Google Sheets. The database is the source of truth for the admin dashboard and reporting API.
+
+| Table | Purpose |
+|-------|---------|
+| `communities` | Master list of all communities with division codes |
+| `reps` | Sales representative records |
+| `assignments` | Weekly rep-to-community assignments |
+| `weekly_submissions` | Form submission data (appointments, leads, prospects) |
+| `prospects` | Individual prospect records with ranking, status, lot number |
+| `leads` | OSC lead data by community |
+| `run_log` | Automated job run history |
+| `error_log` | Error tracking for debugging |
+
+### Google Sheets (backward-compatible output)
 
 | Tab | Purpose |
 |-----|---------|
-| **Submissions** | Raw weekly log entries from reps (appointments, leads, prospects) |
-| **Prospects** | Full prospect/sales pipeline (name, ranking, lot number, status) |
+| **Submissions** | Raw weekly log entries from reps |
+| **Prospects** | Full prospect/sales pipeline |
 | **Weekly Assignments** | Cached copy of assignments for fast app loading |
-| **Last Weeks Results** | Current week's consolidated results (stable tab name for other tools) |
-| **Results — [date]** | Archived weekly results (one per week, historical) |
+| **Last Weeks Results** | Current week's consolidated results |
+| **Results — [date]** | Archived weekly results (one per week) |
 | **Sales Reports** | Which reps submitted vs. missing |
 | **Sales Data Results** | Consolidated metrics by community |
 | **System Log** | Automated action audit trail |
 
-### Last Weeks Results Columns
-
-| Column | Data |
-|--------|------|
-| A: Week Ending | Week ending date |
-| B: Rep Name | Sales rep |
-| C: Community | Project/community name |
-| D: Division | Market code |
-| E: Report Date | When the rep submitted |
-| F: Sales | Number of prospects marked "Sold" |
-| G: Prospects | Active prospect count |
-| H: Appts Held | Total appointments |
-| I: Sales Rep Leads | Rep's direct leads (digital + phone + in-person) |
-| J: OSC Digital Leads | OSC digital leads |
-| K: OSC In Person Leads | OSC in-person leads |
-| L: OSC Call-In Leads | OSC call-in leads |
-| M: Total Leads | All leads combined (rep + OSC) |
-
 ---
 
-## Technical Stack
+## Admin Dashboard
 
-- **Frontend:** React 19 + Vite, hosted on Vercel
-- **Backend:** Vercel serverless functions (7 API routes)
-- **Data:** Google Sheets via Sheets API v4 (service account auth)
-- **Auth library:** google-auth-library (lightweight, fast cold starts)
-- **Deployment:** Auto-deploys via `git push` to GitHub
+Available at [/dashboard.html](https://copper-builders-log.vercel.app/dashboard.html) with 6 tabs:
 
-### API Routes
-
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `/api/get-reps` | GET | List all active rep names |
-| `/api/get-assignments?rep=Name` | GET | Get a rep's assigned projects |
-| `/api/get-prospects?rep=Name` | GET | Get a rep's active prospects |
-| `/api/get-last-sync` | GET | Last assignment sync timestamp |
-| `/api/save-prospect` | POST | Create or update a prospect |
-| `/api/submit-weekly-log` | POST | Submit a rep's weekly report |
-| `/api/monday-night` | POST/Cron | Monday night consolidation |
-
-### Environment Variables (Vercel)
-
-| Variable | Purpose |
-|----------|---------|
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Service account for Sheets API |
-| `GOOGLE_PRIVATE_KEY` | Service account private key |
-| `SALES_APP_SHEET_ID` | Sales App Reporting sheet |
-| `ASSIGNMENTS_SHEET_ID` | Sales Rep Assignments sheet |
-| `TEMPLATE_SHEET_ID` | OSC Leads Report sheet |
+| Tab | What It Shows |
+|-----|---------------|
+| **Overview** | Weekly summary cards, non-reporter alerts, community activity table |
+| **Results** | Latest submissions by community — appointments, leads, prospects, VIPs, sales, and full prospect pipeline |
+| **Communities** | Add/edit/deactivate communities |
+| **Reps** | Add/edit/deactivate sales reps |
+| **Assignments** | Manage weekly rep-to-community assignments |
+| **System** | Health status, run history, error log, manual job triggers |
 
 ---
 
 ## Troubleshooting
 
 ### "Can't see rep names in dropdown"
-- The Weekly Assignments cache may be empty. Trigger a sync: `POST /api/monday-night` with `{"phase":2}`
-- Check the Sales Rep Assignments sheet has rep names in column A
+- The Weekly Assignments cache may be empty. Go to Admin Dashboard → System → Run Monday Night Job
+- Or check the Sales Rep Assignments sheet has rep names
 
-### "Rep submitted but data isn't showing"
-- Data appears in the "Last Weeks Results" tab after Monday night consolidation runs
-- For immediate check, look at the Submissions tab in the Sales App Reporting sheet
+### "Rep submitted but data isn't showing in Results"
+- Data appears in the Results tab after reps submit through the Sales Log app
+- For the consolidated Google Sheet view, wait for the Monday morning job
 
 ### "Community not showing for a rep"
-- Check the Sales Rep Assignments sheet — the rep must have a row with that community
-- Changes require a Monday night sync to take effect in the app
+- Check Assignments tab in the Admin Dashboard — the rep must be assigned to that community
+- Or check the Sales Rep Assignments Google Sheet
 
 ### "Monday night job failed"
-- Check the System Log tab for error details
+- Check Admin Dashboard → System tab for error details
 - Most common: Google Sheets API quota exceeded (wait and retry)
-- Can manually trigger: `POST https://copper-builders-log.vercel.app/api/monday-night` with `{"phase":1}` then `{"phase":2}`
+- Can manually trigger from the System tab
 
 ---
 
-*Last Updated: March 27, 2026*
+*Last Updated: March 30, 2026*
