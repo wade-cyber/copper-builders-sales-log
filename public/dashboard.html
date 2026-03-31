@@ -119,6 +119,7 @@
       </div>
     </div>
     <div id="results-cards" class="cards"></div>
+    <div id="results-nr"></div>
     <div id="results-table"><div class="loading">Loading...</div></div>
     <div id="results-prospects" class="mt"></div>
   </div>
@@ -245,7 +246,31 @@ async function loadResults(weekOverride) {
     <div class="card"><div class="card-val">${t.sold}</div><div class="card-label">Sales</div></div>
   `;
 
-  if (d.communities.length === 0) {
+  // Non-reporters section
+  const nr = d.non_reporters || [];
+  if (nr.length > 0) {
+    // Group by rep
+    const byRep = {};
+    for (const n of nr) {
+      if (!byRep[n.rep]) byRep[n.rep] = [];
+      byRep[n.rep].push(n.community);
+    }
+    let nrHtml = `<div class="alert alert-warn" style="margin-bottom:12px;">
+      <strong>Not Yet Reported (${Object.keys(byRep).length} reps, ${nr.length} assignments)</strong>
+    </div>
+    <table style="margin-bottom:1.5rem;"><tr><th>Rep</th><th>Communities Missing</th></tr>`;
+    for (const [rep, comms] of Object.entries(byRep).sort((a, b) => a[0].localeCompare(b[0]))) {
+      nrHtml += `<tr><td><strong>${rep}</strong></td><td class="muted">${comms.join(', ')}</td></tr>`;
+    }
+    nrHtml += '</table>';
+    document.getElementById('results-nr').innerHTML = nrHtml;
+  } else if (d.communities.length > 0) {
+    document.getElementById('results-nr').innerHTML = '<div class="alert alert-ok" style="margin-bottom:12px;">All assigned reps have submitted!</div>';
+  } else {
+    document.getElementById('results-nr').innerHTML = '';
+  }
+
+  if (d.communities.length === 0 && nr.length === 0) {
     document.getElementById('results-table').innerHTML = '<p class="muted">No submissions yet for this week.</p>';
     document.getElementById('results-prospects').innerHTML = '';
     return;

@@ -260,9 +260,21 @@ async function communityResults(res, weekEnding) {
     communities_reporting: t.communities_reporting + (c.reps.length > 0 ? 1 : 0),
   }), { total_appts: 0, total_leads: 0, active_prospects: 0, sold: 0, vip_count: 0, communities_reporting: 0 });
 
+  // Non-reporters: assigned reps who didn't submit for this week
+  const { data: assignments } = await supabase
+    .from('assignments')
+    .select('rep_id, community_id, reps(name), communities(name, division)')
+    .eq('week_ending', targetWeek);
+
+  const submittedKeys = new Set((submissions || []).map(s => `${s.rep_id}||${s.community_id}`));
+  const nonReporters = (assignments || [])
+    .filter(a => !submittedKeys.has(`${a.rep_id}||${a.community_id}`))
+    .map(a => ({ rep: a.reps.name, community: a.communities.name, division: a.communities.division }))
+    .sort((a, b) => a.rep.localeCompare(b.rep));
+
   return res.status(200).json({
     success: true,
-    data: { communities: results, totals, available_weeks: availableWeeks },
+    data: { communities: results, totals, non_reporters: nonReporters, available_weeks: availableWeeks },
     meta: { week_ending: targetWeek, generated_at: new Date().toISOString(), community_count: results.length },
   });
 }
