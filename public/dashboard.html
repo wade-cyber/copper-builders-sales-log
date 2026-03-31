@@ -246,26 +246,14 @@ async function loadResults(weekOverride) {
     <div class="card"><div class="card-val">${t.sold}</div><div class="card-label">Sales</div></div>
   `;
 
-  // Non-reporters section
+  // Non-reporters section — red chips, same style as Overview tab
   const nr = d.non_reporters || [];
   if (nr.length > 0) {
-    // Group by rep
-    const byRep = {};
-    for (const n of nr) {
-      if (!byRep[n.rep]) byRep[n.rep] = [];
-      byRep[n.rep].push(n.community);
-    }
-    let nrHtml = `<div class="alert alert-warn" style="margin-bottom:12px;">
-      <strong>Not Yet Reported (${Object.keys(byRep).length} reps, ${nr.length} assignments)</strong>
-    </div>
-    <table style="margin-bottom:1.5rem;"><tr><th>Rep</th><th>Communities Missing</th></tr>`;
-    for (const [rep, comms] of Object.entries(byRep).sort((a, b) => a[0].localeCompare(b[0]))) {
-      nrHtml += `<tr><td><strong>${rep}</strong></td><td class="muted">${comms.join(', ')}</td></tr>`;
-    }
-    nrHtml += '</table>';
-    document.getElementById('results-nr').innerHTML = nrHtml;
+    document.getElementById('results-nr').innerHTML = `
+      <div class="alert alert-warn" style="margin-bottom:8px;"><strong>Not Yet Reported (${nr.length})</strong></div>
+      <div class="nr-list" style="margin-bottom:1.5rem;">${nr.map(name => `<span class="nr-chip">${name}</span>`).join('')}</div>`;
   } else if (d.communities.length > 0) {
-    document.getElementById('results-nr').innerHTML = '<div class="alert alert-ok" style="margin-bottom:12px;">All assigned reps have submitted!</div>';
+    document.getElementById('results-nr').innerHTML = '<div class="alert alert-ok" style="margin-bottom:1rem;">All assigned reps have submitted!</div>';
   } else {
     document.getElementById('results-nr').innerHTML = '';
   }
