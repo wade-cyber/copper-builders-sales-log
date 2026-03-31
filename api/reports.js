@@ -251,14 +251,35 @@ async function communityResults(res, weekEnding) {
     return d !== 0 ? d : a.community.localeCompare(b.community);
   });
 
+  // 3. Add OSC marketing leads from the leads table
+  const { data: oscLeads } = await supabase
+    .from('leads')
+    .select('community_id, digital_leads, in_person_leads, call_in_leads, communities(name)')
+    .eq('week_ending', targetWeek);
+
+  let oscLeadTotal = 0;
+  let oscCommunityCount = 0;
+  for (const l of (oscLeads || [])) {
+    const commName = l.communities.name;
+    const total = l.digital_leads + l.in_person_leads + l.call_in_leads;
+    oscLeadTotal += total;
+    if (total > 0) oscCommunityCount++;
+    if (byCommunity[commName]) {
+      byCommunity[commName].osc_leads = total;
+    }
+  }
+
   const totals = results.reduce((t, c) => ({
     total_appts: t.total_appts + c.total_appts,
     total_leads: t.total_leads + c.total_leads,
     active_prospects: t.active_prospects + c.active_prospects,
     sold: t.sold + c.sold,
-    vip_count: t.vip_count + c.vip_count,
+    a_ranked: t.a_ranked + c.vip_count,
     communities_reporting: t.communities_reporting + (c.reps.length > 0 ? 1 : 0),
-  }), { total_appts: 0, total_leads: 0, active_prospects: 0, sold: 0, vip_count: 0, communities_reporting: 0 });
+  }), { total_appts: 0, total_leads: 0, active_prospects: 0, sold: 0, a_ranked: 0, communities_reporting: 0 });
+
+  totals.osc_leads = oscLeadTotal;
+  totals.osc_communities = oscCommunityCount;
 
   // Non-reporters: assigned reps who have zero submissions for the entire week
   const { data: assignments } = await supabase

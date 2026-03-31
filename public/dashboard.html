@@ -110,6 +110,7 @@
       </div>
     </div>
     <div id="results-cards" class="cards"></div>
+    <div id="results-osc-note"></div>
     <div id="results-nr"></div>
     <div id="results-table"><div class="loading">Loading...</div></div>
     <div id="results-prospects" class="mt"></div>
@@ -238,13 +239,19 @@ async function loadResults(weekOverride) {
   document.getElementById('results-cards').innerHTML = `
     <div class="card"><div class="card-val">${t.communities_reporting}</div><div class="card-label">Communities Reporting</div></div>
     <div class="card"><div class="card-val">${t.total_appts}</div><div class="card-label">Appointments</div></div>
-    <div class="card"><div class="card-val">${t.total_leads}</div><div class="card-label">Direct Leads</div></div>
+    <div class="card"><div class="card-val">${t.total_leads}</div><div class="card-label">Rep Leads</div></div>
     <div class="card"><div class="card-val">${t.active_prospects}</div><div class="card-label">Active Prospects</div></div>
-    <div class="card"><div class="card-val">${t.vip_count}</div><div class="card-label">VIP Prospects (A)</div></div>
+    <div class="card"><div class="card-val">${t.a_ranked}</div><div class="card-label">A-Ranked (Hot)</div></div>
     <div class="card"><div class="card-val">${t.sold}</div><div class="card-label">Sales</div></div>
   `;
 
-  // Non-reporters section — red chips, same style as Overview tab
+  // OSC Leads status note
+  const oscNote = t.osc_leads > 0
+    ? `<div class="alert alert-ok" style="margin-bottom:8px;">OSC Leads Report imported: <strong>${t.osc_leads} marketing leads</strong> across ${t.osc_communities} communities.</div>`
+    : `<div class="alert alert-warn" style="margin-bottom:8px;">OSC Leads Report: <strong>Not yet imported</strong> for this week. Go to System tab to import.</div>`;
+  document.getElementById('results-osc-note').innerHTML = oscNote;
+
+  // Non-reporters section — red chips
   const nr = d.non_reporters || [];
   if (nr.length > 0) {
     document.getElementById('results-nr').innerHTML = `
@@ -264,14 +271,14 @@ async function loadResults(weekOverride) {
 
   // Main results table
   let html = `<table>
-    <tr><th>Community</th><th>Division</th><th>Rep(s)</th><th>Appts</th><th>Leads</th><th>Prospects</th><th>VIPs</th><th>Sales</th></tr>`;
+    <tr><th>Community</th><th>Division</th><th>Rep(s)</th><th>Appts</th><th>Rep Leads</th><th>OSC Leads</th><th>Prospects</th><th>A-Ranked</th><th>Sales</th></tr>`;
 
   let currentDiv = '';
   for (const c of d.communities) {
     // Division separator
     if (c.division && c.division !== currentDiv) {
       currentDiv = c.division;
-      html += `<tr><td colspan="8" style="background:var(--sage-light);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--slate);padding:6px 10px;">${currentDiv}</td></tr>`;
+      html += `<tr><td colspan="9" style="background:var(--sage-light);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--slate);padding:6px 10px;">${currentDiv}</td></tr>`;
     }
 
     const leadBreakdown = [];
@@ -285,12 +292,15 @@ async function loadResults(weekOverride) {
     if (c.appts_in_person > 0) apptBreakdown.push(c.appts_in_person + ' in-person');
     const apptTip = apptBreakdown.length > 0 ? ' title="' + apptBreakdown.join(', ') + '"' : '';
 
+    const oscLeads = c.osc_leads || 0;
+
     html += `<tr>
       <td><strong>${c.community}</strong></td>
       <td><span class="badge badge-gold">${c.division}</span></td>
       <td class="muted">${c.reps.join(', ') || '—'}</td>
       <td${apptTip}>${c.total_appts}</td>
       <td${leadTip}>${c.total_leads}</td>
+      <td>${oscLeads > 0 ? oscLeads : '<span class="muted">—</span>'}</td>
       <td>${c.active_prospects}</td>
       <td>${c.vip_count > 0 ? '<strong style="color:var(--green)">' + c.vip_count + '</strong>' : '0'}</td>
       <td>${c.sold > 0 ? '<strong style="color:var(--green)">' + c.sold + '</strong>' : '0'}</td>
@@ -300,8 +310,8 @@ async function loadResults(weekOverride) {
   // Totals row
   html += `<tr style="background:var(--sage-light);font-weight:600;">
     <td colspan="3">TOTALS</td>
-    <td>${t.total_appts}</td><td>${t.total_leads}</td>
-    <td>${t.active_prospects}</td><td>${t.vip_count}</td><td>${t.sold}</td>
+    <td>${t.total_appts}</td><td>${t.total_leads}</td><td>${t.osc_leads || 0}</td>
+    <td>${t.active_prospects}</td><td>${t.a_ranked}</td><td>${t.sold}</td>
   </tr></table>`;
   document.getElementById('results-table').innerHTML = html;
 
