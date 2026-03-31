@@ -6,15 +6,18 @@ import { resolveOrCreateCommunity, clearResolverCache } from './_lib/resolve-nam
 export default async function handler(req, res) {
   try {
     clearResolverCache();
-    const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
+    const body = req.method === 'POST' && req.body
+      ? (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) : {};
 
-    // Read from "This Week's Report" tab (the active weekly OSC tab)
-    const REPORT_TAB = "This Week's Report";
+    // Support importing from a specific tab and week ending (for historical imports)
+    const weekEnding = body.week_ending || getWeekEndingSunday().toISOString().slice(0, 10);
+    const tabName = body.tab || "This Week's Report";
+
     let oscData;
     try {
-      oscData = await getSheetData(TEMPLATE_SHEET_ID, `'${REPORT_TAB}'!A7:F`);
+      oscData = await getSheetData(TEMPLATE_SHEET_ID, `'${tabName}'!A7:F`);
     } catch {
-      // Fall back to Dashboard Template if This Week's Report doesn't exist yet
+      // Fall back to Dashboard Template
       oscData = await getSheetData(TEMPLATE_SHEET_ID, "'Dashboard Template'!A7:F");
     }
 
