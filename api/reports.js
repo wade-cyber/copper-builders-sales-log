@@ -165,123 +165,85 @@ async function communityDetail(res, query) {
 }
 
 /**
- * Community Results — latest week's data by community.
- * Reads from Google Sheets (primary data source during dual-write period)
- * plus prospect details from Sheets. Aggregates by community.
+ * Community Results — weekly data by community from the database.
+ * Supports week_ending parameter for navigating between weeks.
+ * Also returns available weeks for the week picker.
  */
 async function communityResults(res, weekEnding) {
-  const currentWeekShort = getCurrentWeekEndingShort();
+  // Get available weeks for navigation
+  const { data: weekRows } = await supabase
+    .from('weekly_submissions')
+    .select('week_ending')
+    .order('week_ending', { ascending: false });
+  const availableWeeks = [...new Set((weekRows || []).map(r => r.week_ending))];
 
-  // 1. Read submissions from Sheets
+  // If no specific week requested, use the most recent with data (or current)
+  const targetWeek = availableWeeks.includes(weekEnding) ? weekEnding : (availableWeeks[0] || weekEnding);
+
+  // 1. Read submissions from DB
+  const { data: submissions } = await supabase
+    .from('weekly_submissions')
+    .select('*, reps(name), communities(name, division)')
+    .eq('week_ending', targetWeek);
+
   const byCommunity = {};
-  try {
-    const sData = await getSheetData(SALES_APP_SHEET_ID, 'Submissions');
-    if (sData.length > 1) {
-      const h = sData[0];
-      const repIdx = h.indexOf('Rep Name');
-      const commIdx = h.indexOf('Community');
-      const weekIdx = h.indexOf('Week Ending');
-      const tsIdx = h.indexOf('Timestamp');
-      const vIdx = h.indexOf('Appts Virtual');
-      const ipIdx = h.indexOf('Appts In Person');
-      const totIdx = h.indexOf('Total Appts');
-      const dlDigIdx = h.indexOf('Direct Leads Digital');
-      const dlPhIdx = h.indexOf('Direct Leads Phone Call');
-      const dlIPIdx = h.indexOf('Direct Leads In Person');
-      const activeIdx = h.indexOf('Active Prospects');
-      const soldIdx = h.indexOf('Sold Prospects');
-
-      // Deduplicate: keep latest submission per rep+community for current week
-      const latest = {};
-      for (let i = 1; i < sData.length; i++) {
-        const week = (sData[i][weekIdx] || '').toString().trim();
-        if (currentWeekShort && week !== currentWeekShort) continue;
-        const rep = (sData[i][repIdx] || '').toString().trim();
-        const comm = (sData[i][commIdx] || '').toString().trim();
-        const ts = (sData[i][tsIdx] || '').toString();
-        const key = `${rep}||${comm}`;
-        if (!latest[key] || ts > latest[key].ts) {
-          latest[key] = { ts, rep, comm, row: sData[i] };
-        }
-      }
-
-      for (const { rep, comm, row } of Object.values(latest)) {
-        if (!byCommunity[comm]) {
-          byCommunity[comm] = {
-            community: comm, division: '', reps: [],
-            appts_virtual: 0, appts_in_person: 0, total_appts: 0,
-            leads_digital: 0, leads_phone: 0, leads_in_person: 0, total_leads: 0,
-            active_prospects: 0, sold: 0,
-            vip_count: 0, prospect_details: [],
-          };
-        }
-        const c = byCommunity[comm];
-        c.reps.push(rep);
-        c.appts_virtual += toNum(row[vIdx]);
-        c.appts_in_person += toNum(row[ipIdx]);
-        c.total_appts += toNum(row[totIdx]);
-        c.leads_digital += dlDigIdx >= 0 ? toNum(row[dlDigIdx]) : 0;
-        c.leads_phone += dlPhIdx >= 0 ? toNum(row[dlPhIdx]) : 0;
-        c.leads_in_person += dlIPIdx >= 0 ? toNum(row[dlIPIdx]) : 0;
-        c.total_leads = c.leads_digital + c.leads_phone + c.leads_in_person;
-        c.active_prospects += activeIdx >= 0 ? toNum(row[activeIdx]) : 0;
-        c.sold += soldIdx >= 0 ? toNum(row[soldIdx]) : 0;
-      }
+  for (const s of (submissions || [])) {
+    const comm = s.communities.name;
+    if (!byCommunity[comm]) {
+      byCommunity[comm] = {
+        community: comm, division: s.communities.division, reps: [],
+        appts_virtual: 0, appts_in_person: 0, total_appts: 0,
+        leads_digital: 0, leads_phone: 0, leads_in_person: 0, total_leads: 0,
+        active_prospects: 0, sold: 0,
+        vip_count: 0, prospect_details: [],
+      };
     }
-  } catch (e) {
-    console.error('[community-results] Submissions read failed:', e.message);
+    const c = byCommunity[comm];
+    c.reps.push(s.reps.name);
+    c.appts_virtual += s.appts_virtual;
+    c.appts_in_person += s.appts_in_person;
+    c.total_appts += s.total_appts;
+    c.leads_digital += s.leads_digital;
+    c.leads_phone += s.leads_phone;
+    c.leads_in_person += s.leads_in_person;
+    c.total_leads = c.leads_digital + c.leads_phone + c.leads_in_person;
+    c.active_prospects += s.active_prospects;
+    c.sold += s.sold_prospects;
   }
 
-  // 2. Read prospect details from Sheets (for VIP/ranking counts)
-  try {
-    const pData = await getSheetData(SALES_APP_SHEET_ID, 'Prospects');
-    if (pData.length > 1) {
-      const h = pData[0];
-      const commIdx = h.indexOf('Community');
-      const nameIdx = h.indexOf('Prospect Name');
-      const rankIdx = h.indexOf('Ranking');
-      const statusIdx = h.indexOf('Status');
-      const lotIdx = h.indexOf('Lot Number');
-      const repIdx = h.indexOf('Rep Name');
+  // 2. Read prospect details from DB (active prospects with rankings)
+  const { data: prospects } = await supabase
+    .from('prospects')
+    .select('*, reps(name), communities(name)')
+    .eq('status', 'active');
 
-      for (let i = 1; i < pData.length; i++) {
-        const status = (pData[i][statusIdx] || 'active').toString().toLowerCase();
-        if (status !== 'active') continue;
-        const comm = (pData[i][commIdx] || '').toString().trim();
-        if (!comm) continue;
-
-        if (!byCommunity[comm]) {
-          byCommunity[comm] = {
-            community: comm, division: '', reps: [],
-            appts_virtual: 0, appts_in_person: 0, total_appts: 0,
-            leads_digital: 0, leads_phone: 0, leads_in_person: 0, total_leads: 0,
-            active_prospects: 0, sold: 0,
-            vip_count: 0, prospect_details: [],
-          };
-        }
-        const ranking = (pData[i][rankIdx] || 'C').toString().trim().toUpperCase();
-        if (ranking === 'A') byCommunity[comm].vip_count++;
-
-        byCommunity[comm].prospect_details.push({
-          name: (pData[i][nameIdx] || '').toString().trim(),
-          ranking,
-          rep: (pData[i][repIdx] || '').toString().trim(),
-          lot: lotIdx >= 0 ? (pData[i][lotIdx] || '').toString().trim() : '',
-        });
-      }
+  for (const p of (prospects || [])) {
+    const comm = p.communities.name;
+    if (!byCommunity[comm]) {
+      byCommunity[comm] = {
+        community: comm, division: '', reps: [],
+        appts_virtual: 0, appts_in_person: 0, total_appts: 0,
+        leads_digital: 0, leads_phone: 0, leads_in_person: 0, total_leads: 0,
+        active_prospects: 0, sold: 0,
+        vip_count: 0, prospect_details: [],
+      };
     }
-  } catch (e) {
-    console.error('[community-results] Prospects read failed:', e.message);
+    const ranking = (p.ranking || 'C').toUpperCase();
+    if (ranking === 'A') byCommunity[comm].vip_count++;
+    byCommunity[comm].prospect_details.push({
+      name: p.prospect_name || '',
+      ranking,
+      rep: p.reps.name,
+      lot: p.lot_number || '',
+    });
   }
 
-  // 3. Add division info from DB
-  try {
-    const { data: comms } = await supabase.from('communities').select('name, division');
-    const divMap = Object.fromEntries((comms || []).map(c => [c.name, c.division]));
-    for (const c of Object.values(byCommunity)) {
-      c.division = divMap[c.community] || '';
-    }
-  } catch {}
+  // Add division for prospect-only communities
+  const { data: allComms } = await supabase.from('communities').select('name, division');
+  const divMap = Object.fromEntries((allComms || []).map(c => [c.name, c.division]));
+  for (const c of Object.values(byCommunity)) {
+    if (!c.division) c.division = divMap[c.community] || '';
+  }
 
   // Sort by division then community name
   const results = Object.values(byCommunity).sort((a, b) => {
@@ -289,7 +251,6 @@ async function communityResults(res, weekEnding) {
     return d !== 0 ? d : a.community.localeCompare(b.community);
   });
 
-  // Totals
   const totals = results.reduce((t, c) => ({
     total_appts: t.total_appts + c.total_appts,
     total_leads: t.total_leads + c.total_leads,
@@ -301,7 +262,7 @@ async function communityResults(res, weekEnding) {
 
   return res.status(200).json({
     success: true,
-    data: { communities: results, totals },
-    meta: { week_ending: currentWeekShort, generated_at: new Date().toISOString(), community_count: results.length },
+    data: { communities: results, totals, available_weeks: availableWeeks },
+    meta: { week_ending: targetWeek, generated_at: new Date().toISOString(), community_count: results.length },
   });
 }

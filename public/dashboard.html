@@ -111,7 +111,12 @@
   <div id="results" class="panel">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <h2 style="margin:0;">Weekly Results by Community</h2>
-      <button class="btn btn-slate btn-sm" onclick="loadResults()">Refresh</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="btn btn-slate btn-sm" onclick="changeWeek(-1)" id="btn-prev-week" title="Previous week">&#9664; Prev</button>
+        <span id="results-week-label" style="font-family:'Libre Baskerville',serif;font-size:14px;min-width:120px;text-align:center;"></span>
+        <button class="btn btn-slate btn-sm" onclick="changeWeek(1)" id="btn-next-week" title="Next week">Next &#9654;</button>
+        <button class="btn btn-gold btn-sm" onclick="loadResults()" style="margin-left:8px;">Refresh</button>
+      </div>
     </div>
     <div id="results-cards" class="cards"></div>
     <div id="results-table"><div class="loading">Loading...</div></div>
@@ -196,13 +201,39 @@ function loadTab(tab) {
 }
 
 // ===== RESULTS =====
-async function loadResults() {
+let _availableWeeks = [];
+let _currentWeekIdx = 0;
+let _resultsWeek = null;
+
+function changeWeek(delta) {
+  if (_availableWeeks.length === 0) return;
+  _currentWeekIdx = Math.max(0, Math.min(_availableWeeks.length - 1, _currentWeekIdx - delta));
+  _resultsWeek = _availableWeeks[_currentWeekIdx];
+  loadResults(_resultsWeek);
+}
+
+async function loadResults(weekOverride) {
   document.getElementById('results-table').innerHTML = '<div class="loading">Loading results...</div>';
-  const r = await fetch(API + '/api/reports?type=community-results').then(r => r.json());
+  const weekParam = weekOverride ? `&week_ending=${weekOverride}` : '';
+  const r = await fetch(API + '/api/reports?type=community-results' + weekParam).then(r => r.json());
   if (!r.success) { document.getElementById('results-table').innerHTML = '<p class="muted">Error loading results.</p>'; return; }
 
   const d = r.data;
   const t = d.totals;
+
+  // Update week navigation
+  _availableWeeks = d.available_weeks || [];
+  const currentWeek = r.meta.week_ending;
+  _currentWeekIdx = _availableWeeks.indexOf(currentWeek);
+  if (_currentWeekIdx < 0) _currentWeekIdx = 0;
+  _resultsWeek = currentWeek;
+
+  // Format week label
+  const weekDate = new Date(currentWeek + 'T12:00:00');
+  const weekLabel = weekDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  document.getElementById('results-week-label').textContent = 'Week of ' + weekLabel;
+  document.getElementById('btn-prev-week').disabled = (_currentWeekIdx >= _availableWeeks.length - 1);
+  document.getElementById('btn-next-week').disabled = (_currentWeekIdx <= 0);
 
   // Summary cards
   document.getElementById('results-cards').innerHTML = `
