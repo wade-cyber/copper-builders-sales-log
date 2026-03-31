@@ -30,7 +30,19 @@ export default async function handler(req, res) {
 
     function parseWeek(str) {
       if (!str) return null;
-      const cleaned = str.replace(/^(Sunday|Monday)\s+/i, '').trim();
+      const val = str.toString().trim();
+
+      // Handle Excel serial date numbers (e.g., 46110 = Mar 29 2026)
+      const num = Number(val);
+      if (!isNaN(num) && num > 40000 && num < 60000) {
+        // Excel serial: days since Dec 30 1899
+        const excelEpoch = new Date(1899, 11, 30);
+        const date = new Date(excelEpoch.getTime() + num * 86400000);
+        return date.toISOString().slice(0, 10);
+      }
+
+      // Handle "Mar 29" or "Sunday Mar 29" format
+      const cleaned = val.replace(/^(Sunday|Monday)\s+/i, '').trim();
       const parts = cleaned.split(/\s+/);
       if (parts.length >= 2) {
         const mon = months[parts[0]];
@@ -39,6 +51,10 @@ export default async function handler(req, res) {
           return `2026-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         }
       }
+
+      // Handle ISO date
+      if (/^\d{4}-\d{2}-\d{2}/.test(val)) return val.slice(0, 10);
+
       return null;
     }
 
