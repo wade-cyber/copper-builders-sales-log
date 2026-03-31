@@ -91,24 +91,15 @@
   </div>
 
   <div class="tabs">
-    <div class="tab active" data-tab="overview">Overview</div>
-    <div class="tab" data-tab="results">Results</div>
+    <div class="tab active" data-tab="results">Results</div>
     <div class="tab" data-tab="communities">Communities</div>
     <div class="tab" data-tab="reps">Reps</div>
     <div class="tab" data-tab="assignments">Assignments</div>
     <div class="tab" data-tab="system">System</div>
   </div>
 
-  <!-- ===== OVERVIEW ===== -->
-  <div id="overview" class="panel active">
-    <div id="overview-cards" class="cards"></div>
-    <div id="nr-section"></div>
-    <h2>Community Activity</h2>
-    <div id="overview-table"><div class="loading">Loading...</div></div>
-  </div>
-
   <!-- ===== RESULTS ===== -->
-  <div id="results" class="panel">
+  <div id="results" class="panel active">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <h2 style="margin:0;">Weekly Results by Community</h2>
       <div style="display:flex;align-items:center;gap:8px;">
@@ -193,7 +184,6 @@ document.querySelectorAll('.tab').forEach(t => {
 });
 
 function loadTab(tab) {
-  if (tab === 'overview') loadOverview();
   if (tab === 'results') loadResults();
   if (tab === 'communities') loadCommunities();
   if (tab === 'reps') loadReps();
@@ -331,48 +321,6 @@ async function loadResults(weekOverride) {
   } else {
     document.getElementById('results-prospects').innerHTML = '';
   }
-}
-
-// ===== OVERVIEW =====
-async function loadOverview() {
-  const r = await fetch(API + '/api/reports?type=weekly-summary').then(r => r.json());
-  if (!r.success) return;
-  const d = r.data;
-  const s = d.summary;
-
-  const totalAppts = d.communities.reduce((a, c) => a + c.total_appts, 0);
-  const totalLeads = d.communities.reduce((a, c) => a + c.leads_digital + c.leads_phone + c.leads_in_person, 0);
-  const totalProspects = d.communities.reduce((a, c) => a + c.active_prospects, 0);
-  const totalSold = d.communities.reduce((a, c) => a + c.sold, 0);
-
-  document.getElementById('overview-cards').innerHTML = `
-    <div class="card"><div class="card-val">${s.total_submissions}</div><div class="card-label">Submissions</div></div>
-    <div class="card"><div class="card-val">${s.total_non_reporters}</div><div class="card-label">Non-Reporters</div></div>
-    <div class="card"><div class="card-val">${totalAppts}</div><div class="card-label">Appointments</div></div>
-    <div class="card"><div class="card-val">${totalLeads}</div><div class="card-label">Direct Leads</div></div>
-    <div class="card"><div class="card-val">${totalProspects}</div><div class="card-label">Prospects</div></div>
-    <div class="card"><div class="card-val">${totalSold}</div><div class="card-label">Sales</div></div>
-  `;
-
-  // Non-reporters
-  const nrHtml = d.non_reporters.length > 0
-    ? `<div class="alert alert-warn">Missing Reports (${d.non_reporters.length})</div>
-       <div class="nr-list">${d.non_reporters.map(n => `<span class="nr-chip">${n.rep} — ${n.community}</span>`).join('')}</div>`
-    : '<div class="alert alert-ok">All reps have submitted!</div>';
-  document.getElementById('nr-section').innerHTML = nrHtml;
-
-  // Community table
-  if (d.communities.length === 0) {
-    document.getElementById('overview-table').innerHTML = '<p class="muted">No submissions yet for this week.</p>';
-    return;
-  }
-  let html = '<table><tr><th>Community</th><th>Division</th><th>Appts</th><th>Leads</th><th>Prospects</th><th>Sales</th><th>Reps</th></tr>';
-  for (const c of d.communities.sort((a,b) => a.division.localeCompare(b.division) || a.community.localeCompare(b.community))) {
-    const leads = c.leads_digital + c.leads_phone + c.leads_in_person;
-    html += `<tr><td>${c.community}</td><td><span class="badge badge-gold">${c.division}</span></td><td>${c.total_appts}</td><td>${leads}</td><td>${c.active_prospects}</td><td>${c.sold}</td><td>${c.reps_reporting.join(', ')}</td></tr>`;
-  }
-  html += '</table>';
-  document.getElementById('overview-table').innerHTML = html;
 }
 
 // ===== COMMUNITIES =====
@@ -579,7 +527,7 @@ async function triggerJob(job) {
 }
 
 // Load default tab
-loadOverview();
+loadResults();
 </script>
 </body>
 </html>
