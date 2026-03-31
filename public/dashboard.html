@@ -141,12 +141,9 @@
 
   <!-- ===== ASSIGNMENTS ===== -->
   <div id="assignments" class="panel">
-    <h2>Weekly Assignments</h2>
+    <h2>Rep–Community Assignments</h2>
+    <p class="muted mb">Which sales rep is assigned to which community. These assignments are used each week when reps submit their reports. Changes here take effect for the next reporting cycle.</p>
     <div class="form-row">
-      <div class="form-group"><label>Week Ending</label><input id="assign-week" type="date"></div>
-      <button class="btn btn-slate" onclick="loadAssignments()">Load</button>
-    </div>
-    <div class="form-row mt">
       <div class="form-group"><label>Rep</label><select id="assign-rep"></select></div>
       <div class="form-group"><label>Community</label><select id="assign-comm"></select></div>
       <button class="btn btn-gold" onclick="addAssignment()">Assign</button>
@@ -158,11 +155,22 @@
   <div id="system" class="panel">
     <h2>System Health</h2>
     <div id="health-section"><div class="loading">Loading...</div></div>
-    <div class="form-row mt">
-      <button class="btn btn-slate" onclick="triggerJob('monday-night')" id="btn-monday">Run Monday Night Job</button>
-      <button class="btn btn-slate" onclick="triggerJob('import-leads')" id="btn-leads">Import Leads</button>
+
+    <h2 class="mt">Manual Actions</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem;">
+      <div class="card" style="text-align:left;">
+        <div style="font-weight:600;margin-bottom:6px;">Weekly Consolidation</div>
+        <p class="muted" style="margin-bottom:8px;">Runs automatically every <strong>Monday at 10:30 AM ET</strong>. Checks who submitted, caches assignments, consolidates all data into the weekly results, and prepares the OSC Leads sheet for the next week. Use this button to trigger it manually if needed.</p>
+        <button class="btn btn-slate" onclick="triggerJob('monday-night')" id="btn-monday">Run Weekly Consolidation</button>
+      </div>
+      <div class="card" style="text-align:left;">
+        <div style="font-weight:600;margin-bottom:6px;">Import OSC Leads</div>
+        <p class="muted" style="margin-bottom:8px;">Reads lead data from the <strong>"This Week's Report"</strong> tab in the OSC Leads Report Google Sheet and imports it into the database. Run this after the OSC has entered their lead numbers for the week, so the data appears in the Results tab.</p>
+        <button class="btn btn-slate" onclick="triggerJob('import-leads')" id="btn-leads">Import OSC Leads</button>
+      </div>
     </div>
-    <h2 class="mt">Run History</h2>
+
+    <h2>Run History</h2>
     <div id="run-table"><div class="loading">Loading...</div></div>
     <h2 class="mt">Recent Errors</h2>
     <div id="error-table"><div class="loading">Loading...</div></div>
@@ -398,6 +406,15 @@ async function toggleRep(id, name, is_active) {
 
 // ===== ASSIGNMENTS =====
 let _reps = [], _comms = [];
+function getCurrentWeekEnding() {
+  const today = new Date();
+  const day = today.getDay();
+  const diff = day === 0 ? 0 : 7 - day;
+  const sun = new Date(today);
+  sun.setDate(today.getDate() + diff);
+  return sun.toISOString().slice(0, 10);
+}
+
 async function populateDropdowns() {
   const [rr, cr] = await Promise.all([
     fetch(API + '/api/admin?action=list-reps').then(r => r.json()),
@@ -410,30 +427,21 @@ async function populateDropdowns() {
   repSel.innerHTML = _reps.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
   const commSel = document.getElementById('assign-comm');
   commSel.innerHTML = _comms.map(c => `<option value="${c.id}">${c.name} (${c.division})</option>`).join('');
-
-  // Default week ending to next Sunday
-  const today = new Date();
-  const day = today.getDay();
-  const diff = day === 0 ? 0 : 7 - day;
-  const sun = new Date(today);
-  sun.setDate(today.getDate() + diff);
-  document.getElementById('assign-week').value = sun.toISOString().slice(0, 10);
 }
 
 async function loadAssignments() {
-  const week = document.getElementById('assign-week').value;
+  const week = getCurrentWeekEnding();
   const r = await fetch(API + '/api/admin?action=list-assignments&week_ending=' + week).then(r => r.json());
   if (!r.data || r.data.length === 0) {
-    document.getElementById('assign-table').innerHTML = '<p class="muted">No assignments for this week.</p>';
+    document.getElementById('assign-table').innerHTML = '<p class="muted">No assignments found. Add assignments below.</p>';
     return;
   }
-  let html = '<table><tr><th>Rep</th><th>Community</th><th>Division</th><th>Source</th><th></th></tr>';
+  let html = '<table><tr><th>Rep</th><th>Community</th><th>Division</th><th></th></tr>';
   for (const a of r.data) {
     html += `<tr>
       <td>${a.reps.name}</td>
       <td>${a.communities.name}</td>
       <td><span class="badge badge-gold">${a.communities.division}</span></td>
-      <td class="muted">${a.source}</td>
       <td><button class="btn btn-sm btn-red" onclick="removeAssignment(${a.id})">Remove</button></td>
     </tr>`;
   }
@@ -444,8 +452,7 @@ async function loadAssignments() {
 async function addAssignment() {
   const rep_id = parseInt(document.getElementById('assign-rep').value);
   const community_id = parseInt(document.getElementById('assign-comm').value);
-  const week_ending = document.getElementById('assign-week').value;
-  if (!week_ending) return alert('Select a week');
+  const week_ending = getCurrentWeekEnding();
   await fetch(API + '/api/admin?action=set-assignments', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ rep_id, community_id, week_ending })
