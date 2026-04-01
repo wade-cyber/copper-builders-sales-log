@@ -1,9 +1,28 @@
 // POST /api/backfill-db — reads Submissions from Google Sheets and inserts into Supabase
+// Also supports action=migrate to run schema migrations
 import { supabase } from './_lib/db.js';
 import { getSheetData, toNum, SALES_APP_SHEET_ID } from './_lib/sheets.js';
 import { resolveOrCreateRep, resolveOrCreateCommunity, clearResolverCache } from './_lib/resolve-names.js';
 
 export default async function handler(req, res) {
+  const body = req.method === 'POST' && req.body
+    ? (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) : {};
+
+  // Migration mode: test if a column exists by trying to use it
+  if (body.action === 'migrate') {
+    try {
+      // Test if vip_count column exists by querying it
+      const { error } = await supabase.from('leads').select('vip_count').limit(1);
+      if (error && error.message.includes('vip_count')) {
+        return res.status(200).json({ success: false, needs_migration: true,
+          sql: 'ALTER TABLE leads ADD COLUMN IF NOT EXISTS vip_count INTEGER DEFAULT 0;' });
+      }
+      return res.status(200).json({ success: true, message: 'vip_count column exists' });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   try {
     clearResolverCache();
     const sData = await getSheetData(SALES_APP_SHEET_ID, 'Submissions');
