@@ -15,10 +15,9 @@ export default async function handler(req, res) {
 
     let oscData;
     try {
-      oscData = await getSheetData(TEMPLATE_SHEET_ID, `'${tabName}'!A7:F`);
+      oscData = await getSheetData(TEMPLATE_SHEET_ID, `'${tabName}'!A7:G`);
     } catch {
-      // Fall back to Dashboard Template
-      oscData = await getSheetData(TEMPLATE_SHEET_ID, "'Dashboard Template'!A7:F");
+      oscData = await getSheetData(TEMPLATE_SHEET_ID, "'Dashboard Template'!A7:G");
     }
 
     if (!oscData || oscData.length === 0) {
@@ -32,12 +31,14 @@ export default async function handler(req, res) {
       const communityName = (row[0] || '').toString().trim();
       if (!communityName) continue;
 
+      // Sheet columns: A=Community, B=Division, C=Digital, D=Phone, E=In-Person, F=Total, G=VIP
       const digital = parseInt(row[2]) || 0;
-      const inPerson = parseInt(row[3]) || 0;
-      const callIn = parseInt(row[4]) || 0;
+      const phone = parseInt(row[3]) || 0;
+      const inPerson = parseInt(row[4]) || 0;
+      const vip = parseInt(row[6]) || 0;
 
-      // Skip rows with no data
-      if (digital === 0 && inPerson === 0 && callIn === 0) continue;
+      // Skip rows with no data at all
+      if (digital === 0 && phone === 0 && inPerson === 0 && vip === 0) continue;
 
       try {
         const community = await resolveOrCreateCommunity(communityName);
@@ -46,8 +47,9 @@ export default async function handler(req, res) {
           community_id: community.id,
           week_ending: weekEnding,
           digital_leads: digital,
+          call_in_leads: phone,
           in_person_leads: inPerson,
-          call_in_leads: callIn,
+          notes: vip > 0 ? JSON.stringify({ vip }) : null,
         }, { onConflict: 'community_id,week_ending' });
 
         if (error) throw error;

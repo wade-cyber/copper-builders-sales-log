@@ -251,21 +251,25 @@ async function communityResults(res, weekEnding) {
     return d !== 0 ? d : a.community.localeCompare(b.community);
   });
 
-  // 3. Add OSC marketing leads from the leads table
+  // 3. Add OSC marketing leads + VIP count from the leads table
   const { data: oscLeads } = await supabase
     .from('leads')
-    .select('community_id, digital_leads, in_person_leads, call_in_leads, communities(name)')
+    .select('community_id, digital_leads, in_person_leads, call_in_leads, notes, communities(name)')
     .eq('week_ending', targetWeek);
 
   let oscLeadTotal = 0;
   let oscCommunityCount = 0;
+  let oscVipTotal = 0;
   for (const l of (oscLeads || [])) {
     const commName = l.communities.name;
     const total = l.digital_leads + l.in_person_leads + l.call_in_leads;
+    const vip = l.notes ? (JSON.parse(l.notes).vip || 0) : 0;
     oscLeadTotal += total;
+    oscVipTotal += vip;
     if (total > 0) oscCommunityCount++;
     if (byCommunity[commName]) {
       byCommunity[commName].osc_leads = total;
+      byCommunity[commName].osc_vips = vip;
     }
   }
 
@@ -274,12 +278,12 @@ async function communityResults(res, weekEnding) {
     total_leads: t.total_leads + c.total_leads,
     active_prospects: t.active_prospects + c.active_prospects,
     sold: t.sold + c.sold,
-    a_ranked: t.a_ranked + c.vip_count,
     communities_reporting: t.communities_reporting + (c.reps.length > 0 ? 1 : 0),
-  }), { total_appts: 0, total_leads: 0, active_prospects: 0, sold: 0, a_ranked: 0, communities_reporting: 0 });
+  }), { total_appts: 0, total_leads: 0, active_prospects: 0, sold: 0, communities_reporting: 0 });
 
   totals.osc_leads = oscLeadTotal;
   totals.osc_communities = oscCommunityCount;
+  totals.osc_vips = oscVipTotal;
 
   // Non-reporters: assigned reps who have zero submissions for the entire week
   const { data: assignments } = await supabase
