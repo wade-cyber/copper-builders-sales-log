@@ -1,6 +1,6 @@
 # Copper Builders — Weekly Sales Reporting Tool
 
-**Last Updated:** March 30, 2026
+**Last Updated:** April 4, 2026
 
 ---
 
@@ -114,16 +114,15 @@ All data is dual-written to both Supabase and Google Sheets. The database is the
 
 ## Admin Dashboard
 
-Available at [/dashboard.html](https://copper-builders-log.vercel.app/dashboard.html) with 6 tabs:
+Available at [/dashboard.html](https://copper-builders-log.vercel.app/dashboard.html) with 5 tabs:
 
 | Tab | What It Shows |
 |-----|---------------|
-| **Overview** | Weekly summary cards, non-reporter alerts, community activity table |
-| **Results** | Latest submissions by community — appointments, leads, prospects, VIPs, sales, and full prospect pipeline |
+| **Results** | Weekly results by community with Prev/Next week navigation. Summary cards (VIP List, OSC Leads, Rep Leads, Appts, Prospects, Sales), non-reporter alerts, community table with OSC and rep data, and full prospect pipeline. Also shows OSC Leads Report import status. |
 | **Communities** | Add/edit/deactivate communities |
 | **Reps** | Add/edit/deactivate sales reps |
-| **Assignments** | Manage weekly rep-to-community assignments |
-| **System** | Health status, run history, error log, manual job triggers |
+| **Assignments** | Current rep-to-community assignments (static list with add/remove) |
+| **System** | Health status, two manual actions (Weekly Consolidation runs Mon 10:30 AM ET; Import OSC Leads from Google Sheet), run history, error log |
 
 ---
 
@@ -148,4 +147,4 @@ Available at [/dashboard.html](https://copper-builders-log.vercel.app/dashboard.
 
 ---
 
-*Last Updated: March 30, 2026*
+*Last Updated: April 4, 2026*

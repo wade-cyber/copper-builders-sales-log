@@ -1,6 +1,6 @@
 # Copper Builders Sales Log — Developer Guide
 
-**Last Updated:** March 30, 2026
+**Last Updated:** April 4, 2026
 
 This guide is for anyone pulling up this codebase for the first time — everything you need to understand, run, and modify the app.
 
@@ -120,7 +120,7 @@ copper-builders-sales-log/
 │       └── constants.js              # Shared constants
 │
 ├── public/
-│   ├── dashboard.html                # Admin dashboard (6 tabs)
+│   ├── dashboard.html                # Admin dashboard (5 tabs: Results, Communities, Reps, Assignments, System)
 │   └── how-it-works.html             # User help page (with Loom video)
 │
 ├── vercel.json                       # Cron schedule + security headers
@@ -141,7 +141,7 @@ copper-builders-sales-log/
 | `assignments` | Weekly rep→community assignments (unique per rep+community+week) |
 | `weekly_submissions` | Form submissions with granular fields (appts by type, leads by source, prospect counts) |
 | `prospects` | Individual prospect records (name, ranking A/B/C, next step, status, lot number) |
-| `leads` | OSC lead data by community and week (digital, in-person, call-in) |
+| `leads` | OSC lead data by community and week (digital, phone, in-person, VIP count in notes JSON) |
 | `run_log` | Job execution history (type, status, timing, errors) |
 | `error_log` | Granular error tracking linked to runs |
 
@@ -157,7 +157,7 @@ During the migration period, all writes go to **both** Supabase and Google Sheet
 
 ---
 
-## API Routes (11 total, Hobby plan max is 12)
+## API Routes (12 total, Hobby plan max is 12)
 
 | Route | Method | Purpose |
 |-------|--------|---------|
@@ -171,7 +171,8 @@ During the migration period, all writes go to **both** Supabase and Google Sheet
 | `/api/reports?type=...` | GET | 9 report types (see below) |
 | `/api/admin?action=...` | GET/POST | Admin CRUD (communities, reps, assignments, jobs) |
 | `/api/health` | GET | System health check |
-| `/api/import-leads` | POST | Import OSC leads from Sheets to database |
+| `/api/import-leads` | POST | Import OSC leads from Sheets to DB. Accepts `{"tab":"Week of Mar 22, 2026","week_ending":"2026-03-29"}` for historical imports |
+| `/api/backfill-db` | POST | Backfill submissions from Google Sheets into Supabase. Also supports `{"action":"migrate"}` to check schema status |
 
 ### Report Types (`/api/reports?type=`)
 `weekly-summary`, `non-reporters`, `rep-activity`, `division-summary`, `lead-summary`, `trends`, `submission-timeline`, `community-detail`, `community-results`
