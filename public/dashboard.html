@@ -96,6 +96,7 @@
     <div class="tab" data-tab="reps">Reps</div>
     <div class="tab" data-tab="assignments">Assignments</div>
     <div class="tab" data-tab="system">System</div>
+    <div class="tab" data-tab="help">Help</div>
   </div>
 
   <!-- ===== RESULTS ===== -->
@@ -162,12 +163,13 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem;">
       <div class="card" style="text-align:left;">
         <div style="font-weight:600;margin-bottom:6px;">Weekly Consolidation</div>
-        <p class="muted" style="margin-bottom:8px;">Runs automatically every <strong>Monday at 10:30 AM ET</strong>. Checks who submitted, caches assignments, consolidates all data into the weekly results, and prepares the OSC Leads sheet for the next week. Use this button to trigger it manually if needed.</p>
-        <button class="btn btn-slate" onclick="triggerJob('monday-night')" id="btn-monday">Run Weekly Consolidation</button>
+        <p class="muted" style="margin-bottom:8px;">Runs automatically every <strong>Monday at 10:30 AM ET</strong>. Caches assignments from the Assignments sheet, consolidates all rep submissions into the weekly results, writes the results report to Google Sheets, and rotates the OSC Leads sheet for the next week.</p>
+        <p class="muted" style="margin-bottom:8px;"><strong>Safe to rerun.</strong> Rerunning picks up any late submissions that arrived after the scheduled run. It rebuilds from all current-week data and keeps each rep's latest entry per community — it will not duplicate or lose earlier data.</p>
+        <button class="btn btn-slate" onclick="triggerJob('monday-night')" id="btn-monday">Rerun Weekly Consolidation</button>
       </div>
       <div class="card" style="text-align:left;">
         <div style="font-weight:600;margin-bottom:6px;">Import OSC Leads</div>
-        <p class="muted" style="margin-bottom:8px;">Reads lead data from the <strong>"This Week's Report"</strong> tab in the OSC Leads Report Google Sheet and imports it into the database. Run this after the OSC has entered their lead numbers for the week, so the data appears in the Results tab.</p>
+        <p class="muted" style="margin-bottom:8px;"><strong>Manual only — not scheduled.</strong> Reads lead data from the <strong>"This Week's Report"</strong> tab in the OSC Leads Report Google Sheet and imports it into the database. Run this after the OSC has entered their lead numbers for the week, so the data appears in the Results tab.</p>
         <button class="btn btn-slate" onclick="triggerJob('import-leads')" id="btn-leads">Import OSC Leads</button>
       </div>
     </div>
@@ -176,6 +178,83 @@
     <div id="run-table"><div class="loading">Loading...</div></div>
     <h2 class="mt">Recent Errors</h2>
     <div id="error-table"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- ===== HELP ===== -->
+  <div id="help" class="panel">
+    <h2>How the System Works</h2>
+    <p class="muted mb">A guide for the admin dashboard manager. This page explains the weekly cycle, what each tab does, and how to handle common situations.</p>
+
+    <div class="card" style="text-align:left;margin-bottom:12px;">
+      <div style="font-weight:600;margin-bottom:6px;">Weekly Cycle</div>
+      <p class="muted" style="margin-bottom:6px;">Each week follows this cycle:</p>
+      <ol class="muted" style="margin-left:18px;line-height:1.8;">
+        <li><strong>Sales reps submit</strong> their weekly activity (leads, appointments, prospects, sales) through the <a href="/">Sales Log app</a> at any time during the week.</li>
+        <li><strong>The OSC fills in</strong> the <a href="https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU" target="_blank">"This Week's Report"</a> tab in the OSC Leads Report Google Sheet with marketing lead counts for each community.</li>
+        <li><strong>Admin imports OSC leads</strong> by clicking "Import OSC Leads" on the System tab. This is a manual step &mdash; it is not scheduled automatically.</li>
+        <li><strong>Monday at 10:30 AM ET</strong>, the system automatically runs the Weekly Consolidation: caches assignments, consolidates all submissions into the weekly results report, writes the report to Google Sheets, and rotates the OSC Leads sheet (archives the current week's tab and creates a fresh one for the next week).</li>
+        <li><strong>Results appear</strong> on the Results tab, organized by division and community, with summary cards, prospect pipeline, and last report times.</li>
+      </ol>
+      <p class="muted" style="margin-top:8px;">If a rep submits late (after Monday's consolidation), go to the System tab and click <strong>"Rerun Weekly Consolidation"</strong> &mdash; it will pick up the late submission automatically without duplicating or losing any existing data.</p>
+    </div>
+
+    <div class="card" style="text-align:left;margin-bottom:12px;">
+      <div style="font-weight:600;margin-bottom:6px;">Dashboard Tabs</div>
+      <table>
+        <tr><th>Tab</th><th>Purpose</th></tr>
+        <tr><td><strong>Results</strong></td><td>View weekly results by community. Navigate between weeks with Prev/Next. Shows summary cards (VIP, OSC Leads, Rep Leads, Appts, Prospects, Sales), non-reporter alerts, the community breakdown table, prospect pipeline, and each rep's last submission date.</td></tr>
+        <tr><td><strong>Communities</strong></td><td>Add, activate, or deactivate communities. Each community has a name and division code (CLT, CLB, TRN, GVL, WIL).</td></tr>
+        <tr><td><strong>Reps</strong></td><td>Add, activate, or deactivate sales reps.</td></tr>
+        <tr><td><strong>Assignments</strong></td><td>Assign reps to communities for the current week. These determine which communities appear for each rep in the Sales Log app.</td></tr>
+        <tr><td><strong>System</strong></td><td>System health, manual job triggers (Weekly Consolidation and OSC Lead Import), run history, and error log.</td></tr>
+        <tr><td><strong>Help</strong></td><td>This page &mdash; how the system works, common tasks, and links to documentation.</td></tr>
+      </table>
+    </div>
+
+    <div class="card" style="text-align:left;margin-bottom:12px;">
+      <div style="font-weight:600;margin-bottom:6px;">System Jobs</div>
+      <table>
+        <tr><th>Job</th><th>Schedule</th><th>What It Does</th></tr>
+        <tr><td><strong>Weekly Consolidation</strong></td><td>Automatic &mdash; Monday 10:30 AM ET</td><td>Caches rep-to-community assignments, consolidates all submissions into weekly results, writes the results report to Google Sheets, and rotates the OSC Leads sheet (archives the current week, creates a fresh tab for next week). Safe to rerun &mdash; picks up late submissions without duplicating data.</td></tr>
+        <tr><td><strong>Import OSC Leads</strong></td><td>Manual only</td><td>Reads the "This Week's Report" tab from the OSC Leads Report Google Sheet and imports digital, phone, in-person lead counts and VIP sign-ups into the database. Run this after the OSC has finished entering their numbers for the week.</td></tr>
+      </table>
+    </div>
+
+    <div class="card" style="text-align:left;margin-bottom:12px;">
+      <div style="font-weight:600;margin-bottom:6px;">Common Tasks</div>
+      <table>
+        <tr><th>Situation</th><th>What to Do</th></tr>
+        <tr><td>A rep submitted late</td><td>Go to System tab &rarr; click <strong>"Rerun Weekly Consolidation"</strong>. It rebuilds from all submissions and will include the late entry.</td></tr>
+        <tr><td>OSC leads not showing in Results</td><td>Go to System tab &rarr; click <strong>"Import OSC Leads"</strong>. Make sure the OSC has filled in the "This Week's Report" tab first.</td></tr>
+        <tr><td>Add a new community</td><td>Communities tab &rarr; enter name and division &rarr; click Add Community. Then assign reps on the Assignments tab.</td></tr>
+        <tr><td>Add a new sales rep</td><td>Reps tab &rarr; enter name &rarr; click Add Rep. Then assign their communities on the Assignments tab.</td></tr>
+        <tr><td>Rep can't see their communities</td><td>Check the Assignments tab &mdash; the rep must be assigned to the community for the current week. Also verify the <a href="https://docs.google.com/spreadsheets/d/1vCDaPFo-R_2Wpv2lfGtjA8Q6XeJx1_D0abAC0y3eq3Y" target="_blank">Sales Rep Assignments Google Sheet</a>.</td></tr>
+        <tr><td>Monday consolidation failed</td><td>Check System tab for error details. Most common cause: Google Sheets API quota exceeded. Wait a few minutes and click "Rerun Weekly Consolidation".</td></tr>
+        <tr><td>Need to see a previous week</td><td>Results tab &rarr; use the Prev/Next buttons to navigate between weeks.</td></tr>
+      </table>
+    </div>
+
+    <div class="card" style="text-align:left;margin-bottom:12px;">
+      <div style="font-weight:600;margin-bottom:6px;">Key Links</div>
+      <table>
+        <tr><th>Resource</th><th>Link</th></tr>
+        <tr><td>Sales Log App (for reps)</td><td><a href="/" target="_blank">copper-builders-log.vercel.app</a></td></tr>
+        <tr><td>Rep Help Page</td><td><a href="/how-it-works.html" target="_blank">How It Works</a></td></tr>
+        <tr><td>Sales App Reporting (Google Sheet)</td><td><a href="https://docs.google.com/spreadsheets/d/1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4" target="_blank">Open Sheet</a></td></tr>
+        <tr><td>Sales Rep Assignments (Google Sheet)</td><td><a href="https://docs.google.com/spreadsheets/d/1vCDaPFo-R_2Wpv2lfGtjA8Q6XeJx1_D0abAC0y3eq3Y" target="_blank">Open Sheet</a></td></tr>
+        <tr><td>OSC Leads Report (Google Sheet)</td><td><a href="https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU" target="_blank">Open Sheet</a></td></tr>
+        <tr><td>Supabase Dashboard</td><td><a href="https://supabase.com/dashboard/project/bhmjgfjybpfgjxwtbked" target="_blank">Open Dashboard</a></td></tr>
+      </table>
+    </div>
+
+    <div class="card" style="text-align:left;">
+      <div style="font-weight:600;margin-bottom:6px;">Technical Documentation</div>
+      <p class="muted" style="margin-bottom:6px;">For developers and detailed system information:</p>
+      <ul class="muted" style="margin-left:18px;line-height:1.8;">
+        <li><a href="https://github.com/wade-cyber/copper-builders-sales-log/blob/main/DEVELOPER_GUIDE.md" target="_blank">Developer Guide</a> &mdash; full technical reference: architecture, API routes, database schema, deployment, environment variables</li>
+        <li><a href="https://github.com/wade-cyber/copper-builders-sales-log/blob/main/COPPER_BUILDERS_REPORTING_BRIEF.md" target="_blank">Reporting Brief</a> &mdash; user-facing documentation: how reps, managers, and the OSC use the system</li>
+      </ul>
+    </div>
   </div>
 </div>
 
@@ -558,7 +637,7 @@ async function triggerJob(job) {
     alert('Error: ' + e.message);
   }
   btn.disabled = false;
-  btn.textContent = job === 'import-leads' ? 'Import Leads' : 'Run Monday Night Job';
+  btn.textContent = job === 'import-leads' ? 'Import OSC Leads' : 'Rerun Weekly Consolidation';
   loadSystem();
 }
 

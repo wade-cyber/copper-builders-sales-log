@@ -1,6 +1,6 @@
 # Copper Builders Sales Log — Developer Guide
 
-**Last Updated:** April 4, 2026
+**Last Updated:** April 5, 2026
 
 This guide is for anyone pulling up this codebase for the first time — everything you need to understand, run, and modify the app.
 
@@ -120,7 +120,7 @@ copper-builders-sales-log/
 │       └── constants.js              # Shared constants
 │
 ├── public/
-│   ├── dashboard.html                # Admin dashboard (5 tabs: Results, Communities, Reps, Assignments, System)
+│   ├── dashboard.html                # Admin dashboard (6 tabs: Results, Communities, Reps, Assignments, System, Help)
 │   └── how-it-works.html             # User help page (with Loom video)
 │
 ├── vercel.json                       # Cron schedule + security headers
