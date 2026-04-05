@@ -300,9 +300,23 @@ async function communityResults(res, weekEnding) {
     })
     .sort();
 
+  // Last submission per rep (most recent across all weeks)
+  const { data: allSubs } = await supabase
+    .from('weekly_submissions')
+    .select('rep_id, submitted_at, reps(name)')
+    .order('submitted_at', { ascending: false });
+
+  const lastByRep = {};
+  for (const s of (allSubs || [])) {
+    if (!lastByRep[s.rep_id]) {
+      lastByRep[s.rep_id] = { rep: s.reps.name, submitted_at: s.submitted_at };
+    }
+  }
+  const repLastSubmissions = Object.values(lastByRep).sort((a, b) => a.rep.localeCompare(b.rep));
+
   return res.status(200).json({
     success: true,
-    data: { communities: results, totals, non_reporters: nonReporters, available_weeks: availableWeeks },
+    data: { communities: results, totals, non_reporters: nonReporters, available_weeks: availableWeeks, rep_last_submissions: repLastSubmissions },
     meta: { week_ending: targetWeek, generated_at: new Date().toISOString(), community_count: results.length },
   });
 }

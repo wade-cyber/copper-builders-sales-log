@@ -114,6 +114,7 @@
     <div id="results-nr"></div>
     <div id="results-table"><div class="loading">Loading...</div></div>
     <div id="results-prospects" class="mt"></div>
+    <div id="results-last-submissions" class="mt"></div>
   </div>
 
   <!-- ===== COMMUNITIES ===== -->
@@ -339,6 +340,23 @@ async function loadResults(weekOverride) {
     document.getElementById('results-prospects').innerHTML = pHtml;
   } else {
     document.getElementById('results-prospects').innerHTML = '';
+  }
+
+  // Last submission per rep
+  const lastSubs = d.rep_last_submissions || [];
+  if (lastSubs.length > 0) {
+    let lsHtml = '<h2>Last Report by Rep</h2>';
+    lsHtml += '<table><tr><th>Rep Name</th><th>Date</th><th>Time</th></tr>';
+    for (const s of lastSubs) {
+      const dt = new Date(s.submitted_at);
+      const date = dt.toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric' });
+      const time = dt.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' });
+      lsHtml += `<tr><td><strong>${s.rep}</strong></td><td>${date}</td><td class="muted">${time}</td></tr>`;
+    }
+    lsHtml += '</table>';
+    document.getElementById('results-last-submissions').innerHTML = lsHtml;
+  } else {
+    document.getElementById('results-last-submissions').innerHTML = '';
   }
 }
 
