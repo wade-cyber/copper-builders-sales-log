@@ -5,7 +5,12 @@ import { getSheetData, getWeekEndingSunday, getCurrentWeekEndingShort, toNum, SA
 
 export default async function handler(req, res) {
   const type = req.query.type;
-  const weekEnding = req.query.week_ending || getWeekEndingSunday().toISOString().slice(0, 10);
+  // Default to the most recently completed week (previous Sunday).
+  // This flips to the new week on Monday at 12:00 AM ET.
+  const currentSunday = getWeekEndingSunday();
+  const prevSunday = new Date(currentSunday);
+  prevSunday.setDate(currentSunday.getDate() - 7);
+  const weekEnding = req.query.week_ending || prevSunday.toISOString().slice(0, 10);
 
   try {
     switch (type) {
