@@ -5,12 +5,11 @@
 import {
   getSheetData, updateRange, clearRange, getSheetId, batchUpdate,
   getCurrentWeekEndingShort, getWeekEndingSunday, logToSystemLog, toNum, formatTabName,
-  SALES_APP_SHEET_ID, ASSIGNMENTS_SHEET_ID, TEMPLATE_SHEET_ID,
+  SALES_APP_SHEET_ID, TEMPLATE_SHEET_ID,
 } from './_lib/sheets.js';
 import { getCommunitiesFromAssignmentsSheet, getRepsFromAssignmentsSheet } from './_lib/sync-from-assignments-sheet.js';
 import { supabase } from './_lib/db.js';
 import { importOSCLeads } from './_lib/import-osc-leads.js';
-import { resolveOrCreateRep, resolveOrCreateCommunity, clearResolverCache } from './_lib/resolve-names.js';
 
 export default async function handler(req, res) {
   let body = {};
@@ -215,15 +214,14 @@ async function writeWeeklyResults() {
 
   // Step 3: Read all data sources
 
-  // 3a: Assignments (rep + community + division)
-  const assignData = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Assignments');
-  if (assignData.length < 2) return { success: true, rowsWritten: 0 };
-
-  const aHeaders = assignData[0];
-  const aRepIdx = aHeaders.indexOf('Rep Name');
-  let aCommunityIdx = aHeaders.indexOf('Community Name');
-  if (aCommunityIdx < 0) aCommunityIdx = aHeaders.indexOf('Community or House Name');
-  const aDivisionIdx = aHeaders.indexOf('Division');
+  // 3a: Assignments (rep + community + division) — read from Supabase
+  const weekEndingDate = getWeekEndingSunday().toISOString().slice(0, 10);
+  const { data: assignRows, error: assignErr } = await supabase
+    .from('assignments')
+    .select('reps(name), communities(name, division)')
+    .eq('week_ending', weekEndingDate);
+  if (assignErr) throw assignErr;
+  if (!assignRows || assignRows.length === 0) return { success: true, rowsWritten: 0 };
 
   // 3b: Submissions (deduplicated by rep+community for current week)
   const subsByRepComm = {};
@@ -309,10 +307,10 @@ async function writeWeeklyResults() {
   ];
 
   const rows = [];
-  for (let i = 1; i < assignData.length; i++) {
-    const rep = (assignData[i][aRepIdx] || '').toString().trim();
-    const comm = aCommunityIdx >= 0 ? (assignData[i][aCommunityIdx] || '').toString().trim() : '';
-    const div = aDivisionIdx >= 0 ? (assignData[i][aDivisionIdx] || '').toString().trim() : '';
+  for (const a of assignRows) {
+    const rep = a.reps.name;
+    const comm = a.communities.name;
+    const div = a.communities.division || '';
     const key = `${rep}||${comm}`;
 
     const sub = subsByRepComm[key];
@@ -459,34 +457,24 @@ async function rotateOSCLeadsSheet(targetDate = null) {
 // ═══════════════════════════════════════════════════════════
 
 async function cacheAssignmentsLocally() {
-  const data = await getSheetData(ASSIGNMENTS_SHEET_ID, 'Assignments');
-  if (data.length < 2) return { success: true, count: 0 };
+  // Read assignments from Supabase (single source of truth)
+  const weekEndingDate = getWeekEndingSunday().toISOString().slice(0, 10);
+  const { data: assignments, error } = await supabase
+    .from('assignments')
+    .select('reps(name), communities(name, division), third_party')
+    .eq('week_ending', weekEndingDate);
 
-  const headers = data[0];
-  const repIdx = headers.indexOf('Rep Name');
-  let communityIdx = headers.indexOf('Community Name');
-  if (communityIdx < 0) communityIdx = headers.indexOf('Community or House Name');
-  const divisionIdx = headers.indexOf('Division');
-  const thirdPartyIdx = headers.indexOf('3rd Party?');
-  const reportToolIdx = headers.indexOf('Sales reporting tool report this week?');
+  if (error) throw error;
+  if (!assignments || assignments.length === 0) return { success: true, count: 0 };
 
-  const rows = [];
-  for (let i = 1; i < data.length; i++) {
-    if (reportToolIdx >= 0) {
-      const val = (data[i][reportToolIdx] || '').toString().trim().toLowerCase();
-      if (val !== 'yes') continue;
-    }
-    const rep = (data[i][repIdx] || '').toString().trim();
-    const comm = communityIdx >= 0 ? (data[i][communityIdx] || '').toString().trim() : '';
-    if (!rep || !comm) continue;
-    // Skip placeholder reps — these are leads-only entries, not sales rep assignments
-    const repLower = rep.toLowerCase();
-    if (repLower === 'n/a' || repLower === 'none' || repLower === 'na') continue;
-    const division = divisionIdx >= 0 ? (data[i][divisionIdx] || '').toString().trim() : '';
-    const tp = thirdPartyIdx >= 0 ? (data[i][thirdPartyIdx] || '').toString().trim().toLowerCase() : '';
-    rows.push([rep, comm, division, tp]);
-  }
+  const rows = assignments
+    .filter(a => {
+      const name = a.reps.name.toLowerCase();
+      return name !== 'n/a' && name !== 'none' && name !== 'na';
+    })
+    .map(a => [a.reps.name, a.communities.name, a.communities.division, a.third_party || '']);
 
+  // Write to "Weekly Assignments" cache tab in Google Sheets (backward compat)
   let sheetId = await getSheetId(SALES_APP_SHEET_ID, 'Weekly Assignments');
   if (sheetId === null) {
     await batchUpdate(SALES_APP_SHEET_ID, [{
@@ -507,32 +495,6 @@ async function cacheAssignmentsLocally() {
   await updateRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!F1:G1", [
     ['Last Synced', new Date().toISOString()]
   ]);
-
-  // === Dual-write: sync assignments to Supabase ===
-  try {
-    clearResolverCache();
-    const weekEnding = getCurrentWeekEndingShort();
-    // Parse week ending to ISO date
-    const sun = getWeekEndingSunday();
-    const weekEndingDate = sun.toISOString().slice(0, 10);
-
-    let dbCount = 0;
-    for (const [repName, commName, division, tp] of rows) {
-      const rep = await resolveOrCreateRep(repName);
-      const community = await resolveOrCreateCommunity(commName, division || 'CLT');
-      await supabase.from('assignments').upsert({
-        rep_id: rep.id,
-        community_id: community.id,
-        week_ending: weekEndingDate,
-        source: 'smartsheet',
-        third_party: tp || null,
-      }, { onConflict: 'rep_id,community_id,week_ending' });
-      dbCount++;
-    }
-    console.log(`[cacheAssignments] Synced ${dbCount} assignments to Supabase`);
-  } catch (dbErr) {
-    console.error('[cacheAssignments] Supabase sync failed:', dbErr.message);
-  }
 
   return { success: true, count: rows.length };
 }

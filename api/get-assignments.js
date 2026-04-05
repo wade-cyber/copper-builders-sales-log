@@ -1,40 +1,41 @@
 // GET /api/get-assignments?rep=Name — returns assignments for a rep
-// Without ?rep param: returns all unique communities
-// Reads from the local "Weekly Assignments" cache tab (fast, pre-filtered)
-
-import { getSheetData, SALES_APP_SHEET_ID } from './_lib/sheets.js';
+// Without ?rep param: returns all active communities
+import { supabase } from './_lib/db.js';
+import { getWeekEndingSunday } from './_lib/sheets.js';
 
 export default async function handler(req, res) {
   try {
     const rep = req.query.rep || '';
-    const data = await getSheetData(SALES_APP_SHEET_ID, 'Weekly Assignments');
-    if (data.length < 2) return res.status(200).json([]);
+    const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
 
-    const headers = data[0];
-    const repIdx = headers.indexOf('Rep Name');
-    const communityIdx = headers.indexOf('Community Name');
-    const thirdPartyIdx = headers.indexOf('3rd Party');
+    // Count how many reps are assigned to each community (for type determination)
+    const { data: allAssignments, error: allErr } = await supabase
+      .from('assignments')
+      .select('communities(name), reps(name), third_party')
+      .eq('week_ending', weekEnding);
 
-    // Count communities for type determination
+    if (allErr) throw allErr;
+    if (!allAssignments || allAssignments.length === 0) return res.status(200).json([]);
+
     const counts = {};
-    for (let i = 1; i < data.length; i++) {
-      const name = (data[i][communityIdx] || '').toString().trim();
-      if (name) counts[name] = (counts[name] || 0) + 1;
+    for (const a of allAssignments) {
+      const name = a.communities.name;
+      counts[name] = (counts[name] || 0) + 1;
     }
 
     // No rep provided: return all unique communities
     if (!rep) {
       const seen = {};
       const results = [];
-      for (let i = 1; i < data.length; i++) {
-        const name = (data[i][communityIdx] || '').toString().trim();
-        if (!name || seen[name]) continue;
+      for (const a of allAssignments) {
+        const name = a.communities.name;
+        if (seen[name]) continue;
         seen[name] = true;
-        const tp = thirdPartyIdx >= 0 ? (data[i][thirdPartyIdx] || '').toString().trim().toLowerCase() : '';
         results.push({
-          name, assignmentName: name,
+          name,
+          assignmentName: name,
           assignmentType: counts[name] > 1 ? 'community' : 'single-home',
-          thirdParty: tp,
+          thirdParty: (a.third_party || '').toLowerCase(),
         });
       }
       return res.status(200).json(results);
@@ -43,21 +44,21 @@ export default async function handler(req, res) {
     // Rep provided: return that rep's assignments
     const results = [];
     const seen = new Set();
-    for (let i = 1; i < data.length; i++) {
-      const rowRep = (data[i][repIdx] || '').toString().trim();
-      if (rowRep !== rep) continue;
-      const name = (data[i][communityIdx] || '').toString().trim();
-      if (!name || seen.has(name)) continue;
+    for (const a of allAssignments) {
+      if (a.reps.name !== rep) continue;
+      const name = a.communities.name;
+      if (seen.has(name)) continue;
       seen.add(name);
-      const tp = thirdPartyIdx >= 0 ? (data[i][thirdPartyIdx] || '').toString().trim().toLowerCase() : '';
       results.push({
-        name, assignmentName: name,
+        name,
+        assignmentName: name,
         assignmentType: counts[name] > 1 ? 'community' : 'single-home',
-        thirdParty: tp,
+        thirdParty: (a.third_party || '').toLowerCase(),
       });
     }
     return res.status(200).json(results);
   } catch (err) {
-    console.error(err); return res.status(500).json({ error: "Something went wrong. Please try again." });
+    console.error(err);
+    return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }

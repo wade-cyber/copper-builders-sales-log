@@ -1,28 +1,27 @@
-// GET /api/get-reps — returns sorted unique rep names
-// Reads from the local "Weekly Assignments" cache tab (fast, pre-filtered)
-
-import { getSheetData, SALES_APP_SHEET_ID } from './_lib/sheets.js';
+// GET /api/get-reps — returns sorted unique rep names from current week's assignments
+import { supabase } from './_lib/db.js';
+import { getWeekEndingSunday } from './_lib/sheets.js';
 
 export default async function handler(req, res) {
   try {
-    const data = await getSheetData(SALES_APP_SHEET_ID, 'Weekly Assignments');
-    if (data.length < 2) return res.status(200).json([]);
+    const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
+    const { data, error } = await supabase
+      .from('assignments')
+      .select('reps(name)')
+      .eq('week_ending', weekEnding);
 
-    const headers = data[0];
-    const repIdx = headers.indexOf('Rep Name');
+    if (error) throw error;
 
-    const seen = {};
-    const results = [];
-    for (let i = 1; i < data.length; i++) {
-      const name = (data[i][repIdx] || '').toString().trim();
-      if (name && !seen[name]) {
-        seen[name] = true;
-        results.push(name);
-      }
-    }
-    results.sort();
-    return res.status(200).json(results);
+    const names = [...new Set((data || []).map(a => a.reps.name))]
+      .filter(n => {
+        const lower = n.toLowerCase();
+        return lower !== 'n/a' && lower !== 'none' && lower !== 'na';
+      })
+      .sort();
+
+    return res.status(200).json(names);
   } catch (err) {
-    console.error(err); return res.status(500).json({ error: "Something went wrong. Please try again." });
+    console.error(err);
+    return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }

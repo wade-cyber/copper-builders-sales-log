@@ -12,7 +12,7 @@
 | **Admin Dashboard** (managers) | [copper-builders-log.vercel.app/dashboard.html](https://copper-builders-log.vercel.app/dashboard.html) |
 | **Help Page** (reps) | [copper-builders-log.vercel.app/how-it-works.html](https://copper-builders-log.vercel.app/how-it-works.html) |
 | **Sales App Reporting** (data) | [Google Sheet](https://docs.google.com/spreadsheets/d/1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4) |
-| **Sales Rep Assignments** (managed by sales manager) | [Google Sheet](https://docs.google.com/spreadsheets/d/1vCDaPFo-R_2Wpv2lfGtjA8Q6XeJx1_D0abAC0y3eq3Y) |
+
 | **OSC Leads Report** | [Google Sheet](https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU) |
 | **GitHub Repo** | [wade-cyber/copper-builders-sales-log](https://github.com/wade-cyber/copper-builders-sales-log) |
 | **Supabase Dashboard** | [supabase.com/dashboard/project/bhmjgfjybpfgjxwtbked](https://supabase.com/dashboard/project/bhmjgfjybpfgjxwtbked) |
@@ -57,7 +57,7 @@ Go to [/dashboard.html](https://copper-builders-log.vercel.app/dashboard.html) t
 - Trigger jobs manually and view system health (System tab)
 
 **Option B — Google Sheet:**
-Manage assignments in the [Sales Rep Assignments](https://docs.google.com/spreadsheets/d/1vCDaPFo-R_2Wpv2lfGtjA8Q6XeJx1_D0abAC0y3eq3Y) Google Sheet. Changes take effect after the Monday sync.
+Manage assignments in the Admin Dashboard → Assignments tab. Changes take effect immediately for the current week.
 
 ### For the OSC
 
@@ -132,7 +132,7 @@ Available at [/dashboard.html](https://copper-builders-log.vercel.app/dashboard.
 
 ### "Can't see rep names in dropdown"
 - The Weekly Assignments cache may be empty. Go to Admin Dashboard → System → Run Monday Night Job
-- Or check the Sales Rep Assignments sheet has rep names
+- Or check the Assignments tab in the Admin Dashboard
 
 ### "Rep submitted but data isn't showing in Results"
 - Data appears in the Results tab after reps submit through the Sales Log app
@@ -140,7 +140,7 @@ Available at [/dashboard.html](https://copper-builders-log.vercel.app/dashboard.
 
 ### "Community not showing for a rep"
 - Check Assignments tab in the Admin Dashboard — the rep must be assigned to that community
-- Or check the Sales Rep Assignments Google Sheet
+- Or check the Assignments tab in the Admin Dashboard
 
 ### "Monday night job failed"
 - Check Admin Dashboard → System tab for error details
