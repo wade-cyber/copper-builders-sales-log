@@ -163,14 +163,14 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem;">
       <div class="card" style="text-align:left;">
         <div style="font-weight:600;margin-bottom:6px;">Weekly Consolidation</div>
-        <p class="muted" style="margin-bottom:8px;">Runs automatically every <strong>Monday at 10:30 AM ET</strong>. Caches assignments from the Assignments sheet, consolidates all rep submissions into the weekly results, writes the results report to Google Sheets, and rotates the OSC Leads sheet for the next week.</p>
-        <p class="muted" style="margin-bottom:8px;"><strong>Safe to rerun.</strong> Rerunning picks up any late submissions that arrived after the scheduled run. It rebuilds from all current-week data and keeps each rep's latest entry per community — it will not duplicate or lose earlier data.</p>
+        <p class="muted" style="margin-bottom:8px;">Runs automatically every <strong>Monday at 10:30 AM ET</strong>. Caches assignments, imports OSC leads from the Google Sheet into the database, consolidates all rep submissions into the weekly results, writes the results report to Google Sheets, and rotates the OSC Leads sheet for the next week.</p>
+        <p class="muted" style="margin-bottom:8px;"><strong>Safe to rerun.</strong> Rerunning picks up any late submissions and reimports OSC lead data. It rebuilds from all current-week data and keeps each rep's latest entry per community — it will not duplicate or lose earlier data.</p>
         <button class="btn btn-slate" onclick="triggerJob('monday-night')" id="btn-monday">Rerun Weekly Consolidation</button>
       </div>
       <div class="card" style="text-align:left;">
-        <div style="font-weight:600;margin-bottom:6px;">Import OSC Leads</div>
-        <p class="muted" style="margin-bottom:8px;"><strong>Manual only — not scheduled.</strong> Reads lead data from the <strong>"This Week's Report"</strong> tab in the OSC Leads Report Google Sheet and imports it into the database. Run this after the OSC has entered their lead numbers for the week, so the data appears in the Results tab.</p>
-        <button class="btn btn-slate" onclick="triggerJob('import-leads')" id="btn-leads">Import OSC Leads</button>
+        <div style="font-weight:600;margin-bottom:6px;">Reimport OSC Leads</div>
+        <p class="muted" style="margin-bottom:8px;">OSC leads are imported automatically as part of the Monday consolidation. Use this button to <strong>reimport</strong> if the OSC updated their numbers after the scheduled run, or if leads were missed. Reads the <strong>"This Week's Report"</strong> tab from the OSC Leads Report Google Sheet.</p>
+        <button class="btn btn-slate" onclick="triggerJob('import-leads')" id="btn-leads">Reimport OSC Leads</button>
       </div>
     </div>
 
@@ -190,12 +190,11 @@
       <p class="muted" style="margin-bottom:6px;">Each week follows this cycle:</p>
       <ol class="muted" style="margin-left:18px;line-height:1.8;">
         <li><strong>Sales reps submit</strong> their weekly activity (leads, appointments, prospects, sales) through the <a href="/">Sales Log app</a> at any time during the week.</li>
-        <li><strong>The OSC fills in</strong> the <a href="https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU" target="_blank">"This Week's Report"</a> tab in the OSC Leads Report Google Sheet with marketing lead counts for each community.</li>
-        <li><strong>Admin imports OSC leads</strong> by clicking "Import OSC Leads" on the System tab. This is a manual step &mdash; it is not scheduled automatically.</li>
-        <li><strong>Monday at 10:30 AM ET</strong>, the system automatically runs the Weekly Consolidation: caches assignments, consolidates all submissions into the weekly results report, writes the report to Google Sheets, and rotates the OSC Leads sheet (archives the current week's tab and creates a fresh one for the next week).</li>
+        <li><strong>The OSC fills in</strong> the <a href="https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU" target="_blank">"This Week's Report"</a> tab in the OSC Leads Report Google Sheet with marketing lead counts and VIP sign-ups for each community.</li>
+        <li><strong>Monday at 10:30 AM ET</strong>, the system automatically: caches assignments, imports OSC leads into the database, consolidates all submissions into the weekly results report, writes the report to Google Sheets, and rotates the OSC Leads sheet (archives the current week's tab and creates a fresh one for the next week).</li>
         <li><strong>Results appear</strong> on the Results tab, organized by division and community, with summary cards, prospect pipeline, and last report times.</li>
       </ol>
-      <p class="muted" style="margin-top:8px;">If a rep submits late (after Monday's consolidation), go to the System tab and click <strong>"Rerun Weekly Consolidation"</strong> &mdash; it will pick up the late submission automatically without duplicating or losing any existing data.</p>
+      <p class="muted" style="margin-top:8px;">If a rep submits late or the OSC updates their numbers after Monday's consolidation, go to the System tab and click <strong>"Rerun Weekly Consolidation"</strong> &mdash; it will reimport OSC leads and pick up late submissions automatically. You can also click <strong>"Reimport OSC Leads"</strong> to reimport just the OSC data without rerunning the full consolidation.</p>
     </div>
 
     <div class="card" style="text-align:left;margin-bottom:12px;">
@@ -215,8 +214,8 @@
       <div style="font-weight:600;margin-bottom:6px;">System Jobs</div>
       <table>
         <tr><th>Job</th><th>Schedule</th><th>What It Does</th></tr>
-        <tr><td><strong>Weekly Consolidation</strong></td><td>Automatic &mdash; Monday 10:30 AM ET</td><td>Caches rep-to-community assignments, consolidates all submissions into weekly results, writes the results report to Google Sheets, and rotates the OSC Leads sheet (archives the current week, creates a fresh tab for next week). Safe to rerun &mdash; picks up late submissions without duplicating data.</td></tr>
-        <tr><td><strong>Import OSC Leads</strong></td><td>Manual only</td><td>Reads the "This Week's Report" tab from the OSC Leads Report Google Sheet and imports digital, phone, in-person lead counts and VIP sign-ups into the database. Run this after the OSC has finished entering their numbers for the week.</td></tr>
+        <tr><td><strong>Weekly Consolidation</strong></td><td>Automatic &mdash; Monday 10:30 AM ET</td><td>Caches assignments, imports OSC leads into the database, consolidates all submissions into weekly results, writes the results report to Google Sheets, and rotates the OSC Leads sheet (archives the current week, creates a fresh tab for next week). Safe to rerun &mdash; picks up late submissions and reimports OSC data.</td></tr>
+        <tr><td><strong>Reimport OSC Leads</strong></td><td>Automatic (part of consolidation) + manual</td><td>Reads the "This Week's Report" tab from the OSC Leads Report Google Sheet and imports digital, phone, in-person lead counts and VIP sign-ups into the database. Runs automatically as part of the Monday consolidation. Use the manual button if the OSC updated their numbers afterward.</td></tr>
       </table>
     </div>
 
@@ -225,7 +224,7 @@
       <table>
         <tr><th>Situation</th><th>What to Do</th></tr>
         <tr><td>A rep submitted late</td><td>Go to System tab &rarr; click <strong>"Rerun Weekly Consolidation"</strong>. It rebuilds from all submissions and will include the late entry.</td></tr>
-        <tr><td>OSC leads not showing in Results</td><td>Go to System tab &rarr; click <strong>"Import OSC Leads"</strong>. Make sure the OSC has filled in the "This Week's Report" tab first.</td></tr>
+        <tr><td>OSC leads not showing in Results</td><td>OSC leads are imported automatically with the Monday consolidation. If they're missing, go to System tab &rarr; click <strong>"Reimport OSC Leads"</strong>. Make sure the OSC has filled in the "This Week's Report" tab first.</td></tr>
         <tr><td>Add a new community</td><td>Communities tab &rarr; enter name and division &rarr; click Add Community. Then assign reps on the Assignments tab.</td></tr>
         <tr><td>Add a new sales rep</td><td>Reps tab &rarr; enter name &rarr; click Add Rep. Then assign their communities on the Assignments tab.</td></tr>
         <tr><td>Rep can't see their communities</td><td>Check the Assignments tab &mdash; the rep must be assigned to the community for the current week. Also verify the <a href="https://docs.google.com/spreadsheets/d/1vCDaPFo-R_2Wpv2lfGtjA8Q6XeJx1_D0abAC0y3eq3Y" target="_blank">Sales Rep Assignments Google Sheet</a>.</td></tr>
@@ -637,7 +636,7 @@ async function triggerJob(job) {
     alert('Error: ' + e.message);
   }
   btn.disabled = false;
-  btn.textContent = job === 'import-leads' ? 'Import OSC Leads' : 'Rerun Weekly Consolidation';
+  btn.textContent = job === 'import-leads' ? 'Reimport OSC Leads' : 'Rerun Weekly Consolidation';
   loadSystem();
 }
 

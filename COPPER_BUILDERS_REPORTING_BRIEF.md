@@ -73,11 +73,12 @@ Every Monday at **10:30 AM ET**, the system automatically runs:
 - Checks which reps submitted their weekly log
 - Writes "Sales Reports" tab showing Submitted vs. MISSING per rep
 
-### Phase 2 — Consolidate + Cache + Results + OSC Rotation
+### Phase 2 — Cache + Import + Consolidate + Results + OSC Rotation
 1. **Cache assignments** from the Assignments sheet into the app + Supabase database
-2. **Consolidate** all submissions into "Sales Data Results" tab
-3. **Write weekly results** — builds "Last Weeks Results" with rep data + OSC data
-4. **Rotate OSC leads sheet** — archives current "This Week's Report" tab as "Week of [date]", duplicates Dashboard Template to create a fresh "This Week's Report", updates the week ending date, syncs communities, clears data columns
+2. **Import OSC leads** from the "This Week's Report" Google Sheet tab into the database
+3. **Consolidate** all submissions into "Sales Data Results" tab
+4. **Write weekly results** — builds "Last Weeks Results" with rep data + OSC data
+5. **Rotate OSC leads sheet** — archives current "This Week's Report" tab as "Week of [date]", duplicates Dashboard Template to create a fresh "This Week's Report", updates the week ending date, syncs communities, clears data columns
 
 ---
 
@@ -122,7 +123,7 @@ Available at [/dashboard.html](https://copper-builders-log.vercel.app/dashboard.
 | **Communities** | Add/edit/deactivate communities |
 | **Reps** | Add/edit/deactivate sales reps |
 | **Assignments** | Current rep-to-community assignments (static list with add/remove) |
-| **System** | Health status, two manual actions (Weekly Consolidation — auto Monday 10:30 AM ET, safe to rerun for late submissions; Import OSC Leads — manual only), run history, error log |
+| **System** | Health status, two manual actions (Weekly Consolidation — auto Monday 10:30 AM ET, includes OSC import, safe to rerun; Reimport OSC Leads — for reimporting if OSC updated after consolidation), run history, error log |
 | **Help** | System guide for admin/managers: weekly cycle, what each tab does, common tasks, links to Google Sheets and technical documentation |
 
 ---

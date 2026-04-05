@@ -1,7 +1,6 @@
-// POST /api/monday-night — Monday midnight orchestrator
-// Sales rep reporting tool only — no leads sheet management.
+// POST /api/monday-night — Monday 10:30 AM ET orchestrator
 // Phase 1: Submission status report
-// Phase 2: Cache assignments + consolidate data + write weekly stats to Assignments sheet
+// Phase 2: Cache assignments + import OSC leads + consolidate + write results + rotate OSC sheet
 
 import {
   getSheetData, updateRange, clearRange, getSheetId, batchUpdate,
@@ -10,6 +9,7 @@ import {
 } from './_lib/sheets.js';
 import { getCommunitiesFromAssignmentsSheet, getRepsFromAssignmentsSheet } from './_lib/sync-from-assignments-sheet.js';
 import { supabase } from './_lib/db.js';
+import { importOSCLeads } from './_lib/import-osc-leads.js';
 import { resolveOrCreateRep, resolveOrCreateCommunity, clearResolverCache } from './_lib/resolve-names.js';
 
 export default async function handler(req, res) {
@@ -129,7 +129,17 @@ async function runPhase2(targetDate = null) {
     assignmentResult = { success: false, message: e.message };
   }
 
-  // Step 2b: Run consolidation (writes Sales Data Results tab)
+  // Step 2b: Import OSC leads from Google Sheet into database
+  let oscImportResult = { success: false, message: 'skipped' };
+  try {
+    const result = await importOSCLeads();
+    oscImportResult = { success: true, imported: result.imported, errors: result.errors.length };
+  } catch (e) {
+    console.error('[Phase 2] OSC lead import failed:', { message: e.message, stack: e.stack });
+    oscImportResult = { success: false, message: e.message };
+  }
+
+  // Step 2c: Run consolidation (writes Sales Data Results tab)
   let consolidateResult = { success: false, message: 'skipped' };
   try {
     consolidateResult = await runConsolidation();
@@ -138,7 +148,7 @@ async function runPhase2(targetDate = null) {
     consolidateResult = { success: false, message: e.message };
   }
 
-  // Step 2c: Write weekly results to "Last Weeks Results" tab (archive previous)
+  // Step 2d: Write weekly results to "Last Weeks Results" tab (archive previous)
   let resultsResult = { success: false, message: 'skipped' };
   try {
     resultsResult = await writeWeeklyResults();
@@ -147,7 +157,7 @@ async function runPhase2(targetDate = null) {
     resultsResult = { success: false, message: e.message };
   }
 
-  // Step 2d: Rotate OSC leads sheet (archive current, prep next week)
+  // Step 2e: Rotate OSC leads sheet (archive current, prep next week)
   let oscRotateResult = { success: false, message: 'skipped' };
   try {
     oscRotateResult = await rotateOSCLeadsSheet(targetDate);
@@ -157,12 +167,13 @@ async function runPhase2(targetDate = null) {
   }
 
   await logToSystemLog('monday-night-phase2',
-    (assignmentResult.success && consolidateResult.success && resultsResult.success && oscRotateResult.success) ? 'success' : 'partial',
-    `Assignments: ${assignmentResult.success ? assignmentResult.count || 0 : 'FAILED: ' + assignmentResult.message}. Consolidation: ${consolidateResult.success || 'FAILED: ' + consolidateResult.message}. Results: ${resultsResult.success ? resultsResult.rowsWritten || 0 : 'FAILED: ' + resultsResult.message}. OSC rotate: ${oscRotateResult.success || 'FAILED: ' + oscRotateResult.message}.`);
+    (assignmentResult.success && oscImportResult.success && consolidateResult.success && resultsResult.success && oscRotateResult.success) ? 'success' : 'partial',
+    `Assignments: ${assignmentResult.success ? assignmentResult.count || 0 : 'FAILED: ' + assignmentResult.message}. OSC import: ${oscImportResult.success ? oscImportResult.imported + ' leads' : 'FAILED: ' + oscImportResult.message}. Consolidation: ${consolidateResult.success || 'FAILED: ' + consolidateResult.message}. Results: ${resultsResult.success ? resultsResult.rowsWritten || 0 : 'FAILED: ' + resultsResult.message}. OSC rotate: ${oscRotateResult.success || 'FAILED: ' + oscRotateResult.message}.`);
 
   return {
     success: true,
     assignments: assignmentResult,
+    oscImport: oscImportResult,
     consolidation: consolidateResult,
     weeklyResults: resultsResult,
     oscRotation: oscRotateResult,

@@ -182,7 +182,7 @@ During the migration period, all writes go to **both** Supabase and Google Sheet
 
 ---
 
-## Monday Night Automation
+## Monday Morning Automation
 
 **Cron:** `30 14 * * 1` = Monday 10:30 AM ET (14:30 UTC)
 
@@ -191,11 +191,12 @@ During the migration period, all writes go to **both** Supabase and Google Sheet
 - Checks Submissions tab for who submitted this week
 - Writes "Sales Reports" tab: rep name, submitted/missing, timestamp
 
-### Phase 2 — Consolidate + Cache + Results + OSC Rotation
+### Phase 2 — Cache + Import + Consolidate + Results + OSC Rotation
 1. **Cache assignments** — reads Assignments sheet, writes "Weekly Assignments" tab + syncs to Supabase
-2. **Consolidate** — aggregates submissions into "Sales Data Results" tab
-3. **Write weekly results** — builds "Last Weeks Results" with rep + OSC data, archives previous week
-4. **Rotate OSC leads sheet** — archives "This Week's Report" as "Week of [date]", duplicates Dashboard Template to create fresh "This Week's Report", updates week ending date, syncs communities, clears data columns (blanks, not zeros)
+2. **Import OSC leads** — reads "This Week's Report" tab from OSC Leads Report Google Sheet, imports lead counts + VIP into Supabase `leads` table (shared logic in `api/_lib/import-osc-leads.js`)
+3. **Consolidate** — aggregates submissions into "Sales Data Results" tab
+4. **Write weekly results** — builds "Last Weeks Results" with rep + OSC data, archives previous week
+5. **Rotate OSC leads sheet** — archives "This Week's Report" as "Week of [date]", duplicates Dashboard Template to create fresh "This Week's Report", updates week ending date, syncs communities, clears data columns (blanks, not zeros)
 
 ### OSC Leads Sheet Details
 - **Dashboard Template** — master template, never modified directly
