@@ -284,8 +284,8 @@ async function writeWeeklyResults() {
       if (!name) continue;
       oscByCommunity[name.toLowerCase()] = {
         digital: toNum(row[2]),
-        inPerson: toNum(row[3]),
-        callIn: toNum(row[4]),
+        callIn: toNum(row[3]),
+        inPerson: toNum(row[4]),
       };
     }
   } catch {}
