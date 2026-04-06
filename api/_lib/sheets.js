@@ -3,7 +3,6 @@
 
 import { GoogleAuth } from 'google-auth-library';
 
-export const SALES_APP_SHEET_ID = process.env.SALES_APP_SHEET_ID;
 export const TEMPLATE_SHEET_ID = process.env.TEMPLATE_SHEET_ID;
 
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -152,21 +151,3 @@ export function getCurrentWeekEndingShort(referenceDate = null) {
   return MONTHS_SHORT[sun.getMonth()] + ' ' + sun.getDate();
 }
 
-export async function logToSystemLog(action, status, message) {
-  try {
-    const sheetId = await getSheetId(SALES_APP_SHEET_ID, 'System Log');
-    if (sheetId === null) {
-      await batchUpdate(SALES_APP_SHEET_ID, [{
-        addSheet: { properties: { title: 'System Log' } }
-      }]);
-      await updateRange(SALES_APP_SHEET_ID, 'System Log!A1:D1', [
-        ['Timestamp', 'Action', 'Status', 'Message']
-      ]);
-    }
-    await appendRows(SALES_APP_SHEET_ID, 'System Log', [
-      [new Date().toISOString(), action, status, message]
-    ]);
-  } catch (e) {
-    console.error('System log write failed:', e.message);
-  }
-}

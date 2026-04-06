@@ -1,7 +1,7 @@
 // GET /api/reports?type=weekly-summary&week_ending=YYYY-MM-DD
 // Consolidated reporting endpoint (Hobby plan limits to 12 serverless functions)
 import { supabase } from './_lib/db.js';
-import { getSheetData, getWeekEndingSunday, getCurrentWeekEndingShort, toNum, SALES_APP_SHEET_ID } from './_lib/sheets.js';
+import { getWeekEndingSunday } from './_lib/sheets.js';
 
 export default async function handler(req, res) {
   const type = req.query.type;

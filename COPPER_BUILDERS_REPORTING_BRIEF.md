@@ -11,7 +11,7 @@
 | **Sales Log App** (reps) | [copper-builders-log.vercel.app](https://copper-builders-log.vercel.app/) |
 | **Admin Dashboard** (managers) | [copper-builders-log.vercel.app/dashboard.html](https://copper-builders-log.vercel.app/dashboard.html) |
 | **Help Page** (reps) | [copper-builders-log.vercel.app/how-it-works.html](https://copper-builders-log.vercel.app/how-it-works.html) |
-| **Sales App Reporting** (data) | [Google Sheet](https://docs.google.com/spreadsheets/d/1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4) |
+
 
 | **OSC Leads Report** | [Google Sheet](https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU) |
 | **GitHub Repo** | [wade-cyber/copper-builders-sales-log](https://github.com/wade-cyber/copper-builders-sales-log) |
@@ -84,8 +84,8 @@ Every Monday at **10:30 AM ET**, the system automatically runs:
 
 ## Data Storage
 
-### Supabase PostgreSQL (primary database)
-All data is dual-written to both Supabase and Google Sheets. The database is the source of truth for the admin dashboard and reporting API.
+### Supabase PostgreSQL (single source of truth)
+All data is stored in Supabase. The admin dashboard and all reporting reads directly from the database.
 
 | Table | Purpose |
 |-------|---------|
@@ -98,18 +98,8 @@ All data is dual-written to both Supabase and Google Sheets. The database is the
 | `run_log` | Automated job run history |
 | `error_log` | Error tracking for debugging |
 
-### Google Sheets (backward-compatible output)
-
-| Tab | Purpose |
-|-----|---------|
-| **Submissions** | Raw weekly log entries from reps |
-| **Prospects** | Full prospect/sales pipeline |
-| **Weekly Assignments** | Cached copy of assignments for fast app loading |
-| **Last Weeks Results** | Current week's consolidated results |
-| **Results — [date]** | Archived weekly results (one per week) |
-| **Sales Reports** | Which reps submitted vs. missing |
-| **Sales Data Results** | Consolidated metrics by community |
-| **System Log** | Automated action audit trail |
+### Google Sheets (OSC Leads Report only)
+The only remaining Google Sheet is the **OSC Leads Report**, where the OSC enters weekly marketing lead data. This is imported into the database automatically on Mondays and can be reimported manually.
 
 ---
 

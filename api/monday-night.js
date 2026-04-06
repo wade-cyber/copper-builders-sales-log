@@ -1,11 +1,11 @@
 // POST /api/monday-night — Monday 10:30 AM ET orchestrator
-// Phase 1: Submission status report
-// Phase 2: Cache assignments + import OSC leads + consolidate + write results + rotate OSC sheet
+// Phase 1: Submission status report (logged to run_log)
+// Phase 2: Import OSC leads + rotate OSC sheet
 
 import {
-  getSheetData, updateRange, clearRange, getSheetId, batchUpdate,
-  getCurrentWeekEndingShort, getWeekEndingSunday, logToSystemLog, toNum, formatTabName,
-  SALES_APP_SHEET_ID, TEMPLATE_SHEET_ID,
+  getSheetData, updateRange, getSheetId, batchUpdate,
+  getWeekEndingSunday, formatTabName,
+  TEMPLATE_SHEET_ID,
 } from './_lib/sheets.js';
 import { getCommunitiesFromAssignmentsSheet, getRepsFromAssignmentsSheet } from './_lib/sync-from-assignments-sheet.js';
 import { supabase } from './_lib/db.js';
@@ -29,11 +29,7 @@ export default async function handler(req, res) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phase: 2, targetDate }),
       }).catch((error) => {
-        console.error('[PHASE 2 TRIGGER FAILURE]', {
-          message: error.message,
-          stack: error.stack,
-          timestamp: new Date().toISOString(),
-        });
+        console.error('[PHASE 2 TRIGGER FAILURE]', error.message);
       });
       return res.status(200).json({ phase: 1, ...result });
     }
@@ -46,8 +42,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid phase' });
   } catch (err) {
     console.error(err);
-    await logToSystemLog('monday-night', 'error', `Phase ${phase} failed: ${err.message}`);
-    return res.status(500).json({ error: `Phase ${phase} failed. Check system log for details.` });
+    await logRun('monday-night', 'error', `Phase ${phase} failed: ${err.message}`);
+    return res.status(500).json({ error: `Phase ${phase} failed: ${err.message}` });
   }
 }
 
@@ -56,287 +52,65 @@ export default async function handler(req, res) {
 // ═══════════════════════════════════════════════════════════
 
 async function runPhase1() {
-  const currentWeekEnding = getCurrentWeekEndingShort();
+  const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
   const reps = await getRepsFromAssignmentsSheet();
 
-  let submittedReps = {};
-  try {
-    const sData = await getSheetData(SALES_APP_SHEET_ID, 'Submissions');
-    if (sData.length > 1) {
-      const sH = sData[0];
-      const sRepIdx = sH.indexOf('Rep Name');
-      const sWeekIdx = sH.indexOf('Week Ending');
-      const sTimestampIdx = sH.indexOf('Timestamp');
+  // Check who submitted this week from Supabase
+  const { data: submissions } = await supabase
+    .from('weekly_submissions')
+    .select('rep_id, submitted_at, reps(name)')
+    .eq('week_ending', weekEnding);
 
-      for (let i = 1; i < sData.length; i++) {
-        const weekVal = (sData[i][sWeekIdx] || '').toString().trim();
-        if (currentWeekEnding && weekVal !== currentWeekEnding) continue;
-        const repName = (sData[i][sRepIdx] || '').toString().trim();
-        if (repName) submittedReps[repName] = (sData[i][sTimestampIdx] || '').toString();
-      }
-    }
-  } catch {}
-
-  // Write Sales Reports tab
-  let reportSheetId = await getSheetId(SALES_APP_SHEET_ID, 'Sales Reports');
-  if (reportSheetId === null) {
-    await batchUpdate(SALES_APP_SHEET_ID, [{
-      addSheet: { properties: { title: 'Sales Reports' } }
-    }]);
-  } else {
-    try { await clearRange(SALES_APP_SHEET_ID, "'Sales Reports'!A1:Z100"); } catch {}
+  const submittedReps = {};
+  for (const s of (submissions || [])) {
+    submittedReps[s.reps.name] = s.submitted_at;
   }
 
-  const reportRows = [
-    ['Sales Reports — Week Ending ' + currentWeekEnding, '', ''],
-    ['', '', ''],
-    ['Rep Name', 'Sales Log', 'Submitted At'],
-  ];
-  for (const rep of reps) {
-    reportRows.push([
-      rep,
-      submittedReps[rep] ? 'Submitted' : 'MISSING',
-      submittedReps[rep] || '',
-    ]);
-  }
-  reportRows.push(['', '', '']);
-  reportRows.push([`Generated: ${new Date().toISOString()}`, '', '']);
+  const submitted = Object.keys(submittedReps).length;
 
-  await updateRange(SALES_APP_SHEET_ID, `'Sales Reports'!A1:C${reportRows.length}`, reportRows);
-
-  await logToSystemLog('monday-night-phase1', 'success',
-    `Report: ${reps.length} reps, ${Object.keys(submittedReps).length} submitted.`);
+  await logRun('monday-night-phase1', 'success',
+    `Report: ${reps.length} reps expected, ${submitted} submitted.`);
 
   return {
     success: true,
     repsExpected: reps.length,
-    repsSubmitted: Object.keys(submittedReps).length,
+    repsSubmitted: submitted,
   };
 }
 
 // ═══════════════════════════════════════════════════════════
-// PHASE 2: Cache assignments + consolidate + write stats
+// PHASE 2: Import OSC leads + rotate OSC sheet
 // ═══════════════════════════════════════════════════════════
 
 async function runPhase2(targetDate = null) {
-  // Step 2a: Cache assignments locally for fast app loading
-  let assignmentResult = { success: false, message: 'skipped' };
-  try {
-    assignmentResult = await cacheAssignmentsLocally();
-  } catch (e) {
-    console.error('[Phase 2] Cache assignments failed:', { message: e.message, stack: e.stack });
-    assignmentResult = { success: false, message: e.message };
-  }
-
-  // Step 2b: Import OSC leads from Google Sheet into database
+  // Step 2a: Import OSC leads from Google Sheet into database
   let oscImportResult = { success: false, message: 'skipped' };
   try {
     const result = await importOSCLeads();
     oscImportResult = { success: true, imported: result.imported, errors: result.errors.length };
   } catch (e) {
-    console.error('[Phase 2] OSC lead import failed:', { message: e.message, stack: e.stack });
+    console.error('[Phase 2] OSC lead import failed:', e.message);
     oscImportResult = { success: false, message: e.message };
   }
 
-  // Step 2c: Run consolidation (writes Sales Data Results tab)
-  let consolidateResult = { success: false, message: 'skipped' };
-  try {
-    consolidateResult = await runConsolidation();
-  } catch (e) {
-    console.error('[Phase 2] Consolidation failed:', { message: e.message, stack: e.stack });
-    consolidateResult = { success: false, message: e.message };
-  }
-
-  // Step 2d: Write weekly results to "Last Weeks Results" tab (archive previous)
-  let resultsResult = { success: false, message: 'skipped' };
-  try {
-    resultsResult = await writeWeeklyResults();
-  } catch (e) {
-    console.error('[Phase 2] Write weekly results failed:', { message: e.message, stack: e.stack });
-    resultsResult = { success: false, message: e.message };
-  }
-
-  // Step 2e: Rotate OSC leads sheet (archive current, prep next week)
+  // Step 2b: Rotate OSC leads sheet (archive current, prep next week)
   let oscRotateResult = { success: false, message: 'skipped' };
   try {
     oscRotateResult = await rotateOSCLeadsSheet(targetDate);
   } catch (e) {
-    console.error('[Phase 2] OSC rotate failed:', { message: e.message, stack: e.stack });
+    console.error('[Phase 2] OSC rotate failed:', e.message);
     oscRotateResult = { success: false, message: e.message };
   }
 
-  await logToSystemLog('monday-night-phase2',
-    (assignmentResult.success && oscImportResult.success && consolidateResult.success && resultsResult.success && oscRotateResult.success) ? 'success' : 'partial',
-    `Assignments: ${assignmentResult.success ? assignmentResult.count || 0 : 'FAILED: ' + assignmentResult.message}. OSC import: ${oscImportResult.success ? oscImportResult.imported + ' leads' : 'FAILED: ' + oscImportResult.message}. Consolidation: ${consolidateResult.success || 'FAILED: ' + consolidateResult.message}. Results: ${resultsResult.success ? resultsResult.rowsWritten || 0 : 'FAILED: ' + resultsResult.message}. OSC rotate: ${oscRotateResult.success || 'FAILED: ' + oscRotateResult.message}.`);
+  await logRun('monday-night-phase2',
+    (oscImportResult.success && oscRotateResult.success) ? 'success' : 'partial',
+    `OSC import: ${oscImportResult.success ? oscImportResult.imported + ' leads' : 'FAILED: ' + oscImportResult.message}. OSC rotate: ${oscRotateResult.success || 'FAILED: ' + oscRotateResult.message}.`);
 
   return {
     success: true,
-    assignments: assignmentResult,
     oscImport: oscImportResult,
-    consolidation: consolidateResult,
-    weeklyResults: resultsResult,
     oscRotation: oscRotateResult,
   };
-}
-
-// ═══════════════════════════════════════════════════════════
-// WRITE WEEKLY RESULTS — separate tab, archived each week
-// ═══════════════════════════════════════════════════════════
-
-async function writeWeeklyResults() {
-  const currentWeekEnding = getCurrentWeekEndingShort();
-
-  // Step 1: Archive or delete existing "Last Weeks Results" tab
-  const existingId = await getSheetId(SALES_APP_SHEET_ID, 'Last Weeks Results');
-  if (existingId !== null) {
-    const archiveName = `Results — ${currentWeekEnding}`;
-    const archiveId = await getSheetId(SALES_APP_SHEET_ID, archiveName);
-    if (archiveId === null) {
-      // Rename to archive
-      await batchUpdate(SALES_APP_SHEET_ID, [{
-        updateSheetProperties: {
-          properties: { sheetId: existingId, title: archiveName },
-          fields: 'title',
-        }
-      }]);
-    } else {
-      // Archive already exists (re-run) — just delete the old Last Weeks Results
-      await batchUpdate(SALES_APP_SHEET_ID, [{
-        deleteSheet: { sheetId: existingId }
-      }]);
-    }
-  }
-
-  // Step 2: Create fresh "Last Weeks Results" tab
-  await batchUpdate(SALES_APP_SHEET_ID, [{
-    addSheet: { properties: { title: 'Last Weeks Results' } }
-  }]);
-
-  // Step 3: Read all data sources
-
-  // 3a: Assignments (rep + community + division) — read from Supabase
-  const weekEndingDate = getWeekEndingSunday().toISOString().slice(0, 10);
-  const { data: assignRows, error: assignErr } = await supabase
-    .from('assignments')
-    .select('reps(name), communities(name, division)')
-    .eq('week_ending', weekEndingDate);
-  if (assignErr) throw assignErr;
-  if (!assignRows || assignRows.length === 0) return { success: true, rowsWritten: 0 };
-
-  // 3b: Submissions (deduplicated by rep+community for current week)
-  const subsByRepComm = {};
-  try {
-    const sData = await getSheetData(SALES_APP_SHEET_ID, 'Submissions');
-    if (sData.length > 1) {
-      const sH = sData[0];
-      const sRepIdx = sH.indexOf('Rep Name');
-      const sCommIdx = sH.indexOf('Community');
-      const sWeekIdx = sH.indexOf('Week Ending');
-      const sTsIdx = sH.indexOf('Timestamp');
-      const sApptsIdx = sH.indexOf('Total Appts');
-      const sDLDigIdx = sH.indexOf('Direct Leads Digital');
-      const sDLPhIdx = sH.indexOf('Direct Leads Phone Call');
-      const sDLIPIdx = sH.indexOf('Direct Leads In Person');
-      const sSoldIdx = sH.indexOf('Sold Prospects');
-
-      for (let i = 1; i < sData.length; i++) {
-        const week = (sData[i][sWeekIdx] || '').toString().trim();
-        if (currentWeekEnding && week !== currentWeekEnding) continue;
-
-        const rep = (sData[i][sRepIdx] || '').toString().trim();
-        const comm = (sData[i][sCommIdx] || '').toString().trim();
-        const ts = (sData[i][sTsIdx] || '').toString();
-        const key = `${rep}||${comm}`;
-
-        if (!subsByRepComm[key] || ts > subsByRepComm[key].ts) {
-          subsByRepComm[key] = {
-            ts,
-            appts: toNum(sData[i][sApptsIdx]),
-            dlDigital: sDLDigIdx >= 0 ? toNum(sData[i][sDLDigIdx]) : 0,
-            dlPhone: sDLPhIdx >= 0 ? toNum(sData[i][sDLPhIdx]) : 0,
-            dlInPerson: sDLIPIdx >= 0 ? toNum(sData[i][sDLIPIdx]) : 0,
-            sold: sSoldIdx >= 0 ? toNum(sData[i][sSoldIdx]) : 0,
-          };
-        }
-      }
-    }
-  } catch {}
-
-  // 3c: Prospects (active counts per rep+community)
-  const prospectsByRepComm = {};
-  try {
-    const pData = await getSheetData(SALES_APP_SHEET_ID, 'Prospects');
-    if (pData.length > 1) {
-      const pH = pData[0];
-      const pRepIdx = pH.indexOf('Rep Name');
-      const pCommIdx = pH.indexOf('Community');
-      const pStatusIdx = pH.indexOf('Status');
-
-      for (let i = 1; i < pData.length; i++) {
-        const status = (pData[i][pStatusIdx] || 'active').toString().toLowerCase();
-        if (status !== 'active') continue;
-        const rep = (pData[i][pRepIdx] || '').toString().trim();
-        const comm = (pData[i][pCommIdx] || '').toString().trim();
-        const key = `${rep}||${comm}`;
-        prospectsByRepComm[key] = (prospectsByRepComm[key] || 0) + 1;
-      }
-    }
-  } catch {}
-
-  // 3d: OSC leads — read from "This Week's Report" (the active weekly tab)
-  const oscByCommunity = {};
-  try {
-    const oscTabName = "This Week's Report";
-    const oscData = await getSheetData(TEMPLATE_SHEET_ID, `'${oscTabName}'!A7:AM`);
-    for (const row of (oscData || [])) {
-      const name = (row[0] || '').toString().trim();
-      if (!name) continue;
-      oscByCommunity[name.toLowerCase()] = {
-        digital: toNum(row[2]),
-        callIn: toNum(row[3]),
-        inPerson: toNum(row[4]),
-      };
-    }
-  } catch {}
-
-  // Step 4: Build results rows
-  const header = [
-    'Week Ending', 'Rep Name', 'Community', 'Division', 'Report Date',
-    'Sales', 'Prospects', 'Appts Held', 'Sales Rep Leads',
-    'OSC Digital Leads', 'OSC In Person Leads', 'OSC Call-In Leads', 'Total Leads',
-  ];
-
-  const rows = [];
-  for (const a of assignRows) {
-    const rep = a.reps.name;
-    const comm = a.communities.name;
-    const div = a.communities.division || '';
-    const key = `${rep}||${comm}`;
-
-    const sub = subsByRepComm[key];
-    const prospects = prospectsByRepComm[key] || 0;
-    const osc = oscByCommunity[comm.toLowerCase()] || { digital: 0, inPerson: 0, callIn: 0 };
-    const oscTotal = osc.digital + osc.inPerson + osc.callIn;
-
-    const reportDate = sub?.ts ? new Date(sub.ts).toLocaleDateString('en-US') : '';
-    const sales = sub?.sold || 0;
-    const appts = sub?.appts || 0;
-    const repLeads = (sub?.dlDigital || 0) + (sub?.dlPhone || 0) + (sub?.dlInPerson || 0);
-
-    rows.push([
-      currentWeekEnding, rep, comm, div, reportDate,
-      sales, prospects, appts, repLeads,
-      osc.digital, osc.inPerson, osc.callIn, repLeads + oscTotal,
-    ]);
-  }
-
-  // Step 5: Write to "Last Weeks Results" tab
-  await updateRange(SALES_APP_SHEET_ID, `'Last Weeks Results'!A1:M1`, [header]);
-  if (rows.length > 0) {
-    await updateRange(SALES_APP_SHEET_ID, `'Last Weeks Results'!A2:M${1 + rows.length}`, rows);
-  }
-
-  return { success: true, rowsWritten: rows.length };
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -369,7 +143,6 @@ async function rotateOSCLeadsSheet(targetDate = null) {
   if (existingReport !== null) {
     const existingArchive = await getSheetId(OSC_SHEET, archiveName);
     if (existingArchive !== null) {
-      // Archive already exists — delete the old report tab
       console.log(`Archive '${archiveName}' already exists, deleting stale report tab`);
       try {
         await batchUpdate(OSC_SHEET, [{ deleteSheet: { sheetId: existingReport } }]);
@@ -378,7 +151,6 @@ async function rotateOSCLeadsSheet(targetDate = null) {
       }
       archiveSkipped = true;
     } else {
-      // Rename current report to archive
       try {
         await batchUpdate(OSC_SHEET, [{
           updateSheetProperties: {
@@ -392,7 +164,7 @@ async function rotateOSCLeadsSheet(targetDate = null) {
       }
     }
   } else {
-    archiveSkipped = true; // no existing report to archive
+    archiveSkipped = true;
   }
 
   // Step 2: Create fresh "This Week's Report" by duplicating Dashboard Template
@@ -403,8 +175,7 @@ async function rotateOSCLeadsSheet(targetDate = null) {
     }
   }]);
 
-  // Step 3: Clear data columns G:AM for rows 7+ (fixed communities 7-12 AND dynamic 13+)
-  // Write blank strings (not zeros) so the OSC can enter data cleanly.
+  // Step 3: Clear data columns G:AM for rows 7+
   const allData = await getSheetData(OSC_SHEET, `'${REPORT_TAB}'!A1:A`);
   const lastRow = allData.length;
 
@@ -418,7 +189,7 @@ async function rotateOSCLeadsSheet(targetDate = null) {
   // Step 4: Update week ending date
   await updateRange(OSC_SHEET, `'${REPORT_TAB}'!B2`, [[weekEndingDate]]);
 
-  // Step 5: Sync dynamic communities (rows 13+) from Assignments sheet
+  // Step 5: Sync dynamic communities (rows 13+) from database
   const newCommunities = await getCommunitiesFromAssignmentsSheet();
   let communitiesUpdated = 0;
 
@@ -430,7 +201,6 @@ async function rotateOSCLeadsSheet(targetDate = null) {
     );
     communitiesUpdated = newCommunities.length;
 
-    // Clear leftover community names if fewer than before
     if (lastRow > 12 + newCommunities.length) {
       const extraRows = lastRow - (12 + newCommunities.length);
       const blankRows = Array.from({ length: extraRows }, () => ['', '']);
@@ -453,160 +223,19 @@ async function rotateOSCLeadsSheet(targetDate = null) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// CACHE ASSIGNMENTS LOCALLY
+// LOGGING — write to Supabase run_log
 // ═══════════════════════════════════════════════════════════
 
-async function cacheAssignmentsLocally() {
-  // Read assignments from Supabase (single source of truth)
-  const weekEndingDate = getWeekEndingSunday().toISOString().slice(0, 10);
-  const { data: assignments, error } = await supabase
-    .from('assignments')
-    .select('reps(name), communities(name, division), third_party')
-    .eq('week_ending', weekEndingDate);
-
-  if (error) throw error;
-  if (!assignments || assignments.length === 0) return { success: true, count: 0 };
-
-  const rows = assignments
-    .filter(a => {
-      const name = a.reps.name.toLowerCase();
-      return name !== 'n/a' && name !== 'none' && name !== 'na';
-    })
-    .map(a => [a.reps.name, a.communities.name, a.communities.division, a.third_party || '']);
-
-  // Write to "Weekly Assignments" cache tab in Google Sheets (backward compat)
-  let sheetId = await getSheetId(SALES_APP_SHEET_ID, 'Weekly Assignments');
-  if (sheetId === null) {
-    await batchUpdate(SALES_APP_SHEET_ID, [{
-      addSheet: { properties: { title: 'Weekly Assignments' } }
-    }]);
-  }
-
-  try { await clearRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!A1:D500"); } catch {}
-
-  await updateRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!A1:D1", [
-    ['Rep Name', 'Community Name', 'Division', '3rd Party']
-  ]);
-
-  if (rows.length > 0) {
-    await updateRange(SALES_APP_SHEET_ID, `'Weekly Assignments'!A2:D${1 + rows.length}`, rows);
-  }
-
-  await updateRange(SALES_APP_SHEET_ID, "'Weekly Assignments'!F1:G1", [
-    ['Last Synced', new Date().toISOString()]
-  ]);
-
-  return { success: true, count: rows.length };
-}
-
-// ═══════════════════════════════════════════════════════════
-// CONSOLIDATION — writes Sales Data Results to Sales App
-// ═══════════════════════════════════════════════════════════
-
-async function runConsolidation() {
-  const currentWeekEnding = getCurrentWeekEndingShort();
-
-  // Read prospect counts
-  const prospectCounts = {};
+async function logRun(runType, status, summary) {
   try {
-    const pData = await getSheetData(SALES_APP_SHEET_ID, 'Prospects');
-    if (pData.length > 1) {
-      const pH = pData[0];
-      const pCommunityIdx = pH.indexOf('Community');
-      const pStatusIdx = pH.indexOf('Status');
-      for (let i = 1; i < pData.length; i++) {
-        const status = (pData[i][pStatusIdx] || 'active').toString().toLowerCase();
-        if (status !== 'active') continue;
-        const comm = (pData[i][pCommunityIdx] || '').toString().trim().toLowerCase();
-        if (comm) prospectCounts[comm] = (prospectCounts[comm] || 0) + 1;
-      }
-    }
-  } catch {}
-
-  // Read appointment counts + direct leads + sold counts from Submissions (deduplicated)
-  const apptCounts = {};
-  const directLeadCounts = {};
-  const soldCounts = {};
-  try {
-    const sData = await getSheetData(SALES_APP_SHEET_ID, 'Submissions');
-    if (sData.length > 1) {
-      const sH = sData[0];
-      const sCommunityIdx = sH.indexOf('Community');
-      const sApptsIdx = sH.indexOf('Total Appts');
-      const sWeekIdx = sH.indexOf('Week Ending');
-      const sRepIdx = sH.indexOf('Rep Name');
-      const sTimestampIdx = sH.indexOf('Timestamp');
-      const sDigitalIdx = sH.indexOf('Direct Leads Digital');
-      const sPhoneIdx = sH.indexOf('Direct Leads Phone Call');
-      const sInPersonIdx = sH.indexOf('Direct Leads In Person');
-      const sSoldIdx = sH.indexOf('Sold Prospects');
-
-      if (sCommunityIdx >= 0 && sApptsIdx >= 0) {
-        const latestByKey = {};
-        for (let i = 1; i < sData.length; i++) {
-          const weekVal = (sData[i][sWeekIdx] || '').toString().trim();
-          if (currentWeekEnding && weekVal !== currentWeekEnding) continue;
-          const rep = sRepIdx >= 0 ? (sData[i][sRepIdx] || '').toString().trim() : '';
-          const comm = (sData[i][sCommunityIdx] || '').toString().trim();
-          const ts = sTimestampIdx >= 0 ? (sData[i][sTimestampIdx] || '').toString() : '';
-          const key = `${rep}||${comm}`;
-          if (!latestByKey[key] || ts > latestByKey[key].ts) {
-            latestByKey[key] = {
-              ts, community: comm,
-              appts: toNum(sData[i][sApptsIdx]),
-              digital: sDigitalIdx >= 0 ? toNum(sData[i][sDigitalIdx]) : 0,
-              phoneCall: sPhoneIdx >= 0 ? toNum(sData[i][sPhoneIdx]) : 0,
-              inPerson: sInPersonIdx >= 0 ? toNum(sData[i][sInPersonIdx]) : 0,
-              sold: sSoldIdx >= 0 ? toNum(sData[i][sSoldIdx]) : 0,
-            };
-          }
-        }
-        for (const entry of Object.values(latestByKey)) {
-          const key = entry.community.toLowerCase();
-          apptCounts[key] = (apptCounts[key] || 0) + entry.appts;
-          soldCounts[key] = (soldCounts[key] || 0) + entry.sold;
-          if (!directLeadCounts[key]) directLeadCounts[key] = { digital: 0, phoneCall: 0, inPerson: 0 };
-          directLeadCounts[key].digital += entry.digital;
-          directLeadCounts[key].phoneCall += entry.phoneCall;
-          directLeadCounts[key].inPerson += entry.inPerson;
-        }
-      }
-    }
-  } catch {}
-
-  // Build Sales Data Results from all communities
-  const communities = await getCommunitiesFromAssignmentsSheet();
-  const allRows = communities.map(c => [c.name, c.market]);
-
-  let resultsSheetId = await getSheetId(SALES_APP_SHEET_ID, 'Sales Data Results');
-  if (resultsSheetId === null) {
-    await batchUpdate(SALES_APP_SHEET_ID, [{
-      addSheet: { properties: { title: 'Sales Data Results' } }
-    }]);
+    await supabase.from('run_log').insert({
+      run_type: runType,
+      status,
+      completed_at: new Date().toISOString(),
+      records_processed: 0,
+      summary,
+    });
+  } catch (e) {
+    console.error('[logRun] Failed:', e.message);
   }
-
-  try { await clearRange(SALES_APP_SHEET_ID, "'Sales Data Results'!A1:K200"); } catch {}
-
-  const headerRow = [
-    'Community', 'Division', 'Sales', 'Active Prospects', 'Appointments Held',
-    'Rep Direct Digital', 'Rep Direct Phone Call', 'Rep Direct In Person', 'Total Rep Leads',
-  ];
-
-  const dataRows = allRows.map(([name, market]) => {
-    const key = name.toLowerCase();
-    const prospects = prospectCounts[key] || 0;
-    const appts = apptCounts[key] || 0;
-    const sales = soldCounts[key] || 0;
-    const dl = directLeadCounts[key] || { digital: 0, phoneCall: 0, inPerson: 0 };
-
-    return [name, market, sales, prospects, appts, dl.digital, dl.phoneCall, dl.inPerson, dl.digital + dl.phoneCall + dl.inPerson];
-  });
-
-  await updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!A1:I1`, [headerRow]);
-  if (dataRows.length > 0) {
-    await updateRange(SALES_APP_SHEET_ID, `'Sales Data Results'!A2:I${1 + dataRows.length}`, dataRows);
-  }
-
-  return { success: true, rowsWritten: dataRows.length };
 }
-// force rebuild 1774478375

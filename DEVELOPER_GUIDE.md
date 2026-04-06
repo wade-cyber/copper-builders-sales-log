@@ -8,7 +8,7 @@ This guide is for anyone pulling up this codebase for the first time — everyth
 
 ## Overview
 
-A standalone web app where sales reps submit weekly activity (leads, appointments, prospects, sales). Data is dual-written to **Supabase PostgreSQL** (primary) and **Google Sheets** (backward-compatible). Every Monday at 10:30 AM ET, the system consolidates all submissions into a weekly results report.
+A standalone web app where sales reps submit weekly activity (leads, appointments, prospects, sales). Data is stored in **Supabase PostgreSQL**. Every Monday at 10:30 AM ET, the system imports OSC leads and rotates the OSC Leads sheet. All reporting is served from the database via the admin dashboard.
 
 **Live App:** https://copper-builders-log.vercel.app/
 **Admin Dashboard:** https://copper-builders-log.vercel.app/dashboard.html
@@ -44,10 +44,9 @@ npm install
 Copy `.env.example` to `.env` and fill in the values. Required variables:
 
 ```
-# Google Sheets (backward-compatible writes)
+# Google Sheets (OSC Leads Report only)
 GOOGLE_SERVICE_ACCOUNT_EMAIL=copper-builders-sheets@axial-diagram-489522-n6.iam.gserviceaccount.com
 GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-SALES_APP_SHEET_ID=1WRPxRr6xU2h0lOw20s1NkMk5gk1pgYh_2LNAUcvUxU4
 TEMPLATE_SHEET_ID=1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU
 
 # Supabase (primary database)
@@ -187,15 +186,14 @@ During the migration period, all writes go to **both** Supabase and Google Sheet
 
 ### Phase 1 — Submission Status Report
 - Reads all reps from Supabase assignments for the current week
-- Checks Submissions tab for who submitted this week
+- Checks Supabase for who submitted this week
 - Writes "Sales Reports" tab: rep name, submitted/missing, timestamp
 
-### Phase 2 — Cache + Import + Consolidate + Results + OSC Rotation
-1. **Cache assignments** — reads from Supabase, writes "Weekly Assignments" tab to Google Sheets for backward compatibility
-2. **Import OSC leads** — reads "This Week's Report" tab from OSC Leads Report Google Sheet, imports lead counts + VIP into Supabase `leads` table (shared logic in `api/_lib/import-osc-leads.js`)
-3. **Consolidate** — aggregates submissions into "Sales Data Results" tab
-4. **Write weekly results** — builds "Last Weeks Results" with rep + OSC data, archives previous week
-5. **Rotate OSC leads sheet** — archives "This Week's Report" as "Week of [date]", duplicates Dashboard Template to create fresh "This Week's Report", updates week ending date, syncs communities, clears data columns (blanks, not zeros)
+### Phase 2 — Import OSC Leads + Rotate OSC Sheet
+1. **Import OSC leads** — reads "This Week's Report" tab from OSC Leads Report Google Sheet, imports lead counts + VIP into Supabase `leads` table (shared logic in `api/_lib/import-osc-leads.js`)
+2. **Rotate OSC leads sheet** — archives "This Week's Report" as "Week of [date]", duplicates Dashboard Template to create fresh "This Week's Report", updates week ending date, syncs communities, clears data columns (blanks, not zeros)
+
+All consolidation and reporting is handled by the admin dashboard reading directly from Supabase — no Google Sheets output tabs are written.
 
 ### OSC Leads Sheet Details
 - **Dashboard Template** — master template, never modified directly
@@ -260,7 +258,7 @@ Or use the Admin Dashboard → System tab → trigger buttons.
 |----------|---------|
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Service account for Sheets API |
 | `GOOGLE_PRIVATE_KEY` | Service account private key |
-| `SALES_APP_SHEET_ID` | Sales App Reporting sheet |
+
 
 | `TEMPLATE_SHEET_ID` | OSC Leads Report sheet |
 | `SUPABASE_URL` | Supabase project URL |
