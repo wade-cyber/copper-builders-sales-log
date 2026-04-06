@@ -259,6 +259,18 @@
 
 <script>
 const API = '';
+// Admin API key — stored in sessionStorage after first prompt
+if (!sessionStorage.getItem('api_key')) {
+  const key = prompt('Enter admin API key:');
+  if (key) sessionStorage.setItem('api_key', key);
+}
+const API_HEADERS = { 'x-api-key': sessionStorage.getItem('api_key') || '' };
+
+// Helper: fetch with API key
+function apiFetch(url, opts = {}) {
+  opts.headers = { ...opts.headers, ...API_HEADERS };
+  return fetch(url, opts);
+}
 
 // ===== TAB SWITCHING =====
 document.querySelectorAll('.tab').forEach(t => {
@@ -294,7 +306,7 @@ function changeWeek(delta) {
 async function loadResults(weekOverride) {
   document.getElementById('results-table').innerHTML = '<div class="loading">Loading results...</div>';
   const weekParam = weekOverride ? `&week_ending=${weekOverride}` : '';
-  const r = await fetch(API + '/api/reports?type=community-results' + weekParam).then(r => r.json());
+  const r = await apiFetch(API + '/api/reports?type=community-results' + weekParam).then(r => r.json());
   if (!r.success) { document.getElementById('results-table').innerHTML = '<p class="muted">Error loading results.</p>'; return; }
 
   const d = r.data;
@@ -440,7 +452,7 @@ async function loadResults(weekOverride) {
 
 // ===== COMMUNITIES =====
 async function loadCommunities() {
-  const r = await fetch(API + '/api/admin?action=list-communities').then(r => r.json());
+  const r = await apiFetch(API + '/api/admin?action=list-communities').then(r => r.json());
   let html = '<table><tr><th>Name</th><th>Division</th><th>Status</th><th>Actions</th></tr>';
   for (const c of r.data) {
     html += `<tr>
@@ -458,7 +470,7 @@ async function addCommunity() {
   const name = document.getElementById('comm-name').value.trim();
   const division = document.getElementById('comm-div').value;
   if (!name) return alert('Enter a community name');
-  await fetch(API + '/api/admin?action=upsert-community', {
+  await apiFetch(API + '/api/admin?action=upsert-community', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ name, division })
   });
@@ -467,7 +479,7 @@ async function addCommunity() {
 }
 
 async function toggleCommunity(id, name, division, is_active) {
-  await fetch(API + '/api/admin?action=upsert-community', {
+  await apiFetch(API + '/api/admin?action=upsert-community', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ id, name, division, is_active })
   });
@@ -476,7 +488,7 @@ async function toggleCommunity(id, name, division, is_active) {
 
 // ===== REPS =====
 async function loadReps() {
-  const r = await fetch(API + '/api/admin?action=list-reps').then(r => r.json());
+  const r = await apiFetch(API + '/api/admin?action=list-reps').then(r => r.json());
   let html = '<table><tr><th>Name</th><th>Email</th><th>Status</th><th>Actions</th></tr>';
   for (const rep of r.data) {
     html += `<tr>
@@ -494,7 +506,7 @@ async function addRep() {
   const name = document.getElementById('rep-name').value.trim();
   const email = document.getElementById('rep-email').value.trim();
   if (!name) return alert('Enter a rep name');
-  await fetch(API + '/api/admin?action=upsert-rep', {
+  await apiFetch(API + '/api/admin?action=upsert-rep', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ name, email: email || null })
   });
@@ -504,7 +516,7 @@ async function addRep() {
 }
 
 async function toggleRep(id, name, is_active) {
-  await fetch(API + '/api/admin?action=upsert-rep', {
+  await apiFetch(API + '/api/admin?action=upsert-rep', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ id, name, is_active })
   });
@@ -524,8 +536,8 @@ function getCurrentWeekEnding() {
 
 async function populateDropdowns() {
   const [rr, cr] = await Promise.all([
-    fetch(API + '/api/admin?action=list-reps').then(r => r.json()),
-    fetch(API + '/api/admin?action=list-communities').then(r => r.json()),
+    apiFetch(API + '/api/admin?action=list-reps').then(r => r.json()),
+    apiFetch(API + '/api/admin?action=list-communities').then(r => r.json()),
   ]);
   _reps = rr.data.filter(r => r.is_active);
   _comms = cr.data.filter(c => c.is_active);
@@ -538,7 +550,7 @@ async function populateDropdowns() {
 
 async function loadAssignments() {
   const week = getCurrentWeekEnding();
-  const r = await fetch(API + '/api/admin?action=list-assignments&week_ending=' + week).then(r => r.json());
+  const r = await apiFetch(API + '/api/admin?action=list-assignments&week_ending=' + week).then(r => r.json());
   if (!r.data || r.data.length === 0) {
     document.getElementById('assign-table').innerHTML = '<p class="muted">No assignments found. Add assignments below.</p>';
     return;
@@ -560,7 +572,7 @@ async function addAssignment() {
   const rep_id = parseInt(document.getElementById('assign-rep').value);
   const community_id = parseInt(document.getElementById('assign-comm').value);
   const week_ending = getCurrentWeekEnding();
-  await fetch(API + '/api/admin?action=set-assignments', {
+  await apiFetch(API + '/api/admin?action=set-assignments', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ rep_id, community_id, week_ending })
   });
@@ -569,7 +581,7 @@ async function addAssignment() {
 
 async function removeAssignment(id) {
   if (!confirm('Remove this assignment?')) return;
-  await fetch(API + '/api/admin?action=remove-assignment', {
+  await apiFetch(API + '/api/admin?action=remove-assignment', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ id })
   });
@@ -579,7 +591,7 @@ async function removeAssignment(id) {
 // ===== SYSTEM =====
 async function loadSystem() {
   // Health
-  const h = await fetch(API + '/api/health').then(r => r.json());
+  const h = await apiFetch(API + '/api/health').then(r => r.json());
   const dot = h.status === 'healthy' ? 'dot-green' : h.status === 'degraded' ? 'dot-gold' : 'dot-red';
   document.getElementById('health-section').innerHTML = `
     <div class="card" style="text-align:left;display:flex;gap:1.5rem;flex-wrap:wrap;">
@@ -593,7 +605,7 @@ async function loadSystem() {
     </div>`;
 
   // Run history
-  const rr = await fetch(API + '/api/admin?action=run-history').then(r => r.json());
+  const rr = await apiFetch(API + '/api/admin?action=run-history').then(r => r.json());
   if (rr.data && rr.data.length > 0) {
     let html = '<table><tr><th>Type</th><th>Status</th><th>Started</th><th>Records</th><th>Summary</th></tr>';
     for (const run of rr.data) {
@@ -608,7 +620,7 @@ async function loadSystem() {
   }
 
   // Error log
-  const er = await fetch(API + '/api/admin?action=error-log').then(r => r.json());
+  const er = await apiFetch(API + '/api/admin?action=error-log').then(r => r.json());
   if (er.data && er.data.length > 0) {
     let html = '<table><tr><th>Type</th><th>Message</th><th>Time</th></tr>';
     for (const e of er.data) {
@@ -627,7 +639,7 @@ async function triggerJob(job) {
   btn.disabled = true;
   btn.textContent = 'Running...';
   try {
-    const r = await fetch(API + '/api/admin?action=trigger-job', {
+    const r = await apiFetch(API + '/api/admin?action=trigger-job', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ job })
     }).then(r => r.json());

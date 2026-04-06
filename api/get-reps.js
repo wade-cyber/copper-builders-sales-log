@@ -1,8 +1,11 @@
 // GET /api/get-reps — returns sorted unique rep names from current week's assignments
 import { supabase } from './_lib/db.js';
 import { getWeekEndingSunday } from './_lib/sheets.js';
+import { requireAuth } from './_lib/auth.js';
 
 export default async function handler(req, res) {
+  const auth = requireAuth(req);
+  if (!auth.authorized) return res.status(401).json({ error: auth.error });
   try {
     const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
     const { data, error } = await supabase

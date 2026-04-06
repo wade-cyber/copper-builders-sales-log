@@ -7,11 +7,14 @@ import {
   getWeekEndingSunday, formatTabName,
   TEMPLATE_SHEET_ID,
 } from './_lib/sheets.js';
-import { getCommunitiesFromAssignmentsSheet, getRepsFromAssignmentsSheet } from './_lib/sync-from-assignments-sheet.js';
+import { getActiveCommunities, getAssignedReps } from './_lib/assignments-queries.js';
 import { supabase } from './_lib/db.js';
 import { importOSCLeads } from './_lib/import-osc-leads.js';
+import { requireCronAuth } from './_lib/auth.js';
 
 export default async function handler(req, res) {
+  const auth = requireCronAuth(req);
+  if (!auth.authorized) return res.status(401).json({ error: auth.error });
   let body = {};
   if (req.method === 'POST' && req.body) {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -53,7 +56,7 @@ export default async function handler(req, res) {
 
 async function runPhase1() {
   const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
-  const reps = await getRepsFromAssignmentsSheet();
+  const reps = await getAssignedReps();
 
   // Check who submitted this week from Supabase
   const { data: submissions } = await supabase
@@ -190,7 +193,7 @@ async function rotateOSCLeadsSheet(targetDate = null) {
   await updateRange(OSC_SHEET, `'${REPORT_TAB}'!B2`, [[weekEndingDate]]);
 
   // Step 5: Sync dynamic communities (rows 13+) from database
-  const newCommunities = await getCommunitiesFromAssignmentsSheet();
+  const newCommunities = await getActiveCommunities();
   let communitiesUpdated = 0;
 
   if (newCommunities.length > 0) {

@@ -9,7 +9,7 @@ import { getWeekEndingSunday } from './sheets.js';
  * Used by consolidation and OSC rotation to build community lists.
  * @returns {Array<{name: string, market: string}>}
  */
-export async function getCommunitiesFromAssignmentsSheet() {
+export async function getActiveCommunities() {
   const { data, error } = await supabase
     .from('communities')
     .select('name, division')
@@ -26,7 +26,7 @@ export async function getCommunitiesFromAssignmentsSheet() {
  * Used by monday-night Phase 1 to determine expected submitters.
  * @returns {string[]}
  */
-export async function getRepsFromAssignmentsSheet() {
+export async function getAssignedReps() {
   const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from('assignments')
