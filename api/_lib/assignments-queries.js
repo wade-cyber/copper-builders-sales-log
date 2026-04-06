@@ -28,12 +28,30 @@ export async function getActiveCommunities() {
  */
 export async function getAssignedReps() {
   const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('assignments')
     .select('reps(name)')
     .eq('week_ending', weekEnding);
 
   if (error) throw error;
+
+  // Fall back to most recent week if no assignments for current week
+  if (!data || data.length === 0) {
+    const { data: latest } = await supabase
+      .from('assignments')
+      .select('week_ending')
+      .order('week_ending', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (latest) {
+      ({ data, error } = await supabase
+        .from('assignments')
+        .select('reps(name)')
+        .eq('week_ending', latest.week_ending));
+      if (error) throw error;
+    }
+  }
 
   const names = [...new Set((data || []).map(a => a.reps.name))]
     .filter(n => {

@@ -1,8 +1,16 @@
 // GET /api/get-assignments?rep=Name — returns assignments for a rep
 // Without ?rep param: returns all active communities
+// Uses current week, falls back to most recent week with data
 import { supabase } from './_lib/db.js';
 import { getWeekEndingSunday } from './_lib/sheets.js';
 import { requireAuth } from './_lib/auth.js';
+
+async function getAssignmentsForWeek(weekEnding) {
+  return supabase
+    .from('assignments')
+    .select('communities(name), reps(name), third_party')
+    .eq('week_ending', weekEnding);
+}
 
 export default async function handler(req, res) {
   const auth = requireAuth(req);
@@ -11,13 +19,24 @@ export default async function handler(req, res) {
     const rep = req.query.rep || '';
     const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
 
-    // Count how many reps are assigned to each community (for type determination)
-    const { data: allAssignments, error: allErr } = await supabase
-      .from('assignments')
-      .select('communities(name), reps(name), third_party')
-      .eq('week_ending', weekEnding);
+    let { data: allAssignments, error } = await getAssignmentsForWeek(weekEnding);
+    if (error) throw error;
 
-    if (allErr) throw allErr;
+    // If no assignments for current week, use most recent week
+    if (!allAssignments || allAssignments.length === 0) {
+      const { data: latest } = await supabase
+        .from('assignments')
+        .select('week_ending')
+        .order('week_ending', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (latest) {
+        ({ data: allAssignments, error } = await getAssignmentsForWeek(latest.week_ending));
+        if (error) throw error;
+      }
+    }
+
     if (!allAssignments || allAssignments.length === 0) return res.status(200).json([]);
 
     const counts = {};
