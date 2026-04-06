@@ -63,7 +63,15 @@ export default function App() {
   useEffect(() => {
     setRepsError(null);
     fetchReps()
-      .then((data) => { if (Array.isArray(data)) setReps(data); })
+      .then((data) => {
+        if (!Array.isArray(data)) return;
+        setReps(data);
+        // Auto-select rep from URL parameter (?rep=Name)
+        const urlRep = new URLSearchParams(window.location.search).get('rep');
+        if (urlRep && data.includes(urlRep)) {
+          setSelectedRep(urlRep);
+        }
+      })
       .catch((err) => setRepsError(err.message || 'Failed to load reps'));
   }, []);
 
