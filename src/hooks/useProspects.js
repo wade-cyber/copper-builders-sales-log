@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchProspects, saveProspect } from '../utils/api';
 
 export function useProspects(rep) {
   const [prospects, setProspects] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
   const [saveErrors, setSaveErrors] = useState({});
+  const debounceTimers = useRef({});
 
   useEffect(() => {
     if (!rep) { setProspects([]); return; }
@@ -12,12 +14,16 @@ export function useProspects(rep) {
     let cancelled = false;
     setLoading(true);
 
+    setFetchError(null);
     fetchProspects(rep)
       .then((data) => {
         if (!cancelled) setProspects(Array.isArray(data) ? data : []);
       })
-      .catch(() => {
-        if (!cancelled) setProspects([]);
+      .catch((err) => {
+        if (!cancelled) {
+          setProspects([]);
+          setFetchError(err.message || 'Failed to load prospects');
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -61,15 +67,23 @@ export function useProspects(rep) {
     return newProspect;
   }, [rep, handleSaveError]);
 
-  // Fixed: combine state update + API call in single setProspects to avoid race condition
+  // Debounced save: waits 500ms after last change before firing API call
+  const debouncedSave = useCallback((id, prospectData) => {
+    if (debounceTimers.current[id]) clearTimeout(debounceTimers.current[id]);
+    debounceTimers.current[id] = setTimeout(() => {
+      saveProspect({ ...prospectData, rep }).catch((err) => handleSaveError(id, err));
+      delete debounceTimers.current[id];
+    }, 500);
+  }, [rep, handleSaveError]);
+
   const updateProspect = useCallback((id, updates) => {
     setProspects((prev) => {
       const next = prev.map((p) => (p.id === id ? { ...p, ...updates } : p));
       const updated = next.find((p) => p.id === id);
-      if (updated) saveProspect({ ...updated, rep }).catch((err) => handleSaveError(id, err));
+      if (updated) debouncedSave(id, updated);
       return next;
     });
-  }, [rep, handleSaveError]);
+  }, [debouncedSave]);
 
   const removeProspect = useCallback((id) => {
     setProspects((prev) => {
@@ -89,5 +103,5 @@ export function useProspects(rep) {
     });
   }, [rep, handleSaveError]);
 
-  return { prospects, loading, saveErrors, addProspect, updateProspect, removeProspect, markSold, retrySave };
+  return { prospects, loading, fetchError, saveErrors, addProspect, updateProspect, removeProspect, markSold, retrySave };
 }

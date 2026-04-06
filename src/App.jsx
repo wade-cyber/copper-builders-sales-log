@@ -18,13 +18,34 @@ export default function App() {
   const [openedBlocks, setOpenedBlocks] = useState(new Set());
   const [collapseKey, setCollapseKey] = useState(0);
   const [reps, setReps] = useState([]);
+  const [repsError, setRepsError] = useState(null);
+  const [offline, setOffline] = useState(!navigator.onLine);
 
-  const { assignments, loading: assignmentsLoading, lastSyncedAt } = useAssignments(selectedRep);
-  const { prospects, saveErrors, addProspect, updateProspect, removeProspect, markSold, retrySave } =
+  const { assignments, loading: assignmentsLoading, error: assignmentsError, lastSyncedAt } = useAssignments(selectedRep);
+  const { prospects, fetchError: prospectsError, saveErrors, addProspect, updateProspect, removeProspect, markSold, retrySave } =
     useProspects(selectedRep);
 
   useEffect(() => {
-    fetchReps().then((data) => { if (Array.isArray(data)) setReps(data); }).catch(() => {});
+    const goOffline = () => setOffline(true);
+    const goOnline = () => setOffline(false);
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline); };
+  }, []);
+
+  // Unsaved changes warning
+  useEffect(() => {
+    const hasDirty = selectedRep && (Object.keys(appointments).length > 0 || Object.keys(directLeads).length > 0 || openedBlocks.size > 0);
+    const handler = (e) => { if (hasDirty && !submitted) { e.preventDefault(); e.returnValue = ''; } };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [selectedRep, appointments, directLeads, openedBlocks, submitted]);
+
+  useEffect(() => {
+    setRepsError(null);
+    fetchReps()
+      .then((data) => { if (Array.isArray(data)) setReps(data); })
+      .catch((err) => setRepsError(err.message || 'Failed to load reps'));
   }, []);
 
   const handleRepChange = useCallback((rep) => {
@@ -119,7 +140,7 @@ export default function App() {
 
       setSubmitted(true);
     } catch (err) {
-      setSubmitError('Submission failed — please try again or contact support');
+      setSubmitError(err.message || 'Submission failed — please try again or contact support');
     } finally {
       setSubmitting(false);
     }
@@ -151,7 +172,14 @@ export default function App() {
   return (
     <div className="shell">
       <Header />
+
+      {offline && <div className="submit-error" style={{marginBottom:8}}>You are offline. Changes will not be saved.</div>}
+      {repsError && <div className="submit-error" style={{marginBottom:8,cursor:'pointer'}} onClick={() => { setRepsError(null); fetchReps().then(d => { if (Array.isArray(d)) setReps(d); }).catch(e => setRepsError(e.message)); }}>Failed to load reps. Tap to retry.</div>}
+
       <RepSelector value={selectedRep} onChange={handleRepChange} reps={reps} />
+
+      {assignmentsError && <div className="submit-error" style={{marginBottom:8}}>Failed to load assignments: {assignmentsError}</div>}
+      {prospectsError && <div className="submit-error" style={{marginBottom:8}}>Could not load prospects: {prospectsError}</div>}
 
       {selectedRep && lastSyncedAt && (Date.now() - lastSyncedAt.getTime()) > 8 * 24 * 60 * 60 * 1000 && (
         <div className="stale-warning">

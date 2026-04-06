@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { fetchAssignments } from '../utils/api';
 
+const API_KEY = import.meta.env.VITE_API_SECRET || '';
+
 export function useAssignments(rep) {
   const [assignments, setAssignments] = useState({
     communities: [],
@@ -12,7 +14,7 @@ export function useAssignments(rep) {
 
   // Fetch last sync timestamp
   useEffect(() => {
-    fetch(`/api/get-last-sync?t=${Date.now()}`)
+    fetch(`/api/get-last-sync?t=${Date.now()}`, { headers: { 'x-api-key': API_KEY } })
       .then((r) => r.json())
       .then((data) => {
         if (data && data.lastSynced) setLastSyncedAt(new Date(data.lastSynced));
