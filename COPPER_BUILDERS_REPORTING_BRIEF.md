@@ -11,8 +11,6 @@
 | **Sales Log App** (reps) | [copper-builders-log.vercel.app](https://copper-builders-log.vercel.app/) |
 | **Admin Dashboard** (managers) | [copper-builders-log.vercel.app/dashboard.html](https://copper-builders-log.vercel.app/dashboard.html) |
 | **Help Page** (reps) | [copper-builders-log.vercel.app/how-it-works.html](https://copper-builders-log.vercel.app/how-it-works.html) |
-
-
 | **OSC Leads Report** | [Google Sheet](https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU) |
 | **GitHub Repo** | [wade-cyber/copper-builders-sales-log](https://github.com/wade-cyber/copper-builders-sales-log) |
 | **Supabase Dashboard** | [supabase.com/dashboard/project/bhmjgfjybpfgjxwtbked](https://supabase.com/dashboard/project/bhmjgfjybpfgjxwtbked) |
@@ -28,7 +26,7 @@ A standalone web app where sales reps submit their weekly activity. Each week, r
 - **Prospects** — add, rank (A/B/C), and track prospects per project
 - **Sales** — mark a prospect as "Sold" to log a sale (with optional lot number)
 
-On Monday morning, the system automatically consolidates all rep submissions and OSC lead data into a weekly results report.
+Results are available immediately on the admin dashboard after reps submit.
 
 ---
 
@@ -48,20 +46,17 @@ On Monday morning, the system automatically consolidates all rep submissions and
 
 ### For the Sales Manager
 
-**Option A — Admin Dashboard (recommended):**
-Go to [/dashboard.html](https://copper-builders-log.vercel.app/dashboard.html) to:
+Go to the [Admin Dashboard](https://copper-builders-log.vercel.app/dashboard.html) to:
 - View weekly results by community (Results tab)
-- See who submitted and who hasn't (Overview tab)
+- See who submitted and who hasn't
 - Manage communities and reps (Communities / Reps tabs)
 - Manage weekly assignments (Assignments tab)
 - Trigger jobs manually and view system health (System tab)
-
-**Option B — Google Sheet:**
-Manage assignments in the Admin Dashboard → Assignments tab. Changes take effect immediately for the current week.
+- Read the full system guide (Help tab)
 
 ### For the OSC
 
-Fill out the **"This Week's Report"** tab in the [OSC Leads Report](https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU) each week. The system creates a fresh tab from the Dashboard Template every Monday.
+Fill out the **"This Week's Report"** tab in the [OSC Leads Report](https://docs.google.com/spreadsheets/d/1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU) each week with lead counts (digital, phone, in-person) and VIP sign-ups per community. The system imports this data automatically on Mondays and creates a fresh tab for the next week.
 
 ---
 
@@ -71,14 +66,13 @@ Every Monday at **10:30 AM ET**, the system automatically runs:
 
 ### Phase 1 — Submission Status Report
 - Checks which reps submitted their weekly log
-- Writes "Sales Reports" tab showing Submitted vs. MISSING per rep
+- Logs results to the database
 
-### Phase 2 — Cache + Import + Consolidate + Results + OSC Rotation
-1. **Cache assignments** from the Assignments sheet into the app + Supabase database
-2. **Import OSC leads** from the "This Week's Report" Google Sheet tab into the database
-3. **Consolidate** all submissions into "Sales Data Results" tab
-4. **Write weekly results** — builds "Last Weeks Results" with rep data + OSC data
-5. **Rotate OSC leads sheet** — archives current "This Week's Report" tab as "Week of [date]", duplicates Dashboard Template to create a fresh "This Week's Report", updates the week ending date, syncs communities, clears data columns
+### Phase 2 — Import OSC Leads + Rotate OSC Sheet
+1. **Import OSC leads** from the "This Week's Report" Google Sheet tab into the database
+2. **Rotate OSC leads sheet** — archives current "This Week's Report" tab as "Week of [date]", duplicates Dashboard Template to create a fresh "This Week's Report", updates the week ending date, syncs communities, clears data columns
+
+All reporting and consolidation is handled by the admin dashboard reading directly from the database — no Google Sheets output is written.
 
 ---
 
@@ -99,7 +93,7 @@ All data is stored in Supabase. The admin dashboard and all reporting reads dire
 | `error_log` | Error tracking for debugging |
 
 ### Google Sheets (OSC Leads Report only)
-The only remaining Google Sheet is the **OSC Leads Report**, where the OSC enters weekly marketing lead data. This is imported into the database automatically on Mondays and can be reimported manually.
+The only remaining Google Sheet is the **OSC Leads Report**, where the OSC enters weekly marketing lead data. This is imported into the database automatically on Mondays and can be reimported manually from the System tab.
 
 ---
 
@@ -114,28 +108,27 @@ Available at [/dashboard.html](https://copper-builders-log.vercel.app/dashboard.
 | **Reps** | Add/edit/deactivate sales reps |
 | **Assignments** | Current rep-to-community assignments (static list with add/remove) |
 | **System** | Health status, two manual actions (Weekly Consolidation — auto Monday 10:30 AM ET, includes OSC import, safe to rerun; Reimport OSC Leads — for reimporting if OSC updated after consolidation), run history, error log |
-| **Help** | System guide for admin/managers: weekly cycle, what each tab does, common tasks, links to Google Sheets and technical documentation |
+| **Help** | System guide for admin/managers: weekly cycle, what each tab does, common tasks, links to documentation |
 
 ---
 
 ## Troubleshooting
 
 ### "Can't see rep names in dropdown"
-- The Weekly Assignments cache may be empty. Go to Admin Dashboard → System → Run Monday Night Job
-- Or check the Assignments tab in the Admin Dashboard
+- Check the Assignments tab in the Admin Dashboard — the rep must have assignments for the current week
+- Make sure the rep is active (Reps tab)
 
 ### "Rep submitted but data isn't showing in Results"
-- Data appears in the Results tab after reps submit through the Sales Log app
-- For the consolidated Google Sheet view, wait for the Monday morning job
+- Data appears in the Results tab immediately after reps submit
+- Navigate to the correct week using the Prev/Next buttons
 
 ### "Community not showing for a rep"
-- Check Assignments tab in the Admin Dashboard — the rep must be assigned to that community
-- Or check the Assignments tab in the Admin Dashboard
+- Check the Assignments tab in the Admin Dashboard — the rep must be assigned to that community for the current week
 
-### "Monday night job failed"
+### "Monday job failed"
 - Check Admin Dashboard → System tab for error details
-- Most common: Google Sheets API quota exceeded (wait and retry)
-- Can manually trigger from the System tab
+- Most common cause: Google Sheets API quota exceeded (wait and retry)
+- Click "Rerun Weekly Consolidation" on the System tab
 
 ---
 

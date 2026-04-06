@@ -22,10 +22,11 @@ A standalone web app where sales reps submit weekly activity (leads, appointment
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 19 + Vite 8 |
-| Backend | Vercel Serverless Functions (11 routes) |
-| Primary Database | Supabase PostgreSQL |
-| Legacy Data | Google Sheets API v4 |
-| Auth | google-auth-library (service account) |
+| Backend | Vercel Serverless Functions (10 routes) |
+| Database | Supabase PostgreSQL |
+| OSC Leads | Google Sheets API v4 (read/rotate only) |
+| API Auth | API key (`x-api-key` header) |
+| Auth (Sheets) | google-auth-library (service account) |
 | Styling | Vanilla CSS (no framework) |
 | Deployment | Vercel (auto-deploys on git push) |
 
@@ -52,6 +53,11 @@ TEMPLATE_SHEET_ID=1K5sEUqfu3Z7bYUUCEJSfZPfbaPGCpg4iFYx8YQLT-BU
 # Supabase (primary database)
 SUPABASE_URL=https://bhmjgfjybpfgjxwtbked.supabase.co
 SUPABASE_SERVICE_KEY=<service_role key from Supabase Settings > API>
+
+# API Authentication
+API_SECRET=<random secret>
+VITE_API_SECRET=<same as API_SECRET>
+CRON_SECRET=<random secret for Vercel cron>
 ```
 
 ### 3. Run locally
@@ -73,28 +79,30 @@ git push        # Auto-deploys to Vercel
 copper-builders-sales-log/
 ├── api/                              # Vercel serverless functions
 │   ├── _lib/
-│   │   ├── db.js                     # Supabase client (primary database)
+│   │   ├── auth.js                   # API key + cron authentication
+│   │   ├── db.js                     # Supabase client
 │   │   ├── sheets.js                 # Google Sheets API wrapper + date utilities
+│   │   ├── assignments-queries.js    # Community + rep queries from Supabase
+│   │   ├── import-osc-leads.js       # Shared OSC lead import logic
 │   │   ├── resolve-names.js          # Community/rep name → DB ID resolution
-│   │   ├── sync-from-assignments-sheet.js  # Read/filter assignments from Sheets
 │   │   ├── logger.js                 # Structured logging to run_log/error_log
 │   │   └── retry.js                  # Exponential backoff wrapper
 │   ├── get-reps.js                   # GET — list rep names
 │   ├── get-assignments.js            # GET — rep's assigned projects
 │   ├── get-prospects.js              # GET — rep's prospect pipeline
 │   ├── get-last-sync.js              # GET — last sync timestamp
-│   ├── save-prospect.js              # POST — create/update prospect (dual-write)
-│   ├── submit-weekly-log.js          # POST — submit weekly report (dual-write)
-│   ├── monday-night.js               # POST/Cron — weekly consolidation + OSC rotation
-│   ├── reports.js                    # GET — consolidated reporting (8 report types)
+│   ├── save-prospect.js              # POST — create/update prospect
+│   ├── submit-weekly-log.js          # POST — submit weekly report
+│   ├── monday-night.js               # POST/Cron — OSC import + sheet rotation
+│   ├── reports.js                    # GET — consolidated reporting (9 report types)
 │   ├── admin.js                      # GET/POST — admin CRUD operations
-│   ├── health.js                     # GET — system health check
-│   └── import-leads.js               # POST — import OSC leads to database
+│   ├── health.js                     # GET — system health check (no auth required)
+│   └── import-leads.js               # POST — reimport OSC leads manually
 │
 ├── db/
 │   ├── migrations/                   # SQL schema files (run in Supabase SQL Editor)
 │   │   ├── 000_run_all.sql           # Combined migration (all tables)
-│   │   ├── 001-007_*.sql             # Individual table migrations
+│   │   └── 001-007_*.sql             # Individual table migrations
 │   └── seed.js                       # Seed communities + reps from live app
 │
 ├── src/
@@ -111,11 +119,10 @@ copper-builders-sales-log/
 │   │   └── ErrorBoundary.jsx         # Error wrapper
 │   ├── hooks/
 │   │   ├── useAssignments.js         # Fetch rep's projects
-│   │   └── useProspects.js           # Fetch rep's prospects
+│   │   └── useProspects.js           # Fetch rep's prospects (debounced saves)
 │   └── utils/
-│       ├── api.js                    # API calls with retry logic
-│       ├── dates.js                  # Week ending calculations
-│       └── constants.js              # Shared constants
+│       ├── api.js                    # API calls with retry logic + API key
+│       └── dates.js                  # Week ending calculations
 │
 ├── public/
 │   ├── dashboard.html                # Admin dashboard (6 tabs: Results, Communities, Reps, Assignments, System, Help)
@@ -146,31 +153,25 @@ copper-builders-sales-log/
 ### Schema location
 SQL files in `db/migrations/`. The combined file `000_run_all.sql` can be pasted into the Supabase SQL Editor to recreate all tables.
 
-### Dual-Write Architecture
-During the migration period, all writes go to **both** Supabase and Google Sheets:
-- Supabase write happens first (primary)
-- If Supabase fails, Google Sheets write continues as fallback
-- If Sheets fails, the submission is still saved in Supabase
-- Zero data loss in either failure mode
-
 ---
 
-## API Routes (12 total, Hobby plan max is 12)
+## API Routes (10 total)
+
+All routes except `/api/health` require an `x-api-key` header matching the `API_SECRET` env var.
 
 | Route | Method | Purpose |
 |-------|--------|---------|
 | `/api/get-reps` | GET | Sorted list of active rep names |
 | `/api/get-assignments?rep=Name` | GET | Projects assigned to a rep |
 | `/api/get-prospects?rep=Name` | GET | Active prospects for a rep |
-| `/api/get-last-sync` | GET | Timestamp of last Monday night sync |
-| `/api/save-prospect` | POST | Upsert prospect (dual-write: Supabase + Sheets) |
-| `/api/submit-weekly-log` | POST | Submit weekly report (dual-write: Supabase + Sheets) |
-| `/api/monday-night` | POST | Weekly consolidation (`{"phase":1}` or `{"phase":2}`) |
+| `/api/get-last-sync` | GET | Timestamp of last sync from run_log |
+| `/api/save-prospect` | POST | Create or update a prospect |
+| `/api/submit-weekly-log` | POST | Submit weekly report |
+| `/api/monday-night` | POST | Monday automation (Phase 1 → Phase 2) |
 | `/api/reports?type=...` | GET | 9 report types (see below) |
 | `/api/admin?action=...` | GET/POST | Admin CRUD (communities, reps, assignments, jobs) |
-| `/api/health` | GET | System health check |
-| `/api/import-leads` | POST | Import OSC leads from Sheets to DB. Accepts `{"tab":"Week of Mar 22, 2026","week_ending":"2026-03-29"}` for historical imports |
-| `/api/backfill-db` | POST | Backfill submissions from Google Sheets into Supabase. Also supports `{"action":"migrate"}` to check schema status |
+| `/api/health` | GET | System health check (no auth required) |
+| `/api/import-leads` | POST | Reimport OSC leads from Google Sheet |
 
 ### Report Types (`/api/reports?type=`)
 `weekly-summary`, `non-reporters`, `rep-activity`, `division-summary`, `lead-summary`, `trends`, `submission-timeline`, `community-detail`, `community-results`
@@ -185,39 +186,37 @@ During the migration period, all writes go to **both** Supabase and Google Sheet
 **Cron:** `30 14 * * 1` = Monday 10:30 AM ET (14:30 UTC)
 
 ### Phase 1 — Submission Status Report
-- Reads all reps from Supabase assignments for the current week
-- Checks Supabase for who submitted this week
-- Writes "Sales Reports" tab: rep name, submitted/missing, timestamp
+- Reads assigned reps from Supabase for the current week
+- Checks Supabase for who submitted
+- Logs results to `run_log`
+- Chains to Phase 2 automatically
 
 ### Phase 2 — Import OSC Leads + Rotate OSC Sheet
-1. **Import OSC leads** — reads "This Week's Report" tab from OSC Leads Report Google Sheet, imports lead counts + VIP into Supabase `leads` table (shared logic in `api/_lib/import-osc-leads.js`)
-2. **Rotate OSC leads sheet** — archives "This Week's Report" as "Week of [date]", duplicates Dashboard Template to create fresh "This Week's Report", updates week ending date, syncs communities, clears data columns (blanks, not zeros)
+1. **Import OSC leads** — reads "This Week's Report" tab from OSC Leads Report Google Sheet, imports lead counts + VIP into Supabase `leads` table
+2. **Rotate OSC leads sheet** — archives "This Week's Report" as "Week of [date]", duplicates Dashboard Template to create fresh "This Week's Report", updates week ending date, syncs communities, clears data columns
 
-All consolidation and reporting is handled by the admin dashboard reading directly from Supabase — no Google Sheets output tabs are written.
+All consolidation and reporting is handled by the admin dashboard reading directly from Supabase.
 
 ### OSC Leads Sheet Details
 - **Dashboard Template** — master template, never modified directly
 - **"This Week's Report"** — fresh duplicate created each week for the OSC to fill in
-- Protected areas (on Dashboard Template): rows 4-6, columns C-F, cells A7:B12
-- The weekly duplicate inherits these protections but the code only writes to unprotected areas
 - Communities synced to rows 13+ (A:B), data cleared in G:AM with blank strings
 
 ### Manual Triggers
 ```bash
-# Phase 1 only (submission report)
+# Phase 1 + Phase 2 (full run)
 curl -X POST https://copper-builders-log.vercel.app/api/monday-night \
+  -H "x-api-key: <API_SECRET>" \
   -H "Content-Type: application/json" -d '{"phase":1}'
 
-# Phase 2 (full consolidation)
+# Phase 2 only (OSC import + rotate)
 curl -X POST https://copper-builders-log.vercel.app/api/monday-night \
+  -H "x-api-key: <API_SECRET>" \
   -H "Content-Type: application/json" -d '{"phase":2}'
 
-# Phase 2 for a specific week
-curl -X POST https://copper-builders-log.vercel.app/api/monday-night \
-  -H "Content-Type: application/json" -d '{"phase":2,"targetDate":"2026-03-29"}'
-
-# Import OSC leads to database
-curl -X POST https://copper-builders-log.vercel.app/api/import-leads
+# Reimport OSC leads only
+curl -X POST https://copper-builders-log.vercel.app/api/import-leads \
+  -H "x-api-key: <API_SECRET>"
 ```
 
 Or use the Admin Dashboard → System tab → trigger buttons.
@@ -226,13 +225,7 @@ Or use the Admin Dashboard → System tab → trigger buttons.
 
 ## Key Design Decisions
 
-### Why dual-write (Supabase + Google Sheets)?
-- Database is the primary store; Sheets is the fallback during migration
-- Sales manager and VP still view data in Google Sheets
-- Zero data loss if either system fails
-- Will remove Sheets reads in a future phase once DB is fully proven
-
-### Why Supabase instead of raw PostgreSQL?
+### Why Supabase?
 - Free tier generous (500MB, 50K rows)
 - Hosted with REST API — works well with Vercel serverless
 - Built-in dashboard for ad-hoc queries
@@ -241,7 +234,6 @@ Or use the Admin Dashboard → System tab → trigger buttons.
 ### Why a static dashboard.html instead of React routing?
 - Keeps the rep-facing form completely untouched
 - No new dependencies (no react-router)
-- Stays within Vercel Hobby plan's 12-function limit
 - Same deployment — just a static HTML file in `public/`
 
 ### Why "This Week's Report" instead of modifying Dashboard Template?
@@ -258,11 +250,12 @@ Or use the Admin Dashboard → System tab → trigger buttons.
 |----------|---------|
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Service account for Sheets API |
 | `GOOGLE_PRIVATE_KEY` | Service account private key |
-
-
 | `TEMPLATE_SHEET_ID` | OSC Leads Report sheet |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_KEY` | Supabase service_role key |
+| `API_SECRET` | API key for all endpoints |
+| `VITE_API_SECRET` | Same as API_SECRET (baked into frontend build) |
+| `CRON_SECRET` | Vercel cron authentication |
 
 ---
 
@@ -282,8 +275,8 @@ npx vercel deploy --prod
 ```
 
 ### Vercel Hobby Plan Constraints
-- **12 serverless functions max** — currently using 11
-- **1 daily cron max** — Monday night job only; lead import and health check are manual
+- **12 serverless functions max** — currently using 10
+- **1 daily cron max** — Monday morning job (OSC import + rotation)
 - Best-effort cron scheduling — no guaranteed execution
 
 ---
@@ -298,7 +291,8 @@ curl https://copper-builders-log.vercel.app/api/health
 ### View weekly results
 Open Admin Dashboard → Results tab, or:
 ```bash
-curl "https://copper-builders-log.vercel.app/api/reports?type=community-results"
+curl -H "x-api-key: <API_SECRET>" \
+  "https://copper-builders-log.vercel.app/api/reports?type=community-results"
 ```
 
 ### Add a new community
@@ -308,7 +302,7 @@ Admin Dashboard → Communities tab → fill in name + division → Add Communit
 Admin Dashboard → Reps tab → fill in name → Add Rep
 
 ### Assign a rep to a community
-Admin Dashboard → Assignments tab → select rep, community, week → Assign
+Admin Dashboard → Assignments tab → select rep, community → Assign
 
 ### View Vercel function logs
 ```bash
