@@ -489,17 +489,29 @@ async function toggleCommunity(id, name, division, is_active) {
 // ===== REPS =====
 async function loadReps() {
   const r = await apiFetch(API + '/api/admin?action=list-reps').then(r => r.json());
-  let html = '<table><tr><th>Name</th><th>Email</th><th>Status</th><th>Actions</th></tr>';
+  let html = '<table><tr><th>Name</th><th>Email</th><th>Direct Link</th><th>Status</th><th>Actions</th></tr>';
   for (const rep of r.data) {
+    const link = `${window.location.origin}/?rep=${encodeURIComponent(rep.name)}`;
     html += `<tr>
       <td>${rep.name}</td>
       <td class="muted">${rep.email || '—'}</td>
+      <td><button class="btn btn-sm btn-gold" onclick="copyRepLink('${link.replace(/'/g,"\\'")}',this)">Copy Link</button></td>
       <td>${rep.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-gray">Inactive</span>'}</td>
       <td><button class="btn btn-sm ${rep.is_active ? 'btn-red' : 'btn-gold'}" onclick="toggleRep(${rep.id},'${rep.name.replace(/'/g,"\\'")}',${!rep.is_active})">${rep.is_active ? 'Deactivate' : 'Activate'}</button></td>
     </tr>`;
   }
   html += '</table>';
   document.getElementById('rep-table').innerHTML = html;
+}
+
+function copyRepLink(link, btn) {
+  navigator.clipboard.writeText(link).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    btn.classList.remove('btn-gold');
+    btn.classList.add('btn-slate');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('btn-slate'); btn.classList.add('btn-gold'); }, 1500);
+  });
 }
 
 async function addRep() {
