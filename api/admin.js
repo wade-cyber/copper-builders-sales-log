@@ -103,13 +103,33 @@ async function upsertRep(req, res) {
 }
 
 async function listAssignments(req, res) {
-  const weekEnding = req.query.week_ending || getWeekEndingSunday().toISOString().slice(0, 10);
-  const { data, error } = await supabase
+  let weekEnding = req.query.week_ending || getWeekEndingSunday().toISOString().slice(0, 10);
+  let { data, error } = await supabase
     .from('assignments')
     .select('*, reps(name), communities(name, division)')
     .eq('week_ending', weekEnding)
     .order('created_at');
   if (error) throw error;
+
+  // Fall back to most recent week if no assignments for requested week
+  if (!data || data.length === 0) {
+    const { data: latest } = await supabase
+      .from('assignments')
+      .select('week_ending')
+      .order('week_ending', { ascending: false })
+      .limit(1)
+      .single();
+    if (latest) {
+      weekEnding = latest.week_ending;
+      ({ data, error } = await supabase
+        .from('assignments')
+        .select('*, reps(name), communities(name, division)')
+        .eq('week_ending', weekEnding)
+        .order('created_at'));
+      if (error) throw error;
+    }
+  }
+
   return res.status(200).json({ data, week_ending: weekEnding });
 }
 
