@@ -52,6 +52,16 @@ export async function submitWeeklyLog(data) {
   return res.json();
 }
 
+export async function fetchSubmissionStatus(rep) {
+  const url = `${API_BASE}/reports?type=submission-timeline&t=${Date.now()}`;
+  const res = await fetchWithRetry(url);
+  const data = await res.json();
+  if (!data.success || !data.data) return { submitted: false };
+  const match = data.data.find(s => s.rep === rep);
+  if (match) return { submitted: true, submitted_at: match.submitted_at };
+  return { submitted: false };
+}
+
 export async function saveProspect(prospect) {
   const res = await fetchWithRetry(`${API_BASE}/save-prospect`, {
     method: 'POST',

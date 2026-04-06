@@ -5,7 +5,7 @@ import CommunityBlock from './components/CommunityBlock';
 import SubmitScreen from './components/SubmitScreen';
 import { useAssignments } from './hooks/useAssignments';
 import { useProspects } from './hooks/useProspects';
-import { submitWeeklyLog, fetchReps } from './utils/api';
+import { submitWeeklyLog, fetchReps, fetchSubmissionStatus } from './utils/api';
 import { getWeekEndingShort } from './utils/dates';
 
 function submitReducer(state, action) {
@@ -29,6 +29,7 @@ export default function App() {
   const [repsError, setRepsError] = useState(null);
   const [offline, setOffline] = useState(!navigator.onLine);
   const [globalError, setGlobalError] = useState(null);
+  const [priorSubmission, setPriorSubmission] = useState(null);
 
   const { assignments, loading: assignmentsLoading, error: assignmentsError, lastSyncedAt } = useAssignments(selectedRep);
   const { prospects, fetchError: prospectsError, saveErrors, addProspect, updateProspect, removeProspect, markSold, retrySave } =
@@ -75,9 +76,18 @@ export default function App() {
       .catch((err) => setRepsError(err.message || 'Failed to load reps'));
   }, []);
 
+  // Check if rep already submitted this week
+  useEffect(() => {
+    if (!selectedRep) { setPriorSubmission(null); return; }
+    fetchSubmissionStatus(selectedRep)
+      .then(status => setPriorSubmission(status.submitted ? status : null))
+      .catch(() => setPriorSubmission(null));
+  }, [selectedRep]);
+
   const handleRepChange = useCallback((rep) => {
     setSelectedRep(rep);
     dispatchSubmit({ type: 'RESET' });
+    setPriorSubmission(null);
     setAppointments({});
     setDirectLeads({});
     setOpenedBlocks(new Set());
@@ -190,7 +200,7 @@ export default function App() {
     );
   }
 
-  const showSections = selectedRep && !assignmentsLoading;
+  const showSections = selectedRep && !assignmentsLoading && !priorSubmission;
 
   return (
     <div className="shell">
@@ -204,6 +214,19 @@ export default function App() {
 
       {assignmentsError && <div className="submit-error" style={{marginBottom:8}}>Failed to load assignments: {assignmentsError}</div>}
       {prospectsError && <div className="submit-error" style={{marginBottom:8}}>Could not load prospects: {prospectsError}</div>}
+
+      {priorSubmission && (
+        <div className="submitted-banner">
+          <div className="submitted-banner-text">
+            This week's report was submitted on{' '}
+            {new Date(priorSubmission.submitted_at).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'short', day: 'numeric' })}
+            {' at '}
+            {new Date(priorSubmission.submitted_at).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })}
+            . Reports are due by Monday 10:00 AM.
+          </div>
+          <button className="submitted-banner-btn" onClick={() => setPriorSubmission(null)}>Reopen &amp; Edit Report</button>
+        </div>
+      )}
 
       {selectedRep && lastSyncedAt && (Date.now() - lastSyncedAt.getTime()) > 8 * 24 * 60 * 60 * 1000 && (
         <div className="stale-warning">

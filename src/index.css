@@ -220,6 +220,12 @@ input[type="number"] { -moz-appearance: textfield; }
   .nf-field input, .nf-field select { font-size: 16px; }
 }
 
+/* Already submitted banner */
+.submitted-banner { background: #e8f5e9; border: 1px solid #66bb6a; border-radius: 6px; padding: 16px; margin-bottom: 12px; text-align: center; }
+.submitted-banner-text { font-size: 13px; color: var(--slate-dark); margin-bottom: 10px; line-height: 1.5; }
+.submitted-banner-btn { font-family: 'Open Sans', sans-serif; font-size: 12px; font-weight: 600; padding: 8px 20px; background: var(--gold); color: #fff; border: none; border-radius: 4px; cursor: pointer; letter-spacing: .04em; }
+.submitted-banner-btn:hover { background: #9a7f3a; }
+
 /* Screen reader only */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
