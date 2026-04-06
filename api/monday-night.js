@@ -143,6 +143,22 @@ async function runPhase2(targetDate = null, force = false) {
     oscRotateResult = { success: false, message: e.message };
   }
 
+  // Step 2c: Trigger CB Dashboard refresh so sales data appears on the weekly dashboard
+  try {
+    const dashboardUrl = process.env.CB_DASHBOARD_URL || 'https://cb-weekly-dashboard-rllnf3ukva-uc.a.run.app';
+    const prefetchToken = process.env.CB_DASHBOARD_PREFETCH_TOKEN || '';
+    if (prefetchToken) {
+      await fetch(`${dashboardUrl}/api/prefetch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-prefetch-token': prefetchToken },
+        body: JSON.stringify({ source: 'sales-log-cron' }),
+      });
+      console.log('[Phase 2] CB Dashboard prefetch triggered');
+    }
+  } catch (e) {
+    console.error('[Phase 2] CB Dashboard prefetch failed:', e.message);
+  }
+
   const allSuccess = oscImportResult.success && oscRotateResult.success;
   await logRun('monday-night-phase2',
     allSuccess ? 'success' : 'partial',
