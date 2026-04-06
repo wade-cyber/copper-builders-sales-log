@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useReducer } from 'react';
 import Header from './components/Header';
 import RepSelector from './components/RepSelector';
 import CommunityBlock from './components/CommunityBlock';
@@ -8,11 +8,19 @@ import { useProspects } from './hooks/useProspects';
 import { submitWeeklyLog, fetchReps } from './utils/api';
 import { getWeekEndingShort } from './utils/dates';
 
+function submitReducer(state, action) {
+  switch (action.type) {
+    case 'START': return { submitted: false, submitting: true, error: '' };
+    case 'SUCCESS': return { submitted: true, submitting: false, error: '' };
+    case 'ERROR': return { submitted: false, submitting: false, error: action.error };
+    case 'RESET': return { submitted: false, submitting: false, error: '' };
+    default: return state;
+  }
+}
+
 export default function App() {
   const [selectedRep, setSelectedRep] = useState('');
-  const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
+  const [submit, dispatchSubmit] = useReducer(submitReducer, { submitted: false, submitting: false, error: '' });
   const [appointments, setAppointments] = useState({});
   const [directLeads, setDirectLeads] = useState({});
   const [openedBlocks, setOpenedBlocks] = useState(new Set());
@@ -20,6 +28,7 @@ export default function App() {
   const [reps, setReps] = useState([]);
   const [repsError, setRepsError] = useState(null);
   const [offline, setOffline] = useState(!navigator.onLine);
+  const [globalError, setGlobalError] = useState(null);
 
   const { assignments, loading: assignmentsLoading, error: assignmentsError, lastSyncedAt } = useAssignments(selectedRep);
   const { prospects, fetchError: prospectsError, saveErrors, addProspect, updateProspect, removeProspect, markSold, retrySave } =
@@ -33,13 +42,23 @@ export default function App() {
     return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline); };
   }, []);
 
+  // Catch unhandled promise rejections
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setGlobalError(e.reason?.message || 'An unexpected error occurred');
+    };
+    window.addEventListener('unhandledrejection', handler);
+    return () => window.removeEventListener('unhandledrejection', handler);
+  }, []);
+
   // Unsaved changes warning
   useEffect(() => {
     const hasDirty = selectedRep && (Object.keys(appointments).length > 0 || Object.keys(directLeads).length > 0 || openedBlocks.size > 0);
-    const handler = (e) => { if (hasDirty && !submitted) { e.preventDefault(); e.returnValue = ''; } };
+    const handler = (e) => { if (hasDirty && !submit.submitted) { e.preventDefault(); e.returnValue = ''; } };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [selectedRep, appointments, directLeads, openedBlocks, submitted]);
+  }, [selectedRep, appointments, directLeads, openedBlocks, submit.submitted]);
 
   useEffect(() => {
     setRepsError(null);
@@ -50,8 +69,7 @@ export default function App() {
 
   const handleRepChange = useCallback((rep) => {
     setSelectedRep(rep);
-    setSubmitted(false);
-    setSubmitError('');
+    dispatchSubmit({ type: 'RESET' });
     setAppointments({});
     setDirectLeads({});
     setOpenedBlocks(new Set());
@@ -108,8 +126,7 @@ export default function App() {
   }, [directLeads]);
 
   const handleSubmit = async () => {
-    setSubmitError('');
-    setSubmitting(true);
+    dispatchSubmit({ type: 'START' });
     try {
       const sections = allProjects.map((a) => {
         const name = a.name || a.assignmentName;
@@ -138,20 +155,18 @@ export default function App() {
         totals: { totalAppointments, totalProspects: totalActiveProspects },
       });
 
-      setSubmitted(true);
+      dispatchSubmit({ type: 'SUCCESS' });
     } catch (err) {
-      setSubmitError(err.message || 'Submission failed — please try again or contact support');
-    } finally {
-      setSubmitting(false);
+      dispatchSubmit({ type: 'ERROR', error: err.message || 'Submission failed — please try again or contact support' });
     }
   };
 
   const handleStartNew = useCallback(() => {
-    setSubmitted(false);
+    dispatchSubmit({ type: 'RESET' });
     handleRepChange('');
   }, [handleRepChange]);
 
-  if (submitted) {
+  if (submit.submitted) {
     return (
       <div className="shell">
         <Header />
@@ -174,6 +189,7 @@ export default function App() {
       <Header />
 
       {offline && <div className="submit-error" style={{marginBottom:8}}>You are offline. Changes will not be saved.</div>}
+      {globalError && <div className="submit-error" style={{marginBottom:8,cursor:'pointer'}} onClick={() => setGlobalError(null)}>{globalError} (tap to dismiss)</div>}
       {repsError && <div className="submit-error" style={{marginBottom:8,cursor:'pointer'}} onClick={() => { setRepsError(null); fetchReps().then(d => { if (Array.isArray(d)) setReps(d); }).catch(e => setRepsError(e.message)); }}>Failed to load reps. Tap to retry.</div>}
 
       <RepSelector value={selectedRep} onChange={handleRepChange} reps={reps} />
@@ -239,10 +255,10 @@ export default function App() {
             <div className="totals-card"><div className="totals-label">Appts</div><div className="totals-number">{totalAppointments}</div></div>
             <div className="totals-card"><div className="totals-label">Leads</div><div className="totals-number">{totalDirectLeads}</div></div>
           </div>
-          <button className="submit-btn" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? 'Submitting…' : 'Submit Weekly Log'}
+          <button className="submit-btn" onClick={handleSubmit} disabled={submit.submitting}>
+            {submit.submitting ? 'Submitting…' : 'Submit Weekly Log'}
           </button>
-          {submitError && <div className="submit-error">{submitError}</div>}
+          {submit.error && <div className="submit-error">{submit.error}</div>}
         </>
       )}
     </div>

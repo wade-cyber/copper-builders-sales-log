@@ -219,3 +219,29 @@ input[type="number"] { -moz-appearance: textfield; }
   .nf-r3 { grid-template-columns: 1fr; }
   .nf-field input, .nf-field select { font-size: 16px; }
 }
+
+/* Screen reader only */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+/* ═══════ ProspectCard inline style replacements ═══════ */
+.pcard-lot { font-weight: 400; color: var(--slate); font-size: 11px; }
+.pcard-save-error { font-size: 11px; font-weight: 600; color: #c0392b; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+.pcard-retry-btn { font-size: 10px; padding: 1px 6px; border: 1px solid #c0392b; border-radius: 3px; background: transparent; color: #c0392b; cursor: pointer; }
+.pcard-sold-msg { font-size: 11px; font-weight: 600; font-style: italic; color: #3a5e20; margin-top: 4px; }
+.pcard-removed-msg { font-size: 11px; font-weight: 600; font-style: italic; color: #999; margin-top: 4px; }
+.pcard-bot-end { justify-content: flex-end; }
+.pcard-actions-row { flex-direction: row; gap: 6px; }
+
+/* ═══════ SubmitScreen inline style replacements ═══════ */
+.ss-check { margin: 0 auto 1rem; display: block; }
+.ss-brand { font-family: 'Libre Baskerville', serif; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+.ss-title { font-family: 'Libre Baskerville', serif; font-size: 20px; font-weight: 400; color: var(--slate-dark); }
+.ss-subtitle { font-size: 13px; color: var(--slate); margin-top: 6px; }
+.ss-stats { display: flex; justify-content: center; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+.ss-stat { text-align: center; }
+.ss-stat-num { font-size: 22px; font-family: 'Libre Baskerville', serif; color: var(--slate-dark); }
+.ss-stat-label { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--slate); }
+.ss-divider { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 16px; }
+.ss-divider-line { width: 40px; height: 1px; background: var(--gold); }
+.ss-closing { font-size: 12px; color: var(--slate); margin-top: 16px; font-style: italic; }
+.ss-new-btn { margin-top: 24px; height: 36px; padding: 0 20px; background: transparent; color: var(--gold); border: 1px solid var(--gold); border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }

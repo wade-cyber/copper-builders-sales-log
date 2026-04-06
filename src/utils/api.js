@@ -1,22 +1,25 @@
 const API_BASE = '/api';
 const API_KEY = import.meta.env.VITE_API_SECRET || '';
 
-/** Retry wrapper with exponential backoff (3 attempts, 1s/2s/4s delays) */
+/** Retry wrapper with exponential backoff (3 attempts, 1s/2s/4s delays).
+ *  Only retries on 5xx and network errors. 4xx errors fail immediately. */
 async function fetchWithRetry(url, options = {}, retries = 3) {
-  // Inject API key into all requests
   options.headers = { ...options.headers, 'x-api-key': API_KEY };
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       const res = await fetch(url, options);
       if (!res.ok) {
+        // 4xx: client error — don't retry, fail immediately
         if (res.status >= 400 && res.status < 500) {
-          throw new Error(`Request failed (${res.status})`);
+          const body = await res.json().catch(() => ({}));
+          throw Object.assign(new Error(body.error || `Request failed (${res.status})`), { noRetry: true });
         }
         throw new Error(`Server error (${res.status})`);
       }
       return res;
     } catch (err) {
-      if (attempt === retries - 1) throw err;
+      // Don't retry client errors (4xx) — they won't succeed
+      if (err.noRetry || attempt === retries - 1) throw err;
       await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
     }
   }

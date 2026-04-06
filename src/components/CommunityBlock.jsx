@@ -40,7 +40,7 @@ export default function CommunityBlock({
 
   return (
     <div className="block">
-      <div className={`bh${open ? ' open' : ''}`} onClick={handleToggle}>
+      <div className={`bh${open ? ' open' : ''}`} onClick={handleToggle} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggle(); } }} role="button" tabIndex={0} aria-expanded={open} aria-label={`${name} — ${open ? 'collapse' : 'expand'}`}>
         <span className="bname">{name}</span>
         <div className="bh-right">
           {leadsTotal > 0 && <span className="bh-badge">Leads: {leadsTotal}</span>}
@@ -56,18 +56,18 @@ export default function CommunityBlock({
           <div className="sub">New Leads Received by Sales Agent</div>
           <div className="direct-leads dl-3col">
             <div className="dl-field">
-              <label>Digital</label>
-              <input type="number" min="0" value={directLeads.digital || 0}
+              <label htmlFor={`dl-digital-${name}`}>Digital</label>
+              <input id={`dl-digital-${name}`} type="number" min="0" value={directLeads.digital || 0}
                 onChange={(e) => onDirectLeadsChange('digital', e.target.value)} />
             </div>
             <div className="dl-field">
-              <label>Phone Call</label>
-              <input type="number" min="0" value={directLeads.phoneCall || 0}
+              <label htmlFor={`dl-phone-${name}`}>Phone Call</label>
+              <input id={`dl-phone-${name}`} type="number" min="0" value={directLeads.phoneCall || 0}
                 onChange={(e) => onDirectLeadsChange('phoneCall', e.target.value)} />
             </div>
             <div className="dl-field">
-              <label>In Person</label>
-              <input type="number" min="0" value={directLeads.inPerson || 0}
+              <label htmlFor={`dl-inperson-${name}`}>In Person</label>
+              <input id={`dl-inperson-${name}`} type="number" min="0" value={directLeads.inPerson || 0}
                 onChange={(e) => onDirectLeadsChange('inPerson', e.target.value)} />
             </div>
           </div>
@@ -76,13 +76,13 @@ export default function CommunityBlock({
           <div className="sub">Appointments This Week</div>
           <div className="direct-leads">
             <div className="dl-field">
-              <label>Virtual</label>
-              <input type="number" min="0" value={appointments[0] || 0}
+              <label htmlFor={`appt-virtual-${name}`}>Virtual</label>
+              <input id={`appt-virtual-${name}`} type="number" min="0" value={appointments[0] || 0}
                 onChange={(e) => onAppointmentChange([Math.max(0, parseInt(e.target.value) || 0), appointments[1] || 0])} />
             </div>
             <div className="dl-field">
-              <label>In Person</label>
-              <input type="number" min="0" value={appointments[1] || 0}
+              <label htmlFor={`appt-inperson-${name}`}>In Person</label>
+              <input id={`appt-inperson-${name}`} type="number" min="0" value={appointments[1] || 0}
                 onChange={(e) => onAppointmentChange([appointments[0] || 0, Math.max(0, parseInt(e.target.value) || 0)])} />
             </div>
           </div>

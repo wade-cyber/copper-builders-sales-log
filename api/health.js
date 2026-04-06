@@ -1,7 +1,10 @@
 // GET /api/health — system health check
 import { supabase } from './_lib/db.js';
+import { requireAuth } from './_lib/auth.js';
 
 export default async function handler(req, res) {
+  const auth = requireAuth(req);
+  if (!auth.authorized) return res.status(401).json({ error: auth.error });
   const checks = { database: 'unknown', tables: {} };
   let status = 'healthy';
 

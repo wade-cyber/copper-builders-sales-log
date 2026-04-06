@@ -11,34 +11,49 @@ import { getActiveCommunities, getAssignedReps } from './_lib/assignments-querie
 import { supabase } from './_lib/db.js';
 import { importOSCLeads } from './_lib/import-osc-leads.js';
 import { requireCronAuth } from './_lib/auth.js';
+import { withRetry } from './_lib/retry.js';
 
 export default async function handler(req, res) {
   const auth = requireCronAuth(req);
   if (!auth.authorized) return res.status(401).json({ error: auth.error });
+
   let body = {};
   if (req.method === 'POST' && req.body) {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   }
   const phase = body.phase || 1;
   const targetDate = body.targetDate || null;
+  const force = body.force || false;
 
   try {
     if (phase === 1) {
-      const result = await runPhase1();
-      // Chain to phase 2
-      const baseUrl = `https://${req.headers.host}`;
-      fetch(`${baseUrl}/api/monday-night`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: 2, targetDate }),
-      }).catch((error) => {
+      const result = await runPhase1(force);
+      if (result.already_processed) {
+        return res.status(200).json({ phase: 1, ...result });
+      }
+      // Chain to phase 2 — await it so failures are caught
+      try {
+        const baseUrl = `https://${req.headers.host}`;
+        const p2Res = await fetch(`${baseUrl}/api/monday-night`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.API_SECRET,
+          },
+          body: JSON.stringify({ phase: 2, targetDate, force }),
+        });
+        if (!p2Res.ok) {
+          console.error('[Phase 2 chain] HTTP', p2Res.status);
+        }
+      } catch (error) {
         console.error('[PHASE 2 TRIGGER FAILURE]', error.message);
-      });
+        await logRun('monday-night-phase2', 'error', `Phase 2 trigger failed: ${error.message}`);
+      }
       return res.status(200).json({ phase: 1, ...result });
     }
 
     if (phase === 2) {
-      const result = await runPhase2(targetDate);
+      const result = await runPhase2(targetDate, force);
       return res.status(200).json({ phase: 2, ...result });
     }
 
@@ -51,14 +66,33 @@ export default async function handler(req, res) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// IDEMPOTENCY CHECK
+// ═══════════════════════════════════════════════════════════
+
+async function alreadyProcessed(runType) {
+  const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
+  const { data } = await supabase
+    .from('run_log')
+    .select('id')
+    .eq('run_type', runType)
+    .eq('status', 'success')
+    .gte('completed_at', weekEnding)
+    .limit(1);
+  return data && data.length > 0;
+}
+
+// ═══════════════════════════════════════════════════════════
 // PHASE 1: Submission status report
 // ═══════════════════════════════════════════════════════════
 
-async function runPhase1() {
+async function runPhase1(force = false) {
+  if (!force && await alreadyProcessed('monday-night-phase1')) {
+    return { success: true, already_processed: true, message: 'Phase 1 already ran this week. Pass force:true to rerun.' };
+  }
+
   const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
   const reps = await getAssignedReps();
 
-  // Check who submitted this week from Supabase
   const { data: submissions } = await supabase
     .from('weekly_submissions')
     .select('rep_id, submitted_at, reps(name)')
@@ -85,7 +119,11 @@ async function runPhase1() {
 // PHASE 2: Import OSC leads + rotate OSC sheet
 // ═══════════════════════════════════════════════════════════
 
-async function runPhase2(targetDate = null) {
+async function runPhase2(targetDate = null, force = false) {
+  if (!force && await alreadyProcessed('monday-night-phase2')) {
+    return { success: true, already_processed: true, message: 'Phase 2 already ran this week. Pass force:true to rerun.' };
+  }
+
   // Step 2a: Import OSC leads from Google Sheet into database
   let oscImportResult = { success: false, message: 'skipped' };
   try {
@@ -96,17 +134,18 @@ async function runPhase2(targetDate = null) {
     oscImportResult = { success: false, message: e.message };
   }
 
-  // Step 2b: Rotate OSC leads sheet (archive current, prep next week)
+  // Step 2b: Rotate OSC leads sheet (archive current, prep next week) — with retries
   let oscRotateResult = { success: false, message: 'skipped' };
   try {
-    oscRotateResult = await rotateOSCLeadsSheet(targetDate);
+    oscRotateResult = await withRetry(() => rotateOSCLeadsSheet(targetDate), 2, 2000);
   } catch (e) {
-    console.error('[Phase 2] OSC rotate failed:', e.message);
+    console.error('[Phase 2] OSC rotate failed after retries:', e.message);
     oscRotateResult = { success: false, message: e.message };
   }
 
+  const allSuccess = oscImportResult.success && oscRotateResult.success;
   await logRun('monday-night-phase2',
-    (oscImportResult.success && oscRotateResult.success) ? 'success' : 'partial',
+    allSuccess ? 'success' : 'partial',
     `OSC import: ${oscImportResult.success ? oscImportResult.imported + ' leads' : 'FAILED: ' + oscImportResult.message}. OSC rotate: ${oscRotateResult.success || 'FAILED: ' + oscRotateResult.message}.`);
 
   return {
@@ -124,11 +163,10 @@ async function rotateOSCLeadsSheet(targetDate = null) {
   const OSC_SHEET = TEMPLATE_SHEET_ID;
   const TEMPLATE_TAB = 'Dashboard Template';
   const REPORT_TAB = "This Week's Report";
-  const TOTAL_COLS = 39; // A through AM
-  const DATA_START_COL = 6; // column G (0-based index 6)
-  const DATA_COL_COUNT = TOTAL_COLS - DATA_START_COL; // G through AM = 33 cols
+  const TOTAL_COLS = 39;
+  const DATA_START_COL = 6;
+  const DATA_COL_COUNT = TOTAL_COLS - DATA_START_COL;
 
-  // Calculate dates
   const currentSunday = getWeekEndingSunday(targetDate);
   const previousSunday = new Date(currentSunday);
   previousSunday.setDate(currentSunday.getDate() - 7);
@@ -140,13 +178,12 @@ async function rotateOSCLeadsSheet(targetDate = null) {
     return { success: false, message: 'Dashboard Template tab not found' };
   }
 
-  // Step 1: Archive existing "This Week's Report" → rename to "Week of [date]"
+  // Step 1: Archive existing "This Week's Report"
   let archiveSkipped = false;
   const existingReport = await getSheetId(OSC_SHEET, REPORT_TAB);
   if (existingReport !== null) {
     const existingArchive = await getSheetId(OSC_SHEET, archiveName);
     if (existingArchive !== null) {
-      console.log(`Archive '${archiveName}' already exists, deleting stale report tab`);
       try {
         await batchUpdate(OSC_SHEET, [{ deleteSheet: { sheetId: existingReport } }]);
       } catch (e) {
@@ -170,12 +207,9 @@ async function rotateOSCLeadsSheet(targetDate = null) {
     archiveSkipped = true;
   }
 
-  // Step 2: Create fresh "This Week's Report" by duplicating Dashboard Template
+  // Step 2: Create fresh tab from template
   await batchUpdate(OSC_SHEET, [{
-    duplicateSheet: {
-      sourceSheetId: templateSheetId,
-      newSheetName: REPORT_TAB,
-    }
+    duplicateSheet: { sourceSheetId: templateSheetId, newSheetName: REPORT_TAB }
   }]);
 
   // Step 3: Clear data columns G:AM for rows 7+
@@ -192,25 +226,19 @@ async function rotateOSCLeadsSheet(targetDate = null) {
   // Step 4: Update week ending date
   await updateRange(OSC_SHEET, `'${REPORT_TAB}'!B2`, [[weekEndingDate]]);
 
-  // Step 5: Sync dynamic communities (rows 13+) from database
+  // Step 5: Sync communities from database
   const newCommunities = await getActiveCommunities();
   let communitiesUpdated = 0;
 
   if (newCommunities.length > 0) {
     const nameRows = newCommunities.map(c => [c.name, c.market]);
-    await updateRange(OSC_SHEET,
-      `'${REPORT_TAB}'!A13:B${12 + newCommunities.length}`,
-      nameRows
-    );
+    await updateRange(OSC_SHEET, `'${REPORT_TAB}'!A13:B${12 + newCommunities.length}`, nameRows);
     communitiesUpdated = newCommunities.length;
 
     if (lastRow > 12 + newCommunities.length) {
       const extraRows = lastRow - (12 + newCommunities.length);
       const blankRows = Array.from({ length: extraRows }, () => ['', '']);
-      await updateRange(OSC_SHEET,
-        `'${REPORT_TAB}'!A${13 + newCommunities.length}:B${lastRow}`,
-        blankRows
-      );
+      await updateRange(OSC_SHEET, `'${REPORT_TAB}'!A${13 + newCommunities.length}:B${lastRow}`, blankRows);
     }
   }
 
@@ -221,12 +249,11 @@ async function rotateOSCLeadsSheet(targetDate = null) {
     reportTab: REPORT_TAB,
     weekEndingDate,
     communitiesUpdated,
-    communitiesChanged: communitiesUpdated > 0,
   };
 }
 
 // ═══════════════════════════════════════════════════════════
-// LOGGING — write to Supabase run_log
+// LOGGING
 // ═══════════════════════════════════════════════════════════
 
 async function logRun(runType, status, summary) {

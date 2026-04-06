@@ -12,14 +12,17 @@ export function useAssignments(rep) {
   const [error, setError] = useState(null);
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
 
-  // Fetch last sync timestamp
+  // Fetch last sync timestamp — if it fails, set to null so stale-data warning defaults to showing
   useEffect(() => {
     fetch(`/api/get-last-sync?t=${Date.now()}`, { headers: { 'x-api-key': API_KEY } })
       .then((r) => r.json())
       .then((data) => {
         if (data && data.lastSynced) setLastSyncedAt(new Date(data.lastSynced));
+        else setLastSyncedAt(null);
       })
-      .catch(() => {});
+      .catch(() => {
+        setLastSyncedAt(null);
+      });
   }, []);
 
   useEffect(() => {

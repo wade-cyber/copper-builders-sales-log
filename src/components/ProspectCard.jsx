@@ -11,6 +11,7 @@ export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove,
   const disabled = isSold || isRemoved;
   const r = (prospect.ranking || 'C').toUpperCase();
   const rankClass = r === 'A' ? 'rank-a' : r === 'B' ? 'rank-b' : 'rank-c';
+  const rankLabel = r === 'A' ? 'Hot Lead' : r === 'B' ? 'Warm Lead' : 'Cold Lead';
 
   let cardClass = 'pcard';
   if (isSold) cardClass += ' sold';
@@ -22,13 +23,15 @@ export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove,
         <div className="pav">{getInitials(prospect.name)}</div>
         <span className="pname">
           {prospect.name}
-          {prospect.lotNumber && <span style={{ fontWeight: 400, color: 'var(--slate)', fontSize: 11 }}> — Lot {prospect.lotNumber}</span>}
+          {prospect.lotNumber && <span className="pcard-lot"> — Lot {prospect.lotNumber}</span>}
         </span>
         <div className={`rank-pill ${rankClass}`}>
           <select
+            id={`rank-${prospect.id}`}
             value={prospect.ranking || 'C'}
             onChange={(e) => onUpdate(prospect.id, { ranking: e.target.value })}
             disabled={disabled}
+            aria-label={rankLabel}
           >
             <option value="A">A</option>
             <option value="B">B</option>
@@ -38,31 +41,20 @@ export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove,
       </div>
 
       {saveError && (
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#c0392b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div className="pcard-save-error">
           <span>Save failed</span>
-          <button onClick={() => onRetry(prospect.id)}
-            style={{ fontSize: 10, padding: '1px 6px', border: '1px solid #c0392b', borderRadius: 3, background: 'transparent', color: '#c0392b', cursor: 'pointer' }}>
-            Retry
-          </button>
+          <button className="pcard-retry-btn" onClick={() => onRetry(prospect.id)}>Retry</button>
         </div>
       )}
 
-      {isSold && (
-        <div style={{ fontSize: 11, fontWeight: 600, fontStyle: 'italic', color: '#3a5e20', marginTop: 4 }}>
-          Sold — logged as a sale this week
-        </div>
-      )}
-      {isRemoved && (
-        <div style={{ fontSize: 11, fontWeight: 600, fontStyle: 'italic', color: '#999', marginTop: 4 }}>
-          Removed — won't carry forward
-        </div>
-      )}
+      {isSold && <div className="pcard-sold-msg">Sold — logged as a sale this week</div>}
+      {isRemoved && <div className="pcard-removed-msg">Removed — won't carry forward</div>}
 
       {!disabled && (
-        <div className="pcard-bot" style={{ justifyContent: 'flex-end' }}>
-          <div className="pcard-actions" style={{ flexDirection: 'row', gap: 6 }}>
-            <button className="abtn sbtn" onClick={() => onMarkSold(prospect.id)}>Sold</button>
-            <button className="abtn rbtn" onClick={() => onRemove(prospect.id)}>Remove</button>
+        <div className="pcard-bot pcard-bot-end">
+          <div className="pcard-actions pcard-actions-row">
+            <button className="abtn sbtn" onClick={() => onMarkSold(prospect.id)} aria-label={`Mark ${prospect.name} as sold`}>Sold</button>
+            <button className="abtn rbtn" onClick={() => onRemove(prospect.id)} aria-label={`Remove ${prospect.name}`}>Remove</button>
           </div>
         </div>
       )}

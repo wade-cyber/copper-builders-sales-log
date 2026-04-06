@@ -17,20 +17,20 @@ export default function AddProspectForm({ onSave }) {
     <div className="nf">
       <div className="nf-r3">
         <div className="nf-field" style={{ gridColumn: 'span 3' }}>
-          <label>Prospect Name</label>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
+          <label htmlFor="nf-name">Prospect Name</label>
+          <input id="nf-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
         </div>
         <div className="nf-field">
-          <label>Ranking</label>
-          <select value={ranking} onChange={(e) => setRanking(e.target.value)}>
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
+          <label htmlFor="nf-ranking">Ranking</label>
+          <select id="nf-ranking" value={ranking} onChange={(e) => setRanking(e.target.value)} aria-label="Prospect ranking">
+            <option value="A">A — Hot</option>
+            <option value="B">B — Warm</option>
+            <option value="C">C — Cold</option>
           </select>
         </div>
         <div className="nf-field" style={{ gridColumn: 'span 2' }}>
-          <label>Lot # (optional)</label>
-          <input type="text" value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} placeholder="Lot number" />
+          <label htmlFor="nf-lot">Lot # (optional)</label>
+          <input id="nf-lot" type="text" value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} placeholder="Lot number" />
         </div>
       </div>
       <button className="save-btn" onClick={handleSave} disabled={!name.trim()}>
