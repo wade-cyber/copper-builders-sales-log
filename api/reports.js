@@ -67,7 +67,15 @@ async function weeklySummary(res, weekEnding) {
 
   const { data: assignments } = await supabase
     .from('assignments').select('rep_id, community_id, reps(name), communities(name)').eq('week_ending', weekEnding);
-  const submittedKeys = new Set(submissions.map(s => `${s.rep_id}||${s.community_id}`));
+  // Also check next week's submissions to catch late reporters (frontend tags them with the following Sunday)
+  const nw = new Date(weekEnding + 'T00:00:00');
+  nw.setDate(nw.getDate() + 7);
+  const { data: nextWeekSubs } = await supabase
+    .from('weekly_submissions').select('rep_id, community_id').eq('week_ending', nw.toISOString().slice(0, 10));
+  const submittedKeys = new Set([
+    ...submissions.map(s => `${s.rep_id}||${s.community_id}`),
+    ...(nextWeekSubs || []).map(s => `${s.rep_id}||${s.community_id}`),
+  ]);
   const nr = (assignments || []).filter(a => !submittedKeys.has(`${a.rep_id}||${a.community_id}`))
     .map(a => ({ rep: a.reps.name, community: a.communities.name }));
 
@@ -84,7 +92,15 @@ async function nonReporters(res, weekEnding) {
     .from('assignments').select('rep_id, community_id, reps(name), communities(name, division)').eq('week_ending', weekEnding);
   const { data: submissions } = await supabase
     .from('weekly_submissions').select('rep_id, community_id').eq('week_ending', weekEnding);
-  const keys = new Set((submissions || []).map(s => `${s.rep_id}||${s.community_id}`));
+  // Also check next week's submissions to catch late reporters (frontend tags them with the following Sunday)
+  const nw = new Date(weekEnding + 'T00:00:00');
+  nw.setDate(nw.getDate() + 7);
+  const { data: nextWeekSubs } = await supabase
+    .from('weekly_submissions').select('rep_id, community_id').eq('week_ending', nw.toISOString().slice(0, 10));
+  const keys = new Set([
+    ...(submissions || []).map(s => `${s.rep_id}||${s.community_id}`),
+    ...(nextWeekSubs || []).map(s => `${s.rep_id}||${s.community_id}`),
+  ]);
   const nr = (assignments || []).filter(a => !keys.has(`${a.rep_id}||${a.community_id}`))
     .map(a => ({ rep: a.reps.name, community: a.communities.name, division: a.communities.division }));
   return res.status(200).json({ success: true, data: nr, meta: { week_ending: weekEnding, count: nr.length } });
@@ -293,13 +309,26 @@ async function communityResults(res, weekEnding) {
   totals.osc_communities = oscCommunityCount;
   totals.osc_vips = oscVipTotal;
 
-  // Non-reporters: assigned reps who have zero submissions for the entire week
+  // Non-reporters: assigned reps who have zero submissions for the entire week.
+  // Also check the NEXT week's submissions to catch late reporters — the frontend
+  // uses nextSunday() so reps who submit after Sunday get tagged to the following week.
   const { data: assignments } = await supabase
     .from('assignments')
     .select('rep_id, reps(name)')
     .eq('week_ending', targetWeek);
 
-  const repsWhoSubmitted = new Set((submissions || []).map(s => s.rep_id));
+  const nextWeek = new Date(targetWeek + 'T00:00:00');
+  nextWeek.setDate(nextWeek.getDate() + 7);
+  const nextWeekStr = nextWeek.toISOString().slice(0, 10);
+  const { data: nextWeekSubs } = await supabase
+    .from('weekly_submissions')
+    .select('rep_id')
+    .eq('week_ending', nextWeekStr);
+
+  const repsWhoSubmitted = new Set([
+    ...(submissions || []).map(s => s.rep_id),
+    ...(nextWeekSubs || []).map(s => s.rep_id),
+  ]);
   const assignedRepNames = [...new Map((assignments || []).map(a => [a.rep_id, a.reps.name])).values()];
   const nonReporters = assignedRepNames
     .filter(name => {
