@@ -347,7 +347,7 @@ async function communityResults(res, weekEnding) {
   // Non-reporters: assigned reps who have zero submissions for the entire week.
   // Also check the NEXT week's submissions to catch late reporters — the frontend
   // uses nextSunday() so reps who submit after Sunday get tagged to the following week.
-  const { data: assignments } = await supabase
+  const { data: nrAssignments } = await supabase
     .from('assignments')
     .select('rep_id, reps(name)')
     .eq('week_ending', targetWeek);
@@ -364,10 +364,10 @@ async function communityResults(res, weekEnding) {
     ...(submissions || []).map(s => s.rep_id),
     ...(nextWeekSubs || []).map(s => s.rep_id),
   ]);
-  const assignedRepNames = [...new Map((assignments || []).map(a => [a.rep_id, a.reps.name])).values()];
+  const assignedRepNames = [...new Map((nrAssignments || []).map(a => [a.rep_id, a.reps.name])).values()];
   const nonReporters = assignedRepNames
     .filter(name => {
-      const repId = (assignments || []).find(a => a.reps.name === name)?.rep_id;
+      const repId = (nrAssignments || []).find(a => a.reps.name === name)?.rep_id;
       return repId && !repsWhoSubmitted.has(repId);
     })
     .sort();
