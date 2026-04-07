@@ -2,11 +2,8 @@
 import { supabase } from './_lib/db.js';
 import { getWeekEndingSunday } from './_lib/sheets.js';
 import { importOSCLeads } from './_lib/import-osc-leads.js';
-import { requireAuth } from './_lib/auth.js';
 
 export default async function handler(req, res) {
-  const auth = requireAuth(req);
-  if (!auth.authorized) return res.status(401).json({ error: auth.error });
   try {
     const body = req.method === 'POST' && req.body
       ? (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) : {};

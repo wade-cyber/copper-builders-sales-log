@@ -260,11 +260,7 @@
 <script>
 const API = '';
 // Admin API key — stored in sessionStorage after first prompt
-if (!sessionStorage.getItem('api_key')) {
-  const key = prompt('Enter admin API key:');
-  if (key) sessionStorage.setItem('api_key', key);
-}
-const API_HEADERS = { 'x-api-key': sessionStorage.getItem('api_key') || '' };
+const API_HEADERS = {};
 
 // Helper: fetch with API key
 function apiFetch(url, opts = {}) {

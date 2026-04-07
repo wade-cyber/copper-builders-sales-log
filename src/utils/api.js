@@ -1,10 +1,8 @@
 const API_BASE = '/api';
-const API_KEY = import.meta.env.VITE_API_SECRET || '';
 
 /** Retry wrapper with exponential backoff (3 attempts, 1s/2s/4s delays).
  *  Only retries on 5xx and network errors. 4xx errors fail immediately. */
 async function fetchWithRetry(url, options = {}, retries = 3) {
-  options.headers = { ...options.headers, 'x-api-key': API_KEY };
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       const res = await fetch(url, options);

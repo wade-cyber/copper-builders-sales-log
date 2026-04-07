@@ -2,11 +2,8 @@
 // GET/POST /api/admin?action=list-communities|upsert-community|list-reps|...
 import { supabase } from './_lib/db.js';
 import { getWeekEndingSunday } from './_lib/sheets.js';
-import { requireAuth } from './_lib/auth.js';
 
 export default async function handler(req, res) {
-  const auth = requireAuth(req);
-  if (!auth.authorized) return res.status(401).json({ error: auth.error });
   const action = req.query.action || (req.body && req.body.action);
   if (!action) {
     return res.status(400).json({ error: 'Missing action parameter' });

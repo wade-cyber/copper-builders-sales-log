@@ -10,12 +10,9 @@ import {
 import { getActiveCommunities, getAssignedReps } from './_lib/assignments-queries.js';
 import { supabase } from './_lib/db.js';
 import { importOSCLeads } from './_lib/import-osc-leads.js';
-import { requireCronAuth } from './_lib/auth.js';
 import { withRetry } from './_lib/retry.js';
 
 export default async function handler(req, res) {
-  const auth = requireCronAuth(req);
-  if (!auth.authorized) return res.status(401).json({ error: auth.error });
 
   let body = {};
   if (req.method === 'POST' && req.body) {

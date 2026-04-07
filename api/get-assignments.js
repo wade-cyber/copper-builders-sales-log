@@ -3,7 +3,6 @@
 // Uses current week, falls back to most recent week with data
 import { supabase } from './_lib/db.js';
 import { getWeekEndingSunday } from './_lib/sheets.js';
-import { requireAuth } from './_lib/auth.js';
 
 async function getAssignmentsForWeek(weekEnding) {
   return supabase
@@ -13,8 +12,6 @@ async function getAssignmentsForWeek(weekEnding) {
 }
 
 export default async function handler(req, res) {
-  const auth = requireAuth(req);
-  if (!auth.authorized) return res.status(401).json({ error: auth.error });
   try {
     const rep = req.query.rep || '';
     const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
