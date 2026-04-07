@@ -201,13 +201,51 @@ async function communityResults(res, weekEnding) {
   // If no specific week requested, use the most recent with data (or current)
   const targetWeek = availableWeeks.includes(weekEnding) ? weekEnding : (availableWeeks[0] || weekEnding);
 
-  // 1. Read submissions from DB
+  // 0. Seed from assignments so all assigned communities + reps appear
+  // Use targetWeek first, fall back to most recent week with assignments
+  let { data: assignments } = await supabase
+    .from('assignments')
+    .select('reps(name), communities(name, division)')
+    .eq('week_ending', targetWeek);
+  if (!assignments || assignments.length === 0) {
+    const { data: latest } = await supabase
+      .from('assignments')
+      .select('week_ending')
+      .order('week_ending', { ascending: false })
+      .limit(1)
+      .single();
+    if (latest) {
+      ({ data: assignments } = await supabase
+        .from('assignments')
+        .select('reps(name), communities(name, division)')
+        .eq('week_ending', latest.week_ending));
+    }
+  }
+
+  const byCommunity = {};
+  for (const a of (assignments || [])) {
+    const comm = a.communities.name;
+    if (!byCommunity[comm]) {
+      byCommunity[comm] = {
+        community: comm, division: a.communities.division, reps: [],
+        appts_virtual: 0, appts_in_person: 0, total_appts: 0,
+        leads_digital: 0, leads_phone: 0, leads_in_person: 0, total_leads: 0,
+        active_prospects: 0, sold: 0,
+        vip_count: 0, prospect_details: [],
+      };
+    }
+    const repName = a.reps.name;
+    if (!byCommunity[comm].reps.includes(repName)) {
+      byCommunity[comm].reps.push(repName);
+    }
+  }
+
+  // 1. Read submissions from DB and layer on top
   const { data: submissions } = await supabase
     .from('weekly_submissions')
     .select('*, reps(name), communities(name, division)')
     .eq('week_ending', targetWeek);
 
-  const byCommunity = {};
   for (const s of (submissions || [])) {
     const comm = s.communities.name;
     if (!byCommunity[comm]) {
@@ -220,7 +258,7 @@ async function communityResults(res, weekEnding) {
       };
     }
     const c = byCommunity[comm];
-    c.reps.push(s.reps.name);
+    if (!c.reps.includes(s.reps.name)) c.reps.push(s.reps.name);
     c.appts_virtual += s.appts_virtual;
     c.appts_in_person += s.appts_in_person;
     c.total_appts += s.total_appts;
