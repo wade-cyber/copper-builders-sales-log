@@ -6,7 +6,16 @@ import { resolveOrCreateCommunity, clearResolverCache } from './resolve-names.js
 export async function importOSCLeads({ weekEnding, tabName } = {}) {
   clearResolverCache();
 
-  const week = weekEnding || getWeekEndingSunday().toISOString().slice(0, 10);
+  // Default to the previous Sunday (the week the OSC data is for).
+  // On Monday the cron runs, getWeekEndingSunday() returns next Sunday,
+  // but the OSC sheet contains last week's data.
+  let week = weekEnding;
+  if (!week) {
+    const currentSunday = getWeekEndingSunday();
+    const prevSunday = new Date(currentSunday);
+    prevSunday.setDate(currentSunday.getDate() - 7);
+    week = prevSunday.toISOString().slice(0, 10);
+  }
   const tab = tabName || "This Week's Report";
 
   let oscData;
