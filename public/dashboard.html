@@ -204,7 +204,7 @@
         <tr><td><strong>Results</strong></td><td>View weekly results by community. Navigate between weeks with Prev/Next. Shows summary cards (VIP, OSC Leads, Rep Leads, Appts, Prospects, Sales), non-reporter alerts, the community breakdown table, prospect pipeline, and each rep's last submission date.</td></tr>
         <tr><td><strong>Communities</strong></td><td>Add, activate, or deactivate communities. Each community has a name and division code (CLT, CLB, TRN, GVL, WIL).</td></tr>
         <tr><td><strong>Reps</strong></td><td>Add, activate, or deactivate sales reps.</td></tr>
-        <tr><td><strong>Assignments</strong></td><td>Assign reps to communities for the current week. These determine which communities appear for each rep in the Sales Log app.</td></tr>
+        <tr><td><strong>Assignments</strong></td><td>Assign reps to communities. Assignments persist week-to-week &mdash; only update when a rep's community changes. These determine which communities each rep sees in the Sales Log app.</td></tr>
         <tr><td><strong>System</strong></td><td>System health, manual job triggers (Weekly Consolidation and OSC Lead Import), run history, and error log.</td></tr>
         <tr><td><strong>Help</strong></td><td>This page &mdash; how the system works, common tasks, and links to documentation.</td></tr>
       </table>
@@ -231,6 +231,18 @@
         <tr><td>Monday consolidation failed</td><td>Check System tab for error details. Most common cause: Google Sheets API quota exceeded. Wait a few minutes and click "Rerun Weekly Consolidation".</td></tr>
         <tr><td>Need to see a previous week</td><td>Results tab &rarr; use the Prev/Next buttons to navigate between weeks.</td></tr>
       </table>
+    </div>
+
+    <div class="card" style="text-align:left;margin-bottom:12px;">
+      <div style="font-weight:600;margin-bottom:6px;">Prospect Ranking Guide</div>
+      <p class="muted" style="margin-bottom:8px;">Each prospect is rated on whether they are <strong>Ready</strong>, <strong>Willing</strong>, and <strong>Able</strong> to buy. The ranking reflects how many of those three criteria the prospect meets.</p>
+      <table>
+        <tr><th>Rank</th><th>Temperature</th><th>Criteria</th><th>What It Means</th></tr>
+        <tr><td><strong>A</strong></td><td><span style="color:#3a5e20;font-weight:600;">Hot</span></td><td>Ready, Willing, <em>and</em> Able &mdash; all 3</td><td>Actively engaged, fully qualified, likely to close soon. These are your VIP prospects.</td></tr>
+        <tr><td><strong>B</strong></td><td><span style="color:#7a5e10;font-weight:600;">Warm</span></td><td>2 of the 3 above</td><td>Interested and mostly qualified, but one factor is missing. Needs continued follow-up.</td></tr>
+        <tr><td><strong>C</strong></td><td><span style="color:#7a3318;font-weight:600;">Cold</span></td><td>1 of the 3 above</td><td>Early stage, browsing, unqualified, or long timeline. Worth nurturing but not close to a decision.</td></tr>
+      </table>
+      <p class="muted" style="margin-top:8px;">A-ranked prospects count as <strong>VIPs</strong> in the Results summary. Reps set the ranking in the Sales Log app and can update it each week as a prospect's situation changes.</p>
     </div>
 
     <div class="card" style="text-align:left;margin-bottom:12px;">

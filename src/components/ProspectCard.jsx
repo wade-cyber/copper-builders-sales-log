@@ -33,9 +33,9 @@ export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove,
             disabled={disabled}
             aria-label={rankLabel}
           >
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
+            <option value="A">A — Hot</option>
+            <option value="B">B — Warm</option>
+            <option value="C">C — Cold</option>
           </select>
         </div>
       </div>
