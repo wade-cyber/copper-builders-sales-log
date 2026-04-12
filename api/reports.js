@@ -270,6 +270,12 @@ async function communityResults(res, weekEnding) {
     c.sold += s.sold_prospects;
   }
 
+  // Track which communities have at least one submission for this week
+  const submittedCommunities = new Set((submissions || []).map(s => s.communities.name));
+  for (const comm of Object.keys(byCommunity)) {
+    byCommunity[comm].submitted = submittedCommunities.has(comm);
+  }
+
   // 2. Read prospect details from DB (active prospects with rankings)
   const { data: prospects } = await supabase
     .from('prospects')

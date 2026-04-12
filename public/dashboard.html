@@ -381,17 +381,19 @@ async function loadResults(weekOverride) {
 
     const oscLeads = c.osc_leads || 0;
     const oscVips = c.osc_vips || 0;
+    const sub = c.submitted === true;
+    const NR = '<span class="muted" title="Not yet reported">NR</span>';
 
     html += `<tr>
       <td><strong>${c.community}</strong></td>
       <td><span class="badge badge-gold">${c.division}</span></td>
       <td class="muted">${c.reps.join(', ') || '—'}</td>
-      <td>${oscVips > 0 ? '<strong style="color:var(--green)">' + oscVips + '</strong>' : '<span class="muted">—</span>'}</td>
-      <td>${oscLeads > 0 ? oscLeads : '<span class="muted">—</span>'}</td>
-      <td${leadTip}>${c.total_leads}</td>
-      <td${apptTip}>${c.total_appts}</td>
+      <td>${sub ? (oscVips > 0 ? '<strong style="color:var(--green)">' + oscVips + '</strong>' : '<span class="muted">—</span>') : NR}</td>
+      <td>${sub ? (oscLeads > 0 ? oscLeads : '<span class="muted">—</span>') : NR}</td>
+      <td${leadTip}>${sub ? c.total_leads : NR}</td>
+      <td${apptTip}>${sub ? c.total_appts : NR}</td>
       <td>${c.active_prospects}</td>
-      <td>${c.sold > 0 ? '<strong style="color:var(--green)">' + c.sold + '</strong>' : '0'}</td>
+      <td>${sub ? (c.sold > 0 ? '<strong style="color:var(--green)">' + c.sold + '</strong>' : '0') : NR}</td>
     </tr>`;
   }
 
