@@ -3,6 +3,44 @@
 import { supabase } from './_lib/db.js';
 import { getWeekEndingSunday } from './_lib/sheets.js';
 
+const DAY_MS = 86400000;
+
+/**
+ * Returns all submissions that belong to the reporting week for weekEnding.
+ *
+ * Business rule: a submission counts for weekEnding if it was made on
+ * Wednesday (of that week) through the following Tuesday — a 7-day window
+ * straddling the Sunday deadline.
+ *
+ *   Wed Apr 1 – Sun Apr 5 – Mon Apr 6 – Tue Apr 7  → April 5 week
+ *   Wed Apr 8 – Sun Apr 12 – Mon Apr 13 – Tue Apr 14 → April 12 week
+ *
+ * How the DB rows are tagged (by getWeekEndingSunday() in the frontend):
+ *   Mon–Sat → next Sunday;  Sunday → today
+ * So Mon/Tue submissions are tagged as NEXT week but belong to THIS week.
+ *
+ * Two parallel queries, merged:
+ *  1. week_ending = weekEnding, submitted_at >= prevCutoff
+ *     Excludes Mon/Tue carryovers that belong to the PRIOR week.
+ *  2. week_ending = nextWeek, submitted_at < cutoff (Wed midnight EDT)
+ *     Picks up Mon/Tue carryovers tagged as next week but belonging here.
+ */
+async function fetchSubmissionsForWeek(weekEnding, fields = '*, reps(name), communities(name, division)') {
+  const targetMs   = new Date(weekEnding + 'T00:00:00Z').getTime();
+  const prevCutoff = new Date(targetMs - 4 * DAY_MS).toISOString();            // Wed after PREV week ending
+  const cutoff     = new Date(targetMs + 3 * DAY_MS + 4 * 3600000).toISOString(); // Wed midnight EDT after THIS week
+  const nextWeekStr = new Date(targetMs + 7 * DAY_MS).toISOString().slice(0, 10);
+
+  const [{ data: thisSubs }, { data: carryoverSubs }] = await Promise.all([
+    supabase.from('weekly_submissions').select(fields)
+      .eq('week_ending', weekEnding).gte('submitted_at', prevCutoff),
+    supabase.from('weekly_submissions').select(fields)
+      .eq('week_ending', nextWeekStr).lt('submitted_at', cutoff),
+  ]);
+
+  return [...(thisSubs || []), ...(carryoverSubs || [])];
+}
+
 export default async function handler(req, res) {
   const type = req.query.type;
   // Default to the most recently completed week (previous Sunday).
@@ -37,11 +75,7 @@ export default async function handler(req, res) {
 }
 
 async function weeklySummary(res, weekEnding) {
-  const { data: submissions, error } = await supabase
-    .from('weekly_submissions')
-    .select('*, reps(name), communities(name, division)')
-    .eq('week_ending', weekEnding);
-  if (error) throw error;
+  const submissions = await fetchSubmissionsForWeek(weekEnding);
 
   const byCommunity = {};
   for (const s of submissions) {
@@ -64,15 +98,7 @@ async function weeklySummary(res, weekEnding) {
 
   const { data: assignments } = await supabase
     .from('assignments').select('rep_id, community_id, reps(name), communities(name)');
-  // Also check next week's submissions to catch late reporters (frontend tags them with the following Sunday)
-  const nw = new Date(weekEnding + 'T00:00:00');
-  nw.setDate(nw.getDate() + 7);
-  const { data: nextWeekSubs } = await supabase
-    .from('weekly_submissions').select('rep_id, community_id').eq('week_ending', nw.toISOString().slice(0, 10));
-  const submittedKeys = new Set([
-    ...submissions.map(s => `${s.rep_id}||${s.community_id}`),
-    ...(nextWeekSubs || []).map(s => `${s.rep_id}||${s.community_id}`),
-  ]);
+  const submittedKeys = new Set(submissions.map(s => `${s.rep_id}||${s.community_id}`));
   const nr = (assignments || []).filter(a => !submittedKeys.has(`${a.rep_id}||${a.community_id}`))
     .map(a => ({ rep: a.reps.name, community: a.communities.name }));
 
@@ -87,17 +113,8 @@ async function weeklySummary(res, weekEnding) {
 async function nonReporters(res, weekEnding) {
   const { data: assignments } = await supabase
     .from('assignments').select('rep_id, community_id, reps(name), communities(name, division)');
-  const { data: submissions } = await supabase
-    .from('weekly_submissions').select('rep_id, community_id').eq('week_ending', weekEnding);
-  // Also check next week's submissions to catch late reporters (frontend tags them with the following Sunday)
-  const nw = new Date(weekEnding + 'T00:00:00');
-  nw.setDate(nw.getDate() + 7);
-  const { data: nextWeekSubs } = await supabase
-    .from('weekly_submissions').select('rep_id, community_id').eq('week_ending', nw.toISOString().slice(0, 10));
-  const keys = new Set([
-    ...(submissions || []).map(s => `${s.rep_id}||${s.community_id}`),
-    ...(nextWeekSubs || []).map(s => `${s.rep_id}||${s.community_id}`),
-  ]);
+  const submissions = await fetchSubmissionsForWeek(weekEnding, 'rep_id, community_id, submitted_at');
+  const keys = new Set(submissions.map(s => `${s.rep_id}||${s.community_id}`));
   const nr = (assignments || []).filter(a => !keys.has(`${a.rep_id}||${a.community_id}`))
     .map(a => ({ rep: a.reps.name, community: a.communities.name, division: a.communities.division }));
   return res.status(200).json({ success: true, data: nr, meta: { week_ending: weekEnding, count: nr.length } });
@@ -224,11 +241,8 @@ async function communityResults(res, weekEnding) {
     }
   }
 
-  // 1. Read submissions from DB and layer on top
-  const { data: submissions } = await supabase
-    .from('weekly_submissions')
-    .select('*, reps(name), communities(name, division)')
-    .eq('week_ending', targetWeek);
+  // 1. Read submissions from DB and layer on top (Sun/Mon/Tue window)
+  const submissions = await fetchSubmissionsForWeek(targetWeek);
 
   for (const s of (submissions || [])) {
     const comm = s.communities.name;
@@ -334,25 +348,13 @@ async function communityResults(res, weekEnding) {
   totals.osc_communities = oscCommunityCount;
   totals.osc_vips = oscVipTotal;
 
-  // Non-reporters: assigned reps who have zero submissions for the entire week.
-  // Also check the NEXT week's submissions to catch late reporters — the frontend
-  // uses nextSunday() so reps who submit after Sunday get tagged to the following week.
+  // Non-reporters: assigned reps with no submission in the Sun–Tue window.
+  // fetchSubmissionsForWeek already includes Mon/Tue carryovers, so no extra query needed.
   const { data: nrAssignments } = await supabase
     .from('assignments')
     .select('rep_id, reps(name)');
 
-  const nextWeek = new Date(targetWeek + 'T00:00:00');
-  nextWeek.setDate(nextWeek.getDate() + 7);
-  const nextWeekStr = nextWeek.toISOString().slice(0, 10);
-  const { data: nextWeekSubs } = await supabase
-    .from('weekly_submissions')
-    .select('rep_id')
-    .eq('week_ending', nextWeekStr);
-
-  const repsWhoSubmitted = new Set([
-    ...(submissions || []).map(s => s.rep_id),
-    ...(nextWeekSubs || []).map(s => s.rep_id),
-  ]);
+  const repsWhoSubmitted = new Set((submissions || []).map(s => s.rep_id));
   const assignedRepNames = [...new Map((nrAssignments || []).map(a => [a.rep_id, a.reps.name])).values()];
   const nonReporters = assignedRepNames
     .filter(name => {
