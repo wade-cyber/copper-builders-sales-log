@@ -301,6 +301,12 @@ async function communityResults(res, weekEnding) {
     });
   }
 
+  // Use actual prospect count from DB for all communities (submitted or not).
+  // active_prospects from submissions only reflects submitted reps; prospects persist week-to-week.
+  for (const c of Object.values(byCommunity)) {
+    c.active_prospects = c.prospect_details.length;
+  }
+
   // Add division for prospect-only communities
   const { data: allComms } = await supabase.from('communities').select('name, division');
   const divMap = Object.fromEntries((allComms || []).map(c => [c.name, c.division]));
