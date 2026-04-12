@@ -63,7 +63,7 @@ async function weeklySummary(res, weekEnding) {
   }
 
   const { data: assignments } = await supabase
-    .from('assignments').select('rep_id, community_id, reps(name), communities(name)').eq('week_ending', weekEnding);
+    .from('assignments').select('rep_id, community_id, reps(name), communities(name)');
   // Also check next week's submissions to catch late reporters (frontend tags them with the following Sunday)
   const nw = new Date(weekEnding + 'T00:00:00');
   nw.setDate(nw.getDate() + 7);
@@ -86,7 +86,7 @@ async function weeklySummary(res, weekEnding) {
 
 async function nonReporters(res, weekEnding) {
   const { data: assignments } = await supabase
-    .from('assignments').select('rep_id, community_id, reps(name), communities(name, division)').eq('week_ending', weekEnding);
+    .from('assignments').select('rep_id, community_id, reps(name), communities(name, division)');
   const { data: submissions } = await supabase
     .from('weekly_submissions').select('rep_id, community_id').eq('week_ending', weekEnding);
   // Also check next week's submissions to catch late reporters (frontend tags them with the following Sunday)
@@ -201,26 +201,10 @@ async function communityResults(res, weekEnding) {
   // If no specific week requested, use the most recent with data (or current)
   const targetWeek = availableWeeks.includes(weekEnding) ? weekEnding : (availableWeeks[0] || weekEnding);
 
-  // 0. Seed from assignments so all assigned communities + reps appear
-  // Use targetWeek first, fall back to most recent week with assignments
-  let { data: assignments } = await supabase
+  // 0. Seed from persistent assignments so all assigned communities + reps appear
+  const { data: assignments } = await supabase
     .from('assignments')
-    .select('reps(name), communities(name, division)')
-    .eq('week_ending', targetWeek);
-  if (!assignments || assignments.length === 0) {
-    const { data: latest } = await supabase
-      .from('assignments')
-      .select('week_ending')
-      .order('week_ending', { ascending: false })
-      .limit(1)
-      .single();
-    if (latest) {
-      ({ data: assignments } = await supabase
-        .from('assignments')
-        .select('reps(name), communities(name, division)')
-        .eq('week_ending', latest.week_ending));
-    }
-  }
+    .select('reps(name), communities(name, division)');
 
   const byCommunity = {};
   for (const a of (assignments || [])) {
@@ -355,8 +339,7 @@ async function communityResults(res, weekEnding) {
   // uses nextSunday() so reps who submit after Sunday get tagged to the following week.
   const { data: nrAssignments } = await supabase
     .from('assignments')
-    .select('rep_id, reps(name)')
-    .eq('week_ending', targetWeek);
+    .select('rep_id, reps(name)');
 
   const nextWeek = new Date(targetWeek + 'T00:00:00');
   nextWeek.setDate(nextWeek.getDate() + 7);

@@ -145,7 +145,7 @@
   <!-- ===== ASSIGNMENTS ===== -->
   <div id="assignments" class="panel">
     <h2>Rep–Community Assignments</h2>
-    <p class="muted mb">Which sales rep is assigned to which community. These assignments are used each week when reps submit their reports. Changes here take effect for the next reporting cycle.</p>
+    <p class="muted mb">Which sales rep is assigned to which community. Assignments persist automatically from week to week — only add or remove when something actually changes.</p>
     <div class="form-row">
       <div class="form-group"><label>Rep</label><select id="assign-rep"></select></div>
       <div class="form-group"><label>Community</label><select id="assign-comm"></select></div>
@@ -535,14 +535,6 @@ async function toggleRep(id, name, is_active) {
 
 // ===== ASSIGNMENTS =====
 let _reps = [], _comms = [];
-function getCurrentWeekEnding() {
-  const today = new Date();
-  const day = today.getDay();
-  const diff = day === 0 ? 0 : 7 - day;
-  const sun = new Date(today);
-  sun.setDate(today.getDate() + diff);
-  return sun.toISOString().slice(0, 10);
-}
 
 async function populateDropdowns() {
   const [rr, cr] = await Promise.all([
@@ -559,8 +551,7 @@ async function populateDropdowns() {
 }
 
 async function loadAssignments() {
-  const week = getCurrentWeekEnding();
-  const r = await apiFetch(API + '/api/admin?action=list-assignments&week_ending=' + week).then(r => r.json());
+  const r = await apiFetch(API + '/api/admin?action=list-assignments').then(r => r.json());
   if (!r.data || r.data.length === 0) {
     document.getElementById('assign-table').innerHTML = '<p class="muted">No assignments found. Add assignments below.</p>';
     return;
@@ -581,10 +572,9 @@ async function loadAssignments() {
 async function addAssignment() {
   const rep_id = parseInt(document.getElementById('assign-rep').value);
   const community_id = parseInt(document.getElementById('assign-comm').value);
-  const week_ending = getCurrentWeekEnding();
   await apiFetch(API + '/api/admin?action=set-assignments', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ rep_id, community_id, week_ending })
+    body: JSON.stringify({ rep_id, community_id })
   });
   loadAssignments();
 }

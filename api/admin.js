@@ -1,7 +1,6 @@
 // Consolidated admin CRUD endpoint
 // GET/POST /api/admin?action=list-communities|upsert-community|list-reps|...
 import { supabase } from './_lib/db.js';
-import { getWeekEndingSunday } from './_lib/sheets.js';
 
 export default async function handler(req, res) {
   const action = req.query.action || (req.body && req.body.action);
@@ -100,46 +99,24 @@ async function upsertRep(req, res) {
 }
 
 async function listAssignments(req, res) {
-  let weekEnding = req.query.week_ending || getWeekEndingSunday().toISOString().slice(0, 10);
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from('assignments')
     .select('*, reps(name), communities(name, division)')
-    .eq('week_ending', weekEnding)
     .order('created_at');
   if (error) throw error;
-
-  // Fall back to most recent week if no assignments for requested week
-  if (!data || data.length === 0) {
-    const { data: latest } = await supabase
-      .from('assignments')
-      .select('week_ending')
-      .order('week_ending', { ascending: false })
-      .limit(1)
-      .single();
-    if (latest) {
-      weekEnding = latest.week_ending;
-      ({ data, error } = await supabase
-        .from('assignments')
-        .select('*, reps(name), communities(name, division)')
-        .eq('week_ending', weekEnding)
-        .order('created_at'));
-      if (error) throw error;
-    }
-  }
-
-  return res.status(200).json({ data, week_ending: weekEnding });
+  return res.status(200).json({ data });
 }
 
 async function setAssignments(req, res) {
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  const { rep_id, community_id, week_ending } = body;
-  if (!rep_id || !community_id || !week_ending) {
-    return res.status(400).json({ error: 'rep_id, community_id, and week_ending required' });
+  const { rep_id, community_id } = body;
+  if (!rep_id || !community_id) {
+    return res.status(400).json({ error: 'rep_id and community_id required' });
   }
 
   const { data, error } = await supabase
     .from('assignments')
-    .upsert({ rep_id, community_id, week_ending, source: 'manual' }, { onConflict: 'rep_id,community_id,week_ending' })
+    .upsert({ rep_id, community_id, source: 'manual' }, { onConflict: 'rep_id,community_id' })
     .select('*, reps(name), communities(name, division)')
     .single();
   if (error) throw error;
