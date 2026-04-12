@@ -10,8 +10,10 @@ lerna-debug.log*
 node_modules
 dist
 .env
+.env.*
 dist-ssr
 *.local
+compare-leads.js
 
 # Editor directories and files
 .vscode/*
