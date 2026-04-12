@@ -333,15 +333,12 @@ async function communityResults(res, weekEnding) {
     const commName = l.communities.name;
     const total = l.digital_leads + l.in_person_leads + l.call_in_leads;
     const vip = l.notes ? (JSON.parse(l.notes).vip || 0) : 0;
+    oscLeadTotal += total;
+    oscVipTotal += vip;
+    if (total > 0) oscCommunityCount++;
     if (byCommunity[commName]) {
       byCommunity[commName].osc_leads = total;
       byCommunity[commName].osc_vips = vip;
-    }
-    // Only count toward totals for submitted communities — unsubmitted show NR in the column
-    if (byCommunity[commName]?.submitted) {
-      oscLeadTotal += total;
-      oscVipTotal += vip;
-      if (total > 0) oscCommunityCount++;
     }
   }
 

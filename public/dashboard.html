@@ -400,8 +400,8 @@ async function loadResults(weekOverride) {
       <td><strong>${c.community}</strong></td>
       <td><span class="badge badge-gold">${c.division}</span></td>
       <td class="muted">${c.reps.join(', ') || '—'}</td>
-      <td>${sub ? (oscVips > 0 ? '<strong style="color:var(--green)">' + oscVips + '</strong>' : '<span class="muted">—</span>') : NR}</td>
-      <td>${sub ? (oscLeads > 0 ? oscLeads : '<span class="muted">—</span>') : NR}</td>
+      <td>${oscVips > 0 ? '<strong style="color:var(--green)">' + oscVips + '</strong>' : '<span class="muted">—</span>'}</td>
+      <td>${oscLeads > 0 ? oscLeads : '<span class="muted">—</span>'}</td>
       <td${leadTip}>${sub ? c.total_leads : NR}</td>
       <td${apptTip}>${sub ? c.total_appts : NR}</td>
       <td>${c.active_prospects}</td>
