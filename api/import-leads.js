@@ -8,7 +8,13 @@ export default async function handler(req, res) {
     const body = req.method === 'POST' && req.body
       ? (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) : {};
 
-    const weekEnding = body.week_ending || getWeekEndingSunday().toISOString().slice(0, 10);
+    // Use the same week as monday-night: the Sunday that just ended (prevSunday).
+    // getWeekEndingSunday() returns the UPCOMING Sunday, so subtract 7 days to
+    // get the week the OSC sheet data actually belongs to.
+    const currentSunday = getWeekEndingSunday();
+    const prevSunday = new Date(currentSunday);
+    prevSunday.setDate(currentSunday.getDate() - 7);
+    const weekEnding = body.week_ending || prevSunday.toISOString().slice(0, 10);
     const tabName = body.tab || "This Week's Report";
 
     const result = await importOSCLeads({ weekEnding, tabName });
