@@ -254,6 +254,20 @@
     </div>
 
     <div class="card" style="text-align:left;margin-bottom:12px;">
+      <div style="font-weight:600;margin-bottom:6px;">Stats Cards Explained</div>
+      <p class="muted" style="margin-bottom:8px;">The six summary cards at the top of the Results tab show the following:</p>
+      <table>
+        <tr><th>Card</th><th>What It Shows</th></tr>
+        <tr><td><strong>VIP List</strong></td><td>Current active VIP prospects &mdash; A-ranked prospects who are Ready, Willing, and Able to buy.</td></tr>
+        <tr><td><strong>OSC Leads</strong></td><td>New leads for the week from the OSC marketing sheet (digital, phone, and in-person).</td></tr>
+        <tr><td><strong>Rep Leads</strong></td><td>New leads for the week submitted directly by sales reps (digital, phone, and in-person).</td></tr>
+        <tr><td><strong>Appointments</strong></td><td>New appointments for the week (virtual + in-person) as reported by reps.</td></tr>
+        <tr><td><strong>Prospects</strong></td><td>Current total active prospects in the pipeline across all communities.</td></tr>
+        <tr><td><strong>Sales</strong></td><td>Homes sold (closed) as reported by reps for the selected week.</td></tr>
+      </table>
+    </div>
+
+    <div class="card" style="text-align:left;margin-bottom:12px;">
       <div style="font-weight:600;margin-bottom:6px;">Key Links</div>
       <table>
         <tr><th>Resource</th><th>Link</th></tr>
@@ -338,7 +352,7 @@ async function loadResults(weekOverride) {
   // Format week label
   const weekDate = new Date(currentWeek + 'T12:00:00');
   const weekLabel = weekDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  document.getElementById('results-week-label').textContent = 'Week of ' + weekLabel;
+  document.getElementById('results-week-label').textContent = 'Week Ending ' + weekLabel;
   document.getElementById('btn-prev-week').disabled = (_currentWeekIdx >= _availableWeeks.length - 1);
   document.getElementById('btn-next-week').disabled = (_currentWeekIdx <= 0);
 

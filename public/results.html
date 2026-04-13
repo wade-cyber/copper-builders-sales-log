@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Copper Builders — Weekly Sales Results</title>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --gold:#B09245; --slate:#566263; --slate-dark:#3a4344; --sage:#BFD1CB; --sage-light:#d8e8e3; --cream:#F5F5EF; --white:#fff; --border:#d4cfc6; --red:#c0392b; --green:#27ae60; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--cream); font-family:'Open Sans',sans-serif; color:var(--slate-dark); font-size:14px; }
+    .wrap { max-width:960px; margin:0 auto; padding:1rem; }
+    h1 { font-family:'Libre Baskerville',serif; font-size:22px; font-weight:400; color:var(--slate-dark); }
+    h2 { font-family:'Libre Baskerville',serif; font-size:16px; font-weight:400; margin-bottom:12px; }
+    .header { display:flex; align-items:center; justify-content:space-between; padding:1rem 0; border-bottom:2px solid var(--gold); margin-bottom:1.5rem; }
+    .header-left { display:flex; align-items:baseline; gap:12px; }
+    .brand { font-family:'Libre Baskerville',serif; font-size:13px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--slate-dark); }
+
+    /* Cards */
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:1.5rem; }
+    .card { background:var(--white); border:1px solid var(--border); border-radius:6px; padding:14px; text-align:center; }
+    .card-val { font-family:'Libre Baskerville',serif; font-size:28px; color:var(--slate-dark); }
+    .card-label { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--slate); margin-top:4px; }
+
+    /* Tables */
+    table { width:100%; border-collapse:collapse; background:var(--white); border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:1rem; }
+    th { background:var(--sage-light); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--slate); padding:8px 10px; text-align:left; font-weight:600; }
+    td { padding:8px 10px; border-top:1px solid var(--border); font-size:13px; }
+    tr:hover td { background:#f9f8f5; }
+    .badge { display:inline-block; font-size:10px; font-weight:600; padding:2px 8px; border-radius:10px; }
+    .badge-green { background:#e8f5e9; color:var(--green); }
+    .badge-gray { background:#eee; color:#888; }
+    .badge-gold { background:#fdf3e0; color:var(--gold); }
+
+    /* Buttons */
+    .btn { font-family:'Open Sans',sans-serif; font-size:12px; font-weight:600; padding:7px 16px; border:none; border-radius:4px; cursor:pointer; transition:background .2s; }
+    .btn-gold { background:var(--gold); color:#fff; }
+    .btn-gold:hover { background:#9a7f3a; }
+    .btn-slate { background:var(--slate); color:#fff; }
+    .btn-slate:hover { background:var(--slate-dark); }
+    .btn-sm { padding:4px 10px; font-size:11px; }
+    .btn:disabled { opacity:.5; cursor:not-allowed; }
+
+    /* Alerts */
+    .alert { padding:10px 14px; border-radius:6px; margin-bottom:1rem; font-size:13px; }
+    .alert-warn { background:#fff3cd; border:1px solid #ffc107; color:#856404; }
+    .alert-ok { background:#d4edda; border:1px solid #28a745; color:#155724; }
+
+    /* Non-reporters */
+    .nr-list { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:1rem; }
+    .nr-chip { font-size:12px; background:#fdecea; color:var(--red); padding:4px 10px; border-radius:12px; }
+
+    .loading { text-align:center; padding:2rem; color:var(--slate); }
+    .muted { color:var(--slate); font-size:12px; }
+    .mt { margin-top:1rem; }
+    .error-msg { color:var(--red); text-align:center; padding:2rem; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="header-left">
+      <span class="brand">Copper Builders</span>
+      <h1>Weekly Sales Results</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="btn btn-slate btn-sm" onclick="changeWeek(-1)" id="btn-prev">&#9664; Prev</button>
+      <span id="week-label" style="font-size:13px;font-weight:600;color:var(--slate-dark);min-width:180px;text-align:center;"></span>
+      <button class="btn btn-slate btn-sm" onclick="changeWeek(1)" id="btn-next">Next &#9654;</button>
+      <button class="btn btn-gold btn-sm" onclick="loadResults()" style="margin-left:8px;">Refresh</button>
+    </div>
+  </div>
+
+  <div id="cards" class="cards"><div class="loading">Loading...</div></div>
+  <div id="osc-note"></div>
+  <div id="nr-section"></div>
+  <div id="results-table"><div class="loading">Loading...</div></div>
+  <div id="prospects-section" class="mt"></div>
+</div>
+
+<script>
+let _availableWeeks = [];
+let _currentWeekIdx = 0;
+let _currentWeek = null;
+
+async function loadResults(weekOverride) {
+  document.getElementById('cards').innerHTML = '<div class="loading">Loading...</div>';
+  document.getElementById('results-table').innerHTML = '<div class="loading">Loading...</div>';
+  document.getElementById('osc-note').innerHTML = '';
+  document.getElementById('nr-section').innerHTML = '';
+  document.getElementById('prospects-section').innerHTML = '';
+
+  const url = weekOverride
+    ? `/api/reports?type=community-results&week_ending=${weekOverride}`
+    : '/api/reports?type=community-results';
+
+  let r;
+  try {
+    const res = await fetch(url);
+    r = await res.json();
+  } catch (e) {
+    document.getElementById('cards').innerHTML = '';
+    document.getElementById('results-table').innerHTML = '<p class="error-msg">Failed to load results. Please try again.</p>';
+    return;
+  }
+
+  if (!r.success) {
+    document.getElementById('cards').innerHTML = '';
+    document.getElementById('results-table').innerHTML = `<p class="error-msg">${r.error || 'Failed to load results.'}</p>`;
+    return;
+  }
+
+  const d = r.data;
+  const t = d.totals || {};
+
+  // Week navigation
+  _availableWeeks = d.available_weeks || [];
+  _currentWeek = r.meta.week_ending;
+  _currentWeekIdx = _availableWeeks.indexOf(_currentWeek);
+  if (_currentWeekIdx < 0) _currentWeekIdx = 0;
+
+  const weekDate = new Date(_currentWeek + 'T12:00:00');
+  const weekLabel = weekDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  document.getElementById('week-label').textContent = 'Week Ending ' + weekLabel;
+  document.getElementById('btn-prev').disabled = (_currentWeekIdx >= _availableWeeks.length - 1);
+  document.getElementById('btn-next').disabled = (_currentWeekIdx <= 0);
+
+  // Summary cards
+  document.getElementById('cards').innerHTML = `
+    <div class="card"><div class="card-val">${t.osc_vips || 0}</div><div class="card-label">VIP List</div></div>
+    <div class="card"><div class="card-val">${t.osc_leads || 0}</div><div class="card-label">OSC Leads</div></div>
+    <div class="card"><div class="card-val">${t.total_leads || 0}</div><div class="card-label">Rep Leads</div></div>
+    <div class="card"><div class="card-val">${t.total_appts || 0}</div><div class="card-label">Appointments</div></div>
+    <div class="card"><div class="card-val">${t.active_prospects || 0}</div><div class="card-label">Prospects</div></div>
+    <div class="card"><div class="card-val">${t.sold || 0}</div><div class="card-label">Sales</div></div>
+  `;
+
+  // OSC Leads status
+  const oscNote = t.osc_leads > 0
+    ? `<div class="alert alert-ok" style="margin-bottom:8px;">OSC Leads Report imported: <strong>${t.osc_leads} marketing leads</strong> across ${t.osc_communities} communities.</div>`
+    : `<div class="alert alert-warn" style="margin-bottom:8px;">OSC Leads Report: <strong>Not yet imported</strong> for this week.</div>`;
+  document.getElementById('osc-note').innerHTML = oscNote;
+
+  // Non-reporters
+  const nr = d.non_reporters || [];
+  if (nr.length > 0) {
+    document.getElementById('nr-section').innerHTML = `
+      <div class="alert alert-warn" style="margin-bottom:8px;"><strong>Not Yet Reported (${nr.length})</strong></div>
+      <div class="nr-list" style="margin-bottom:1.5rem;">${nr.map(name => `<span class="nr-chip">${name}</span>`).join('')}</div>`;
+  } else if (d.communities && d.communities.length > 0) {
+    document.getElementById('nr-section').innerHTML = '<div class="alert alert-ok" style="margin-bottom:1rem;">All assigned reps have submitted!</div>';
+  }
+
+  if (!d.communities || (d.communities.length === 0 && nr.length === 0)) {
+    document.getElementById('results-table').innerHTML = '<p class="muted" style="text-align:center;padding:2rem;">No submissions yet for this week.</p>';
+    document.getElementById('prospects-section').innerHTML = '';
+    return;
+  }
+
+  // Community results table
+  let html = `<table>
+    <tr><th>Community</th><th>Division</th><th>Rep(s)</th><th>VIPs</th><th>OSC Leads</th><th>Rep Leads</th><th>Appts</th><th>Prospects</th><th>Sales</th></tr>`;
+
+  let currentDiv = '';
+  for (const c of d.communities) {
+    if (c.division && c.division !== currentDiv) {
+      currentDiv = c.division;
+      html += `<tr><td colspan="9" style="background:var(--sage-light);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--slate);padding:6px 10px;">${currentDiv}</td></tr>`;
+    }
+
+    const leadBreakdown = [];
+    if (c.leads_digital > 0) leadBreakdown.push(c.leads_digital + ' digital');
+    if (c.leads_phone > 0) leadBreakdown.push(c.leads_phone + ' phone');
+    if (c.leads_in_person > 0) leadBreakdown.push(c.leads_in_person + ' in-person');
+    const leadTip = leadBreakdown.length > 0 ? ' title="' + leadBreakdown.join(', ') + '"' : '';
+
+    const apptBreakdown = [];
+    if (c.appts_virtual > 0) apptBreakdown.push(c.appts_virtual + ' virtual');
+    if (c.appts_in_person > 0) apptBreakdown.push(c.appts_in_person + ' in-person');
+    const apptTip = apptBreakdown.length > 0 ? ' title="' + apptBreakdown.join(', ') + '"' : '';
+
+    const oscLeads = c.osc_leads || 0;
+    const oscVips = c.osc_vips || 0;
+    const sub = c.submitted === true;
+    const NR = '<span class="muted" title="Not yet reported">NR</span>';
+
+    html += `<tr>
+      <td><strong>${c.community}</strong></td>
+      <td><span class="badge badge-gold">${c.division}</span></td>
+      <td class="muted">${c.reps.join(', ') || '—'}</td>
+      <td>${oscVips > 0 ? '<strong style="color:var(--green)">' + oscVips + '</strong>' : '<span class="muted">—</span>'}</td>
+      <td>${oscLeads > 0 ? oscLeads : '<span class="muted">—</span>'}</td>
+      <td${leadTip}>${sub ? c.total_leads : NR}</td>
+      <td${apptTip}>${sub ? c.total_appts : NR}</td>
+      <td>${c.active_prospects}</td>
+      <td>${sub ? (c.sold > 0 ? '<strong style="color:var(--green)">' + c.sold + '</strong>' : '0') : NR}</td>
+    </tr>`;
+  }
+
+  // Totals row
+  html += `<tr style="background:var(--sage-light);font-weight:600;">
+    <td colspan="3">TOTALS</td>
+    <td>${t.osc_vips || 0}</td><td>${t.osc_leads || 0}</td><td>${t.total_leads || 0}</td>
+    <td>${t.total_appts || 0}</td><td>${t.active_prospects || 0}</td><td>${t.sold || 0}</td>
+  </tr></table>`;
+  document.getElementById('results-table').innerHTML = html;
+
+  // Active Prospect Pipeline
+  const allProspects = d.communities.flatMap(c => (c.prospect_details || []).map(p => ({ ...p, community: c.community })));
+  if (allProspects.length > 0) {
+    const rankOrder = { A: 0, B: 1, C: 2 };
+    allProspects.sort((a, b) => (rankOrder[a.ranking] ?? 9) - (rankOrder[b.ranking] ?? 9));
+
+    let pHtml = '<h2>Active Prospect Pipeline</h2>';
+    pHtml += '<table><tr><th>Ranking</th><th>Prospect</th><th>Community</th><th>Rep</th><th>Lot</th></tr>';
+    for (const p of allProspects) {
+      const badgeClass = p.ranking === 'A' ? 'badge-green' : p.ranking === 'B' ? 'badge-gold' : 'badge-gray';
+      const label = p.ranking === 'A' ? 'A — VIP' : p.ranking === 'B' ? 'B — Warm' : 'C — Cold';
+      pHtml += `<tr>
+        <td><span class="badge ${badgeClass}">${label}</span></td>
+        <td><strong>${p.name || '—'}</strong></td>
+        <td>${p.community}</td>
+        <td class="muted">${p.rep}</td>
+        <td class="muted">${p.lot || '—'}</td>
+      </tr>`;
+    }
+    pHtml += '</table>';
+    document.getElementById('prospects-section').innerHTML = pHtml;
+  }
+}
+
+function changeWeek(dir) {
+  // dir: -1 = older (prev), +1 = newer (next)
+  const newIdx = _currentWeekIdx + dir;
+  if (newIdx < 0 || newIdx >= _availableWeeks.length) return;
+  _currentWeekIdx = newIdx;
+  loadResults(_availableWeeks[_currentWeekIdx]);
+}
+
+// Initial load
+loadResults();
+</script>
+</body>
+</html>
