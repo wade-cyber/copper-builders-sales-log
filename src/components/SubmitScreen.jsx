@@ -51,6 +51,11 @@ export default function SubmitScreen({ repName, totalAppointments, totalDirectLe
         <div className="ss-divider-line" />
       </div>
       <div className="ss-closing">Your report has been recorded. Have a great week!</div>
+      <div className="ss-closing" style={{ marginTop: '10px', fontSize: '12px' }}>
+        <a href="https://copper-builders-log.vercel.app/results.html" target="_blank" rel="noreferrer" style={{ color: '#B09245', textDecoration: 'none', fontWeight: '600' }}>
+          View this week&rsquo;s results &rarr;
+        </a>
+      </div>
 
       {onStartNew && (
         <button className="ss-new-btn" onClick={onStartNew}>Start New Report</button>
