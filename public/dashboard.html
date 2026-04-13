@@ -79,8 +79,48 @@
     .mt { margin-top:1rem; }
     .mb { margin-bottom:1rem; }
   </style>
+  <style>
+    #pw-gate { position:fixed; inset:0; background:var(--cream); z-index:9999; display:flex; align-items:center; justify-content:center; }
+    #pw-box { background:var(--white); border:1px solid var(--border); border-radius:8px; padding:2rem; width:320px; text-align:center; }
+    #pw-box .brand { font-family:'Libre Baskerville',serif; font-size:13px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--slate-dark); margin-bottom:4px; }
+    #pw-box h2 { font-family:'Libre Baskerville',serif; font-size:16px; font-weight:400; margin-bottom:1.25rem; color:var(--slate-dark); }
+    #pw-box input { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:4px; font-size:14px; font-family:'Open Sans',sans-serif; margin-bottom:10px; text-align:center; letter-spacing:.1em; }
+    #pw-box input:focus { outline:none; border-color:var(--gold); }
+    #pw-box button { width:100%; background:var(--gold); color:#fff; border:none; border-radius:4px; padding:8px; font-family:'Open Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer; }
+    #pw-box button:hover { background:#9a7f3a; }
+    #pw-error { color:#c0392b; font-size:12px; margin-bottom:8px; display:none; }
+  </style>
 </head>
 <body>
+
+<div id="pw-gate">
+  <div id="pw-box">
+    <div class="brand">Copper Builders</div>
+    <h2>Admin Dashboard</h2>
+    <input type="password" id="pw-input" placeholder="Password" onkeydown="if(event.key==='Enter')checkPw()" autofocus />
+    <div id="pw-error">Incorrect password.</div>
+    <button onclick="checkPw()">Enter</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  if (sessionStorage.getItem('cb_dash_auth') === '1') {
+    document.getElementById('pw-gate').style.display = 'none';
+  }
+  window.checkPw = function() {
+    if (document.getElementById('pw-input').value === 'buildquality') {
+      sessionStorage.setItem('cb_dash_auth', '1');
+      document.getElementById('pw-gate').style.display = 'none';
+    } else {
+      document.getElementById('pw-error').style.display = 'block';
+      document.getElementById('pw-input').value = '';
+      document.getElementById('pw-input').focus();
+    }
+  };
+})();
+</script>
+
 <div class="wrap">
   <div class="header">
     <div class="header-left">
