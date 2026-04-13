@@ -1,15 +1,40 @@
 // GET /api/get-assignments?rep=Name — returns assignments for a rep
 // Without ?rep param: returns all active communities
 import { supabase } from './_lib/db.js';
+import { getWeekEndingSunday } from './_lib/sheets.js';
 
 export default async function handler(req, res) {
   try {
     const rep = req.query.rep || '';
+    const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
 
-    const { data: allAssignments, error } = await supabase
+    // Query current week's assignments; fallback to most recent if cron hasn't run yet
+    let { data: allAssignments, error } = await supabase
       .from('assignments')
-      .select('communities(name), reps(name), third_party');
+      .select('communities(name), reps(name), third_party')
+      .eq('week_ending', weekEnding);
     if (error) throw error;
+
+    if (!allAssignments || allAssignments.length === 0) {
+      const { data: recent, error: rErr } = await supabase
+        .from('assignments')
+        .select('communities(name), reps(name), third_party, week_ending')
+        .not('week_ending', 'is', null)
+        .order('week_ending', { ascending: false })
+        .limit(500);
+      if (rErr) throw rErr;
+      const mostRecent = recent?.[0]?.week_ending;
+      allAssignments = mostRecent ? recent.filter(a => a.week_ending === mostRecent) : [];
+
+      // Last resort: NULL-week legacy rows
+      if (allAssignments.length === 0) {
+        const { data: legacy } = await supabase
+          .from('assignments')
+          .select('communities(name), reps(name), third_party')
+          .is('week_ending', null);
+        allAssignments = legacy || [];
+      }
+    }
 
     if (!allAssignments || allAssignments.length === 0) return res.status(200).json([]);
 

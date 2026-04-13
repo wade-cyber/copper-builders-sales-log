@@ -145,12 +145,20 @@
   <!-- ===== ASSIGNMENTS ===== -->
   <div id="assignments" class="panel">
     <h2>Rep–Community Assignments</h2>
-    <p class="muted mb">Which sales rep is assigned to which community. Assignments persist automatically from week to week — only add or remove when something actually changes.</p>
-    <div class="form-row">
-      <div class="form-group"><label>Rep</label><select id="assign-rep"></select></div>
-      <div class="form-group"><label>Community</label><select id="assign-comm"></select></div>
-      <button class="btn btn-gold" onclick="addAssignment()">Assign</button>
+    <p class="muted mb">The Monday cron automatically carries assignments forward each week. Only add or remove when something actually changes.</p>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;">
+      <button class="btn btn-sm" id="btn-assign-prev" onclick="changeAssignWeek(1)">&#8592; Prev</button>
+      <span id="assign-week-label" style="font-weight:600;min-width:160px;text-align:center;"></span>
+      <button class="btn btn-sm" id="btn-assign-next" onclick="changeAssignWeek(-1)">Next &#8594;</button>
     </div>
+    <div id="assign-edit-area">
+      <div class="form-row">
+        <div class="form-group"><label>Rep</label><select id="assign-rep"></select></div>
+        <div class="form-group"><label>Community</label><select id="assign-comm"></select></div>
+        <button class="btn btn-gold" onclick="addAssignment()">Assign</button>
+      </div>
+    </div>
+    <div id="assign-past-note" style="display:none;" class="alert alert-ok" style="margin-bottom:8px;">Viewing historical assignments — read only. Navigate to the current week to make changes.</div>
     <div id="assign-table"><div class="loading">Loading...</div></div>
   </div>
 
@@ -562,19 +570,57 @@ async function populateDropdowns() {
   commSel.innerHTML = _comms.map(c => `<option value="${c.id}">${c.name} (${c.division})</option>`).join('');
 }
 
-async function loadAssignments() {
-  const r = await apiFetch(API + '/api/admin?action=list-assignments').then(r => r.json());
+let _assignWeeks = [];
+let _assignWeekIdx = 0;
+let _assignCurrentWeek = null;
+
+function getClientWeekEnding() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun
+  const daysUntilSunday = day === 0 ? 0 : 7 - day;
+  const d = new Date(now);
+  d.setDate(d.getDate() + daysUntilSunday);
+  return d.toISOString().slice(0, 10);
+}
+
+function changeAssignWeek(delta) {
+  _assignWeekIdx = Math.max(0, Math.min(_assignWeeks.length - 1, _assignWeekIdx + delta));
+  loadAssignments(_assignWeeks[_assignWeekIdx]);
+}
+
+async function loadAssignments(weekOverride) {
+  const weekParam = weekOverride ? `&week_ending=${weekOverride}` : '';
+  const r = await apiFetch(API + '/api/admin?action=list-assignments' + weekParam).then(r => r.json());
+
+  _assignCurrentWeek = getClientWeekEnding();
+  _assignWeeks = r.available_weeks || [_assignCurrentWeek];
+  if (!_assignWeeks.includes(_assignCurrentWeek)) _assignWeeks.unshift(_assignCurrentWeek);
+
+  const displayWeek = r.week_ending || _assignCurrentWeek;
+  _assignWeekIdx = _assignWeeks.indexOf(displayWeek);
+  if (_assignWeekIdx < 0) _assignWeekIdx = 0;
+
+  const weekDate = new Date(displayWeek + 'T12:00:00');
+  const weekLabel = weekDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  document.getElementById('assign-week-label').textContent = 'Week of ' + weekLabel;
+  document.getElementById('btn-assign-prev').disabled = (_assignWeekIdx >= _assignWeeks.length - 1);
+  document.getElementById('btn-assign-next').disabled = (_assignWeekIdx <= 0);
+
+  const isCurrentWeek = displayWeek === _assignCurrentWeek;
+  document.getElementById('assign-edit-area').style.display = isCurrentWeek ? '' : 'none';
+  document.getElementById('assign-past-note').style.display = isCurrentWeek ? 'none' : '';
+
   if (!r.data || r.data.length === 0) {
-    document.getElementById('assign-table').innerHTML = '<p class="muted">No assignments found. Add assignments below.</p>';
+    document.getElementById('assign-table').innerHTML = '<p class="muted">No assignments for this week.</p>';
     return;
   }
-  let html = '<table><tr><th>Rep</th><th>Community</th><th>Division</th><th></th></tr>';
+  let html = `<table><tr><th>Rep</th><th>Community</th><th>Division</th>${isCurrentWeek ? '<th></th>' : ''}</tr>`;
   for (const a of r.data) {
     html += `<tr>
       <td>${a.reps.name}</td>
       <td>${a.communities.name}</td>
       <td><span class="badge badge-gold">${a.communities.division}</span></td>
-      <td><button class="btn btn-sm btn-red" onclick="removeAssignment(${a.id})">Remove</button></td>
+      ${isCurrentWeek ? `<td><button class="btn btn-sm btn-red" onclick="removeAssignment(${a.id}, '${displayWeek}')">Remove</button></td>` : ''}
     </tr>`;
   }
   html += '</table>';
@@ -584,20 +630,21 @@ async function loadAssignments() {
 async function addAssignment() {
   const rep_id = parseInt(document.getElementById('assign-rep').value);
   const community_id = parseInt(document.getElementById('assign-comm').value);
+  const week_ending = _assignCurrentWeek;
   await apiFetch(API + '/api/admin?action=set-assignments', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ rep_id, community_id })
+    body: JSON.stringify({ rep_id, community_id, week_ending })
   });
-  loadAssignments();
+  loadAssignments(_assignCurrentWeek);
 }
 
-async function removeAssignment(id) {
+async function removeAssignment(id, weekEnding) {
   if (!confirm('Remove this assignment?')) return;
   await apiFetch(API + '/api/admin?action=remove-assignment', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ id })
   });
-  loadAssignments();
+  loadAssignments(weekEnding);
 }
 
 // ===== SYSTEM =====

@@ -88,6 +88,11 @@ async function runPhase1(force = false) {
   }
 
   const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
+
+  // Carry forward assignments from last week to this week (if not already done)
+  const carryResult = await carryForwardAssignments(weekEnding);
+  console.log('[Phase 1] Assignment carry-forward:', JSON.stringify(carryResult));
+
   const reps = await getAssignedReps();
 
   const { data: submissions } = await supabase
@@ -263,6 +268,61 @@ async function rotateOSCLeadsSheet(targetDate = null) {
     weekEndingDate,
     communitiesUpdated,
   };
+}
+
+// ═══════════════════════════════════════════════════════════
+// CARRY FORWARD ASSIGNMENTS
+// ═══════════════════════════════════════════════════════════
+
+async function carryForwardAssignments(weekEnding) {
+  // If this week already has assignments, nothing to do
+  const { data: existing } = await supabase
+    .from('assignments')
+    .select('id')
+    .eq('week_ending', weekEnding)
+    .limit(1);
+  if (existing && existing.length > 0) {
+    return { skipped: true, reason: 'already exists' };
+  }
+
+  // Find the most recent prior week that has assignments
+  const { data: recent } = await supabase
+    .from('assignments')
+    .select('week_ending')
+    .not('week_ending', 'is', null)
+    .lt('week_ending', weekEnding)
+    .order('week_ending', { ascending: false })
+    .limit(1);
+
+  let sourceWeek = recent?.[0]?.week_ending || null;
+  let sourceQuery;
+
+  if (sourceWeek) {
+    sourceQuery = supabase.from('assignments').select('rep_id, community_id').eq('week_ending', sourceWeek);
+  } else {
+    // No week-tagged assignments yet — fall back to legacy NULL-week rows
+    sourceWeek = 'legacy';
+    sourceQuery = supabase.from('assignments').select('rep_id, community_id').is('week_ending', null);
+  }
+
+  const { data: source } = await sourceQuery;
+  if (!source || source.length === 0) {
+    return { skipped: true, reason: 'no source assignments found' };
+  }
+
+  const newRows = source.map(a => ({
+    rep_id: a.rep_id,
+    community_id: a.community_id,
+    week_ending: weekEnding,
+    source: 'carried_forward',
+  }));
+
+  const { error } = await supabase
+    .from('assignments')
+    .upsert(newRows, { onConflict: 'rep_id,community_id,week_ending', ignoreDuplicates: true });
+
+  if (error) throw error;
+  return { carried: newRows.length, fromWeek: sourceWeek, toWeek: weekEnding };
 }
 
 // ═══════════════════════════════════════════════════════════
