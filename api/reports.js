@@ -321,14 +321,27 @@ async function communityResults(res, weekEnding) {
   });
 
   // 3. Add OSC marketing leads + VIP count from the leads table
-  const { data: oscLeads } = await supabase
-    .from('leads')
-    .select('community_id, digital_leads, in_person_leads, call_in_leads, notes, communities(name)')
-    .eq('week_ending', targetWeek);
+  const prevWeekStr = new Date(new Date(targetWeek + 'T00:00:00Z').getTime() - 7 * DAY_MS).toISOString().slice(0, 10);
+  const [{ data: oscLeads }, { data: prevOscLeads }] = await Promise.all([
+    supabase.from('leads')
+      .select('community_id, digital_leads, in_person_leads, call_in_leads, notes, communities(name)')
+      .eq('week_ending', targetWeek),
+    supabase.from('leads')
+      .select('community_id, notes, communities(name)')
+      .eq('week_ending', prevWeekStr),
+  ]);
+
+  // Build previous-week VIP map by community name
+  const prevVipMap = {};
+  for (const l of (prevOscLeads || [])) {
+    const vip = l.notes ? (JSON.parse(l.notes).vip || 0) : 0;
+    prevVipMap[l.communities.name] = vip;
+  }
 
   let oscLeadTotal = 0;
   let oscCommunityCount = 0;
   let oscVipTotal = 0;
+  let oscVipPrevTotal = 0;
   for (const l of (oscLeads || [])) {
     const commName = l.communities.name;
     const total = l.digital_leads + l.in_person_leads + l.call_in_leads;
@@ -339,7 +352,13 @@ async function communityResults(res, weekEnding) {
     if (byCommunity[commName]) {
       byCommunity[commName].osc_leads = total;
       byCommunity[commName].osc_vips = vip;
+      byCommunity[commName].osc_vips_prev = prevVipMap[commName] ?? null;
     }
+  }
+  // Sum prev-week VIPs only for communities that have a current-week entry
+  for (const l of (oscLeads || [])) {
+    const vip = prevVipMap[l.communities.name] ?? 0;
+    oscVipPrevTotal += vip;
   }
 
   const totals = results.reduce((t, c) => ({
@@ -353,6 +372,7 @@ async function communityResults(res, weekEnding) {
   totals.osc_leads = oscLeadTotal;
   totals.osc_communities = oscCommunityCount;
   totals.osc_vips = oscVipTotal;
+  totals.osc_vips_prev = oscVipPrevTotal;
 
   // Non-reporters: assigned reps with no submission in the Sun–Tue window.
   // fetchSubmissionsForWeek already includes Mon/Tue carryovers, so no extra query needed.

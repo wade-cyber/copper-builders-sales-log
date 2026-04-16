@@ -159,13 +159,13 @@ async function loadResults(weekOverride) {
 
   // Community results table
   let html = `<table>
-    <tr><th>Community</th><th>Division</th><th>Rep(s)</th><th>VIPs</th><th>OSC Leads</th><th>Rep Leads</th><th>Appts</th><th>Prospects</th><th>Sales</th></tr>`;
+    <tr><th>Community</th><th>Division</th><th>Rep(s)</th><th>VIPs</th><th>VIP ∆</th><th>OSC Leads</th><th>Rep Leads</th><th>Appts</th><th>Prospects</th><th>Sales</th></tr>`;
 
   let currentDiv = '';
   for (const c of d.communities) {
     if (c.division && c.division !== currentDiv) {
       currentDiv = c.division;
-      html += `<tr><td colspan="9" style="background:var(--sage-light);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--slate);padding:6px 10px;">${currentDiv}</td></tr>`;
+      html += `<tr><td colspan="10" style="background:var(--sage-light);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--slate);padding:6px 10px;">${currentDiv}</td></tr>`;
     }
 
     const leadBreakdown = [];
@@ -184,11 +184,23 @@ async function loadResults(weekOverride) {
     const sub = c.submitted === true;
     const NR = '<span class="muted" title="Not yet reported">NR</span>';
 
+    const vipPrev = c.osc_vips_prev;
+    let vipDeltaHtml;
+    if (vipPrev === null || vipPrev === undefined) {
+      vipDeltaHtml = '<span class="muted">—</span>';
+    } else {
+      const delta = oscVips - vipPrev;
+      if (delta > 0) vipDeltaHtml = `<strong style="color:var(--green)">+${delta}</strong>`;
+      else if (delta < 0) vipDeltaHtml = `<strong style="color:#c0392b">${delta}</strong>`;
+      else vipDeltaHtml = '<span class="muted">0</span>';
+    }
+
     html += `<tr>
       <td><strong>${c.community}</strong></td>
       <td><span class="badge badge-gold">${c.division}</span></td>
       <td class="muted">${c.reps.join(', ') || '—'}</td>
       <td>${oscVips > 0 ? '<strong style="color:var(--green)">' + oscVips + '</strong>' : '<span class="muted">—</span>'}</td>
+      <td>${vipDeltaHtml}</td>
       <td>${oscLeads > 0 ? oscLeads : '<span class="muted">—</span>'}</td>
       <td${leadTip}>${sub ? c.total_leads : NR}</td>
       <td${apptTip}>${sub ? c.total_appts : NR}</td>
@@ -198,9 +210,11 @@ async function loadResults(weekOverride) {
   }
 
   // Totals row
+  const totalVipDelta = (t.osc_vips_prev !== undefined) ? (t.osc_vips || 0) - (t.osc_vips_prev || 0) : null;
+  const totalVipDeltaHtml = totalVipDelta === null ? '—' : totalVipDelta > 0 ? `+${totalVipDelta}` : `${totalVipDelta}`;
   html += `<tr style="background:var(--sage-light);font-weight:600;">
     <td colspan="3">TOTALS</td>
-    <td>${t.osc_vips || 0}</td><td>${t.osc_leads || 0}</td><td>${t.total_leads || 0}</td>
+    <td>${t.osc_vips || 0}</td><td>${totalVipDeltaHtml}</td><td>${t.osc_leads || 0}</td><td>${t.total_leads || 0}</td>
     <td>${t.total_appts || 0}</td><td>${t.active_prospects || 0}</td><td>${t.sold || 0}</td>
   </tr></table>`;
   document.getElementById('results-table').innerHTML = html;
