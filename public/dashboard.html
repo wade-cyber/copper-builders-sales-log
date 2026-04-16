@@ -396,14 +396,14 @@ async function loadResults(weekOverride) {
   document.getElementById('btn-prev-week').disabled = (_currentWeekIdx >= _availableWeeks.length - 1);
   document.getElementById('btn-next-week').disabled = (_currentWeekIdx <= 0);
 
-  // Summary cards — ordered: VIP List, OSC Leads, Rep Leads, Appts, Prospects, Sales
+  // Summary cards — ordered: Sales, Prospects, Appts, Rep Leads, OSC Leads, VIPs
   document.getElementById('results-cards').innerHTML = `
-    <div class="card"><div class="card-val">${t.osc_vips || 0}</div><div class="card-label">VIP List</div></div>
-    <div class="card"><div class="card-val">${t.osc_leads || 0}</div><div class="card-label">OSC Leads</div></div>
-    <div class="card"><div class="card-val">${t.total_leads}</div><div class="card-label">Rep Leads</div></div>
-    <div class="card"><div class="card-val">${t.total_appts}</div><div class="card-label">Appointments</div></div>
-    <div class="card"><div class="card-val">${t.active_prospects}</div><div class="card-label">Prospects</div></div>
     <div class="card"><div class="card-val">${t.sold}</div><div class="card-label">Sales</div></div>
+    <div class="card"><div class="card-val">${t.active_prospects}</div><div class="card-label">Prospects</div></div>
+    <div class="card"><div class="card-val">${t.total_appts}</div><div class="card-label">Appointments</div></div>
+    <div class="card"><div class="card-val">${t.total_leads}</div><div class="card-label">Rep Leads</div></div>
+    <div class="card"><div class="card-val">${t.osc_leads || 0}</div><div class="card-label">OSC Leads</div></div>
+    <div class="card"><div class="card-val">${t.osc_vips || 0}</div><div class="card-label">VIP List</div></div>
   `;
 
   // OSC Leads status note
@@ -432,7 +432,7 @@ async function loadResults(weekOverride) {
 
   // Main results table
   let html = `<table>
-    <tr><th>Community</th><th>Division</th><th>Rep(s)</th><th>VIPs</th><th>VIP ∆</th><th>OSC Leads</th><th>Rep Leads</th><th>Appts</th><th>Prospects</th><th>Sales</th></tr>`;
+    <tr><th>Community</th><th>Division</th><th>Rep(s)</th><th>Sales</th><th>Prospects</th><th>Appts</th><th>Rep Leads</th><th>OSC Leads</th><th>VIPs</th><th>VIP ∆</th></tr>`;
 
   let currentDiv = '';
   for (const c of d.communities) {
@@ -473,13 +473,13 @@ async function loadResults(weekOverride) {
       <td><strong>${c.community}</strong></td>
       <td><span class="badge badge-gold">${c.division}</span></td>
       <td class="muted">${c.reps.join(', ') || '—'}</td>
+      <td>${sub ? (c.sold > 0 ? '<strong style="color:var(--green)">' + c.sold + '</strong>' : '0') : NR}</td>
+      <td>${c.active_prospects}</td>
+      <td${apptTip}>${sub ? c.total_appts : NR}</td>
+      <td${leadTip}>${sub ? c.total_leads : NR}</td>
+      <td>${oscLeads > 0 ? oscLeads : '<span class="muted">—</span>'}</td>
       <td>${oscVips > 0 ? '<strong style="color:var(--green)">' + oscVips + '</strong>' : '<span class="muted">—</span>'}</td>
       <td>${vipDeltaHtml}</td>
-      <td>${oscLeads > 0 ? oscLeads : '<span class="muted">—</span>'}</td>
-      <td${leadTip}>${sub ? c.total_leads : NR}</td>
-      <td${apptTip}>${sub ? c.total_appts : NR}</td>
-      <td>${c.active_prospects}</td>
-      <td>${sub ? (c.sold > 0 ? '<strong style="color:var(--green)">' + c.sold + '</strong>' : '0') : NR}</td>
     </tr>`;
   }
 
@@ -488,8 +488,8 @@ async function loadResults(weekOverride) {
   const totalVipDeltaHtml = totalVipDelta === null ? '—' : totalVipDelta > 0 ? `+${totalVipDelta}` : `${totalVipDelta}`;
   html += `<tr style="background:var(--sage-light);font-weight:600;">
     <td colspan="3">TOTALS</td>
-    <td>${t.osc_vips || 0}</td><td>${totalVipDeltaHtml}</td><td>${t.osc_leads || 0}</td><td>${t.total_leads}</td>
-    <td>${t.total_appts}</td><td>${t.active_prospects}</td><td>${t.sold}</td>
+    <td>${t.sold}</td><td>${t.active_prospects}</td><td>${t.total_appts}</td><td>${t.total_leads}</td>
+    <td>${t.osc_leads || 0}</td><td>${t.osc_vips || 0}</td><td>${totalVipDeltaHtml}</td>
   </tr></table>`;
   document.getElementById('results-table').innerHTML = html;
 
