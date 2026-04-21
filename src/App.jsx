@@ -132,7 +132,7 @@ export default function App() {
   }, [appointments]);
 
   const totalActiveProspects = useMemo(() =>
-    prospects.filter(p => p.status === 'active' || !p.status).length, [prospects]);
+    prospects.filter(p => (p.status === 'active' || !p.status) && (p.ranking === 'A' || p.ranking === 'B')).length, [prospects]);
 
   const totalSales = useMemo(() =>
     prospects.filter(p => p.status === 'sold').length, [prospects]);

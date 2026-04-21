@@ -303,8 +303,9 @@ async function communityResults(res, weekEnding) {
 
   // Use actual prospect count from DB for all communities (submitted or not).
   // active_prospects from submissions only reflects submitted reps; prospects persist week-to-week.
+  // Only count A and B ranked prospects (Hot and Warm) — exclude C (Cold).
   for (const c of Object.values(byCommunity)) {
-    c.active_prospects = c.prospect_details.length;
+    c.active_prospects = c.prospect_details.filter(p => p.ranking === 'A' || p.ranking === 'B').length;
   }
 
   // Add division for prospect-only communities

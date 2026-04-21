@@ -33,7 +33,7 @@ export default function CommunityBlock({
   };
 
   const communityProspects = prospects.filter((p) => p.community === name);
-  const activeProspects = communityProspects.filter((p) => p.status === 'active' || !p.status);
+  const activeProspects = communityProspects.filter((p) => (p.status === 'active' || !p.status) && (p.ranking === 'A' || p.ranking === 'B'));
   const soldProspects = communityProspects.filter((p) => p.status === 'sold');
   const apptTotal = (appointments[0] || 0) + (appointments[1] || 0);
   const leadsTotal = (directLeads?.digital || 0) + (directLeads?.phoneCall || 0) + (directLeads?.inPerson || 0);

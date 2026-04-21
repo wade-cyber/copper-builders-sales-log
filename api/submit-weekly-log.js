@@ -29,7 +29,7 @@ export default async function handler(req, res) {
         leads_digital: dl.digital || 0,
         leads_phone: dl.phoneCall || 0,
         leads_in_person: dl.inPerson || 0,
-        active_prospects: prospects.filter(p => p.status === 'active').length,
+        active_prospects: prospects.filter(p => p.status === 'active' && (p.ranking === 'A' || p.ranking === 'B')).length,
         sold_prospects: prospects.filter(p => p.status === 'sold').length,
         removed_prospects: prospects.filter(p => p.status === 'removed').length,
         grand_total_appts: (data.totals || {}).totalAppointments || 0,
