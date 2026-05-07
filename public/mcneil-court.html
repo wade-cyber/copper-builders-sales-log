@@ -257,8 +257,9 @@ async function init() {
           ${benchCard('Total Leads (Rep + OSC)', totLeads, bmLeads, '10', `${totRepLeads} rep + ${totOscLeads} OSC`)}
         </div>
       </div>`;
+    }
 
-    // Section 3: Active Prospects
+    // Section 4: Active Prospects
     const prospects = (currentComm.prospect_details || []);
     if (prospects.length > 0) {
       // Sort: A first, then B, then C; within each rank by name
