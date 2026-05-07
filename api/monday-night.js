@@ -40,7 +40,9 @@ export default async function handler(req, res) {
           body: JSON.stringify({ phase: 2, targetDate, force }),
         });
         if (!p2Res.ok) {
-          console.error('[Phase 2 chain] HTTP', p2Res.status);
+          const text = await p2Res.text().catch(() => '');
+          console.error('[Phase 2 chain] HTTP', p2Res.status, text);
+          await logRun('monday-night-phase2', 'error', `Phase 2 chain returned HTTP ${p2Res.status}`);
         }
       } catch (error) {
         console.error('[PHASE 2 TRIGGER FAILURE]', error.message);
@@ -67,13 +69,16 @@ export default async function handler(req, res) {
 // ═══════════════════════════════════════════════════════════
 
 async function alreadyProcessed(runType) {
-  const weekEnding = getWeekEndingSunday().toISOString().slice(0, 10);
+  const currentSunday = getWeekEndingSunday();
+  const lastSunday = new Date(currentSunday);
+  lastSunday.setDate(currentSunday.getDate() - 7);
+  const since = lastSunday.toISOString().slice(0, 10);
   const { data } = await supabase
     .from('run_log')
     .select('id')
     .eq('run_type', runType)
     .eq('status', 'success')
-    .gte('completed_at', weekEnding)
+    .gte('completed_at', since)
     .limit(1);
   return data && data.length > 0;
 }
@@ -161,10 +166,14 @@ async function runPhase2(targetDate = null, force = false) {
     console.error('[Phase 2] CB Dashboard prefetch failed:', e.message);
   }
 
-  const allSuccess = oscImportResult.success && oscRotateResult.success;
+  const oscOk = oscImportResult.success && oscImportResult.imported > 0;
+  const allSuccess = oscOk && oscRotateResult.success;
+  const oscSummary = oscImportResult.success
+    ? (oscImportResult.imported > 0 ? `${oscImportResult.imported} leads` : 'ran but 0 leads found — sheet may be empty')
+    : `FAILED: ${oscImportResult.message}`;
   await logRun('monday-night-phase2',
     allSuccess ? 'success' : 'partial',
-    `OSC import: ${oscImportResult.success ? oscImportResult.imported + ' leads' : 'FAILED: ' + oscImportResult.message}. OSC rotate: ${oscRotateResult.success || 'FAILED: ' + oscRotateResult.message}.`);
+    `OSC import: ${oscSummary}. OSC rotate: ${oscRotateResult.success || 'FAILED: ' + oscRotateResult.message}.`);
 
   return {
     success: true,

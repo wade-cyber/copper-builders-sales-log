@@ -18,12 +18,7 @@ export async function importOSCLeads({ weekEnding, tabName } = {}) {
   }
   const tab = tabName || "This Week's Report";
 
-  let oscData;
-  try {
-    oscData = await getSheetData(TEMPLATE_SHEET_ID, `'${tab}'!A7:G`);
-  } catch {
-    oscData = await getSheetData(TEMPLATE_SHEET_ID, "'Dashboard Template'!A7:G");
-  }
+  const oscData = await getSheetData(TEMPLATE_SHEET_ID, `'${tab}'!A7:G`);
 
   if (!oscData || oscData.length === 0) {
     return { success: true, imported: 0, errors: [] };
