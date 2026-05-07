@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>McNeil Court — Community Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --gold:#B09245; --slate:#566263; --slate-dark:#3a4344; --sage:#BFD1CB; --sage-light:#d8e8e3; --cream:#F5F5EF; --white:#fff; --border:#d4cfc6; --red:#c0392b; --green:#27ae60; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--cream); font-family:'Open Sans',sans-serif; color:var(--slate-dark); font-size:14px; }
+    .wrap { max-width:960px; margin:0 auto; padding:1.5rem 1rem 3rem; }
+
+    /* Header */
+    .header { border-bottom:2px solid var(--gold); padding-bottom:1rem; margin-bottom:1.5rem; }
+    .header-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:4px; }
+    .brand { font-family:'Libre Baskerville',serif; font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold); }
+    .community-name { font-family:'Libre Baskerville',serif; font-size:26px; font-weight:400; color:var(--slate-dark); margin:2px 0 4px; }
+    .header-meta { font-size:12px; color:var(--slate); display:flex; gap:16px; flex-wrap:wrap; }
+    .week-label { font-family:'Libre Baskerville',serif; font-size:13px; color:var(--slate); text-align:right; }
+
+    /* Section titles */
+    h2 { font-family:'Libre Baskerville',serif; font-size:15px; font-weight:400; color:var(--slate-dark); margin-bottom:10px; }
+    .section { margin-bottom:2rem; }
+
+    /* Cards */
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; }
+    .card { background:var(--white); border:1px solid var(--border); border-radius:6px; padding:14px 12px; text-align:center; }
+    .card-val { font-family:'Libre Baskerville',serif; font-size:30px; color:var(--slate-dark); line-height:1; }
+    .card-label { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--slate); margin-top:5px; }
+
+    /* Tables */
+    table { width:100%; border-collapse:collapse; background:var(--white); border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+    th { background:var(--sage-light); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--slate); padding:8px 12px; text-align:left; font-weight:600; }
+    td { padding:9px 12px; border-top:1px solid var(--border); font-size:13px; vertical-align:middle; }
+    tr:last-child td { }
+    .td-num { text-align:right; font-variant-numeric:tabular-nums; }
+    th.td-num { text-align:right; }
+
+    /* Trend table highlight */
+    .trend-current td { background:#f5f8f5; font-weight:600; }
+
+    /* Ranking badges */
+    .badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 9px; border-radius:10px; letter-spacing:.04em; }
+    .badge-a { background:#e8f5e9; color:#1b5e20; }
+    .badge-b { background:#fdf3e0; color:var(--gold); }
+    .badge-c { background:#f0f0f0; color:#777; }
+
+    /* Age pill */
+    .age-pill { display:inline-block; font-size:10px; font-weight:600; color:#aaa; background:#f3f4f6; border-radius:9999px; padding:1px 7px; }
+
+    /* Footer */
+    .footer { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--border); font-size:11px; color:var(--slate); text-align:center; }
+
+    .loading { text-align:center; padding:3rem; color:var(--slate); }
+    .muted { color:var(--slate); }
+    .error { color:var(--red); text-align:center; padding:2rem; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <div class="brand">Copper Builders</div>
+        <div class="community-name">McNeil Court</div>
+        <div class="header-meta">
+          <span id="meta-division"></span>
+          <span id="meta-rep"></span>
+        </div>
+      </div>
+      <div class="week-label" id="week-label"></div>
+    </div>
+  </div>
+
+  <div id="main" class="loading">Loading…</div>
+
+  <div class="footer">
+    Copper Builders Sales Reporting &mdash; <span id="footer-ts"></span>
+  </div>
+</div>
+
+<script>
+const COMMUNITY = 'McNeil Court';
+const API = '/api/reports';
+
+function fmt(d) {
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dt = new Date(d + 'T12:00:00Z');
+  return months[dt.getUTCMonth()] + ' ' + dt.getUTCDate();
+}
+
+function weeksAgo(iso) {
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / (7 * 24 * 60 * 60 * 1000));
+}
+
+function rankBadge(r) {
+  if (r === 'A') return '<span class="badge badge-a">A — Hot</span>';
+  if (r === 'B') return '<span class="badge badge-b">B — Warm</span>';
+  return '<span class="badge badge-c">C — Cold</span>';
+}
+
+async function fetchWeek(weekEnding) {
+  const url = weekEnding ? `${API}?type=community-results&week_ending=${weekEnding}` : `${API}?type=community-results`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('API error');
+  const json = await r.json();
+  const comm = (json.communities || []).find(c => c.community === COMMUNITY);
+  return { weekEnding: json.meta?.week_ending || weekEnding, comm };
+}
+
+async function init() {
+  try {
+    // Fetch current week first to get available weeks list
+    const currentRes = await fetch(`${API}?type=community-results`);
+    if (!currentRes.ok) throw new Error('Failed to load data');
+    const currentJson = await currentRes.json();
+
+    const availableWeeks = currentJson.available_weeks || [];
+    const currentWeek = currentJson.meta?.week_ending;
+    const currentComm = (currentJson.communities || []).find(c => c.community === COMMUNITY);
+
+    if (!currentComm) {
+      document.getElementById('main').innerHTML = `<div class="error">No data found for ${COMMUNITY}.</div>`;
+      return;
+    }
+
+    // Set header meta
+    document.getElementById('meta-division').textContent = 'Division: ' + (currentComm.division || '—');
+    document.getElementById('meta-rep').textContent = 'Sales Agent: ' + (currentComm.reps || []).join(', ');
+    document.getElementById('week-label').innerHTML = `Week Ending<br><strong>${fmt(currentWeek)}</strong>`;
+    document.title = `McNeil Court — Week of ${fmt(currentWeek)}`;
+    document.getElementById('footer-ts').textContent = 'Generated ' + new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'long', day: 'numeric', year: 'numeric' });
+
+    // Fetch prior 3 weeks in parallel
+    const priorWeeks = availableWeeks.filter(w => w !== currentWeek).slice(0, 3);
+    const priorResults = await Promise.all(priorWeeks.map(w => fetchWeek(w)));
+    const trendWeeks = [
+      { weekEnding: currentWeek, comm: currentComm },
+      ...priorResults,
+    ].filter(r => r.comm); // only weeks that have data for this community
+
+    // ── Build HTML ──────────────────────────────────────────────────────────────
+    let html = '';
+
+    // Section 1: This Week
+    html += `<div class="section">
+      <h2>This Week at a Glance</h2>
+      <div class="cards">
+        <div class="card"><div class="card-val">${currentComm.total_appts || 0}</div><div class="card-label">Appointments</div></div>
+        <div class="card"><div class="card-val">${currentComm.total_leads || 0}</div><div class="card-label">Rep Leads</div></div>
+        <div class="card"><div class="card-val">${currentComm.osc_leads || 0}</div><div class="card-label">OSC Leads</div></div>
+        <div class="card"><div class="card-val">${currentComm.active_prospects || 0}</div><div class="card-label">Prospects</div></div>
+        <div class="card"><div class="card-val">${currentComm.vip_count || 0}</div><div class="card-label">VIPs</div></div>
+        <div class="card"><div class="card-val">${currentComm.sold || 0}</div><div class="card-label">Sales</div></div>
+      </div>
+    </div>`;
+
+    // Section 2: 4-Week Trend
+    if (trendWeeks.length > 1) {
+      html += `<div class="section">
+        <h2>${trendWeeks.length}-Week Trend</h2>
+        <table>
+          <tr>
+            <th>Week Ending</th>
+            <th class="td-num">Appts</th>
+            <th class="td-num">Rep Leads</th>
+            <th class="td-num">OSC Leads</th>
+            <th class="td-num">Prospects</th>
+            <th class="td-num">Sales</th>
+          </tr>`;
+      for (const { weekEnding: wk, comm: c } of trendWeeks) {
+        const isCurrent = wk === currentWeek;
+        html += `<tr class="${isCurrent ? 'trend-current' : ''}">
+          <td>${fmt(wk)}${isCurrent ? ' <span class="muted" style="font-size:10px;">(current)</span>' : ''}</td>
+          <td class="td-num">${c.total_appts || 0}</td>
+          <td class="td-num">${c.total_leads || 0}</td>
+          <td class="td-num">${c.osc_leads || 0}</td>
+          <td class="td-num">${c.active_prospects || 0}</td>
+          <td class="td-num">${c.sold || 0}</td>
+        </tr>`;
+      }
+      html += '</table></div>';
+    }
+
+    // Section 3: Active Prospects
+    const prospects = (currentComm.prospect_details || []);
+    if (prospects.length > 0) {
+      // Sort: A first, then B, then C; within each rank by name
+      const rankOrder = { A: 0, B: 1, C: 2 };
+      prospects.sort((a, b) => {
+        const ro = (rankOrder[a.ranking] ?? 9) - (rankOrder[b.ranking] ?? 9);
+        if (ro !== 0) return ro;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+
+      html += `<div class="section">
+        <h2>Active Prospect Pipeline <span class="muted" style="font-size:12px;font-family:'Open Sans',sans-serif;">(${prospects.length} prospects)</span></h2>
+        <table>
+          <tr>
+            <th>Prospect</th>
+            <th>Ranking</th>
+            <th>Lot</th>
+            <th>Agent</th>
+            <th class="td-num">Weeks in Pipeline</th>
+          </tr>`;
+      for (const p of prospects) {
+        const weeks = weeksAgo(p.created_at);
+        const agingHtml = weeks === null ? '—'
+          : weeks === 0 ? '<span class="age-pill">New</span>'
+          : `<span class="age-pill">${weeks}w</span>`;
+        html += `<tr>
+          <td><strong>${p.name || '—'}</strong></td>
+          <td>${rankBadge(p.ranking)}</td>
+          <td class="muted">${p.lot || '—'}</td>
+          <td class="muted">${p.rep || '—'}</td>
+          <td class="td-num">${agingHtml}</td>
+        </tr>`;
+      }
+      html += '</table></div>';
+    } else {
+      html += `<div class="section"><h2>Active Prospect Pipeline</h2><p class="muted">No active prospects this week.</p></div>`;
+    }
+
+    document.getElementById('main').innerHTML = html;
+
+  } catch (err) {
+    document.getElementById('main').innerHTML = `<div class="error">Failed to load data: ${err.message}</div>`;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
