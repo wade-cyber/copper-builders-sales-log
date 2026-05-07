@@ -32,6 +32,7 @@ export default async function handler(req, res) {
       status: p.status,
       createdDate: p.created_at,
       lastUpdated: p.updated_at || p.created_at,
+      lastReaffirmedAt: p.last_reaffirmed_at || null,
       lotNumber: p.lot_number || '',
     })));
   } catch (err) {

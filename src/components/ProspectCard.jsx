@@ -1,3 +1,5 @@
+import { weeksElapsed, needsReaffirmation } from '../utils/dates';
+
 function getInitials(name) {
   if (!name) return '?';
   const parts = name.trim().split(/\s+/);
@@ -5,7 +7,7 @@ function getInitials(name) {
   return name.charAt(0).toUpperCase();
 }
 
-export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove, saveError, onRetry }) {
+export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove, onReaffirm, saveError, onRetry }) {
   const isSold = prospect.status === 'sold';
   const isRemoved = prospect.status === 'removed';
   const disabled = isSold || isRemoved;
@@ -13,9 +15,13 @@ export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove,
   const rankClass = r === 'A' ? 'rank-a' : r === 'B' ? 'rank-b' : 'rank-c';
   const rankLabel = r === 'A' ? 'Hot Lead' : r === 'B' ? 'Warm Lead' : 'Cold Lead';
 
+  const weeks = weeksElapsed(prospect.createdDate);
+  const stale = !disabled && needsReaffirmation(prospect.createdDate, prospect.lastReaffirmedAt);
+
   let cardClass = 'pcard';
   if (isSold) cardClass += ' sold';
   if (isRemoved) cardClass += ' inactive';
+  if (stale) cardClass += ' pcard-stale';
 
   return (
     <div className={cardClass}>
@@ -25,6 +31,7 @@ export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove,
           {prospect.name}
           {prospect.lotNumber && <span className="pcard-lot"> — Lot {prospect.lotNumber}</span>}
         </span>
+        {weeks > 0 && <span className="pcard-age">{weeks}w</span>}
         <div className={`rank-pill ${rankClass}`}>
           <select
             id={`rank-${prospect.id}`}
@@ -49,6 +56,13 @@ export default function ProspectCard({ prospect, onUpdate, onMarkSold, onRemove,
 
       {isSold && <div className="pcard-sold-msg">Sold — logged as a sale this week</div>}
       {isRemoved && <div className="pcard-removed-msg">Removed — won't carry forward</div>}
+
+      {stale && (
+        <div className="pcard-reaffirm">
+          <span className="pcard-reaffirm-msg">Still working this prospect?</span>
+          <button className="abtn engbtn" onClick={() => onReaffirm(prospect.id)}>Still Engaged</button>
+        </div>
+      )}
 
       {!disabled && (
         <div className="pcard-bot pcard-bot-end">

@@ -237,6 +237,11 @@ input[type="number"] { -moz-appearance: textfield; }
 .pcard-removed-msg { font-size: 11px; font-weight: 600; font-style: italic; color: #999; margin-top: 4px; }
 .pcard-bot-end { justify-content: flex-end; }
 .pcard-actions-row { flex-direction: row; gap: 6px; }
+.pcard-age { font-size: 10px; font-weight: 600; color: #aaa; background: #f3f4f6; border-radius: 9999px; padding: 1px 6px; white-space: nowrap; flex-shrink: 0; }
+.pcard-stale { border-color: #d97706; }
+.pcard-reaffirm { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; padding: 6px 8px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 4px; }
+.pcard-reaffirm-msg { font-size: 11px; color: #92400e; flex: 1; }
+.engbtn { background: #fffbeb; border: 1px solid #d97706; color: #92400e; flex-shrink: 0; }
 
 /* ═══════ SubmitScreen inline style replacements ═══════ */
 .ss-check { margin: 0 auto 1rem; display: block; }

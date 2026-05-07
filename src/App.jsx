@@ -6,7 +6,7 @@ import SubmitScreen from './components/SubmitScreen';
 import { useAssignments } from './hooks/useAssignments';
 import { useProspects } from './hooks/useProspects';
 import { submitWeeklyLog, fetchReps, fetchSubmissionStatus } from './utils/api';
-import { getWeekEndingShort } from './utils/dates';
+import { getWeekEndingShort, needsReaffirmation } from './utils/dates';
 
 function submitReducer(state, action) {
   switch (action.type) {
@@ -32,7 +32,7 @@ export default function App() {
   const [priorSubmission, setPriorSubmission] = useState(null);
 
   const { assignments, loading: assignmentsLoading, error: assignmentsError, lastSyncedAt } = useAssignments(selectedRep);
-  const { prospects, fetchError: prospectsError, saveErrors, addProspect, updateProspect, removeProspect, markSold, retrySave } =
+  const { prospects, fetchError: prospectsError, saveErrors, addProspect, updateProspect, removeProspect, markSold, reaffirmProspect, retrySave } =
     useProspects(selectedRep);
 
   useEffect(() => {
@@ -144,6 +144,13 @@ export default function App() {
   }, [directLeads]);
 
   const handleSubmit = async () => {
+    const staleCount = prospects.filter(p =>
+      p.status === 'active' && needsReaffirmation(p.createdDate, p.lastReaffirmedAt)
+    ).length;
+    if (staleCount > 0) {
+      dispatchSubmit({ type: 'ERROR', error: `Please confirm ${staleCount} prospect${staleCount > 1 ? 's are' : ' is'} still engaged before submitting.` });
+      return;
+    }
     dispatchSubmit({ type: 'START' });
     try {
       const sections = allProjects.map((a) => {
@@ -267,6 +274,7 @@ export default function App() {
                 onAddProspect={addProspect}
                 onMarkSold={markSold}
                 onRemoveProspect={removeProspect}
+                onReaffirmProspect={reaffirmProspect}
                 onOpened={handleBlockOpened}
                 forceCollapsed={collapseKey}
                 saveErrors={saveErrors}

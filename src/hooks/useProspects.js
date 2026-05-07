@@ -144,5 +144,21 @@ export function useProspects(rep) {
     });
   }, [rep, handleSaveError]);
 
-  return { prospects, loading, fetchError, saveErrors, addProspect, updateProspect, removeProspect, markSold, retrySave };
+  const reaffirmProspect = useCallback((id) => {
+    const now = new Date().toISOString();
+    setProspects((prev) => {
+      const original = prev.find(p => p.id === id);
+      const next = prev.map((p) => (p.id === id ? { ...p, lastReaffirmedAt: now } : p));
+      const updated = next.find((p) => p.id === id);
+      if (updated) {
+        saveProspect({ ...updated, rep }).catch((err) => {
+          setProspects((current) => current.map(p => p.id === id ? { ...original } : p));
+          handleSaveError(id, err, rep);
+        });
+      }
+      return next;
+    });
+  }, [rep, handleSaveError]);
+
+  return { prospects, loading, fetchError, saveErrors, addProspect, updateProspect, removeProspect, markSold, reaffirmProspect, retrySave };
 }

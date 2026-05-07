@@ -14,6 +14,7 @@ export default function CommunityBlock({
   onAddProspect,
   onMarkSold,
   onRemoveProspect,
+  onReaffirmProspect,
   onOpened,
   forceCollapsed,
   saveErrors,
@@ -98,6 +99,7 @@ export default function CommunityBlock({
                   onUpdate={onProspectUpdate}
                   onMarkSold={onMarkSold}
                   onRemove={onRemoveProspect}
+                  onReaffirm={onReaffirmProspect}
                   saveError={saveErrors && saveErrors[p.id]}
                   onRetry={onRetrySave}
                 />

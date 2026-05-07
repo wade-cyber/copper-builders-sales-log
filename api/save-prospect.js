@@ -24,6 +24,7 @@ export default async function handler(req, res) {
       lot_number: data.lotNumber || null,
       created_date: data.createdDate || now,
       last_updated: now,
+      last_reaffirmed_at: data.lastReaffirmedAt || null,
     }, { onConflict: 'id' });
 
     return res.status(200).json({ success: true });
