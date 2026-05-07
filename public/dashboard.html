@@ -499,17 +499,25 @@ async function loadResults(weekOverride) {
     const rankOrder = { A: 0, B: 1, C: 2 };
     allProspects.sort((a, b) => (rankOrder[a.ranking] ?? 9) - (rankOrder[b.ranking] ?? 9));
 
+    const weeksAgo = (iso) => {
+      if (!iso) return null;
+      return Math.floor((Date.now() - new Date(iso).getTime()) / (7 * 24 * 60 * 60 * 1000));
+    };
+
     let pHtml = '<h2>Active Prospect Pipeline</h2>';
-    pHtml += '<table><tr><th>Ranking</th><th>Prospect</th><th>Community</th><th>Rep</th><th>Lot</th></tr>';
+    pHtml += '<table><tr><th>Ranking</th><th>Prospect</th><th>Community</th><th>Rep</th><th>Lot</th><th>Prospect Aging</th></tr>';
     for (const p of allProspects) {
       const badgeClass = p.ranking === 'A' ? 'badge-green' : p.ranking === 'B' ? 'badge-gold' : 'badge-gray';
       const label = p.ranking === 'A' ? 'A — VIP' : p.ranking === 'B' ? 'B — Warm' : 'C — Cold';
+      const weeks = weeksAgo(p.created_at);
+      const aging = weeks === null ? '—' : weeks === 0 ? 'This week' : weeks === 1 ? '1 week' : `${weeks} weeks`;
       pHtml += `<tr>
         <td><span class="badge ${badgeClass}">${label}</span></td>
         <td><strong>${p.name || '—'}</strong></td>
         <td>${p.community}</td>
         <td class="muted">${p.rep}</td>
         <td class="muted">${p.lot || '—'}</td>
+        <td class="muted">${aging}</td>
       </tr>`;
     }
     pHtml += '</table>';
