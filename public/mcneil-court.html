@@ -52,6 +52,21 @@
     /* Footer */
     .footer { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--border); font-size:11px; color:var(--slate); text-align:center; }
 
+    /* Benchmark */
+    .bench-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+    .bench-card { background:var(--white); border:1px solid var(--border); border-radius:6px; padding:14px 16px; }
+    .bench-card.over { border-left:4px solid var(--green); }
+    .bench-card.under { border-left:4px solid var(--red); }
+    .bench-metric { font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--slate); margin-bottom:6px; }
+    .bench-row { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-top:3px; font-size:13px; }
+    .bench-actual { font-family:'Libre Baskerville',serif; font-size:22px; }
+    .bench-needed { color:var(--slate); font-size:12px; }
+    .bench-delta { font-weight:700; font-size:13px; }
+    .delta-over { color:var(--green); }
+    .delta-under { color:var(--red); }
+    .trend-total td { background:var(--sage-light); font-weight:600; font-size:12px; }
+    .bench-note { font-size:12px; color:var(--slate); margin-bottom:10px; }
+
     .loading { text-align:center; padding:3rem; color:var(--slate); }
     .muted { color:var(--slate); }
     .error { color:var(--red); text-align:center; padding:2rem; }
@@ -160,6 +175,14 @@ async function init() {
       </div>
     </div>`;
 
+    // Compute 4-week totals
+    const totAppts    = trendWeeks.reduce((s, {comm:c}) => s + (c.total_appts  || 0), 0);
+    const totRepLeads = trendWeeks.reduce((s, {comm:c}) => s + (c.total_leads  || 0), 0);
+    const totOscLeads = trendWeeks.reduce((s, {comm:c}) => s + (c.osc_leads    || 0), 0);
+    const totLeads    = totRepLeads + totOscLeads;
+    const totSales    = trendWeeks.reduce((s, {comm:c}) => s + (c.sold         || 0), 0);
+    const curProspects = currentComm.active_prospects || 0;
+
     // Section 2: 4-Week Trend
     if (trendWeeks.length > 1) {
       html += `<div class="section">
@@ -184,8 +207,56 @@ async function init() {
           <td class="td-num">${c.sold || 0}</td>
         </tr>`;
       }
+      html += `<tr class="trend-total">
+        <td>${trendWeeks.length}-Week Total</td>
+        <td class="td-num">${totAppts}</td>
+        <td class="td-num">${totRepLeads}</td>
+        <td class="td-num">${totOscLeads}</td>
+        <td class="td-num muted" style="font-size:11px;">see pipeline</td>
+        <td class="td-num">${totSales}</td>
+      </tr>`;
       html += '</table></div>';
     }
+
+    // Section 3: Benchmark Analysis
+    if (trendWeeks.length > 0) {
+      const bmProspects = totSales * 2;
+      const bmAppts     = totSales * 5;
+      const bmLeads     = totSales * 10;
+
+      function benchCard(label, actual, needed, unit, note) {
+        if (totSales === 0) {
+          return `<div class="bench-card">
+            <div class="bench-metric">${label}</div>
+            <div class="bench-actual">${actual}</div>
+            <div class="bench-needed" style="margin-top:4px;">No sales yet — benchmark needs at least 1 sale</div>
+          </div>`;
+        }
+        const delta = actual - needed;
+        const isOver = delta >= 0;
+        const deltaStr = (isOver ? '+' : '') + delta;
+        return `<div class="bench-card ${isOver ? 'over' : 'under'}">
+          <div class="bench-metric">${label}</div>
+          <div class="bench-row">
+            <div>
+              <div class="bench-actual">${actual}</div>
+              <div class="bench-needed">Needed: ${needed} &nbsp;<span class="muted">(${totSales} sale${totSales !== 1 ? 's' : ''} × ${unit})</span></div>
+            </div>
+            <div class="bench-delta ${isOver ? 'delta-over' : 'delta-under'}">${deltaStr}<br><span style="font-size:10px;font-weight:400;">${isOver ? 'above' : 'below'}</span></div>
+          </div>
+          ${note ? `<div class="bench-needed" style="margin-top:6px;">${note}</div>` : ''}
+        </div>`;
+      }
+
+      html += `<div class="section">
+        <h2>Benchmark Analysis</h2>
+        <p class="bench-note">Based on ${trendWeeks.length} weeks of activity · ${totSales} total sale${totSales !== 1 ? 's' : ''} · Targets: 2 prospects / 5 appts / 10 leads per sale</p>
+        <div class="bench-grid">
+          ${benchCard('Active Prospects', curProspects, bmProspects, '2', 'Current pipeline count vs. target')}
+          ${benchCard('Appointments', totAppts, bmAppts, '5', `${trendWeeks.length}-week total`)}
+          ${benchCard('Total Leads (Rep + OSC)', totLeads, bmLeads, '10', `${totRepLeads} rep + ${totOscLeads} OSC`)}
+        </div>
+      </div>`;
 
     // Section 3: Active Prospects
     const prospects = (currentComm.prospect_details || []);
@@ -209,7 +280,7 @@ async function init() {
             <th class="td-num">Weeks in Pipeline</th>
           </tr>`;
       for (const p of prospects) {
-        const weeks = weeksAgo(p.created_at);
+        const weeks = weeksAgo(p.created_at || p.created_date);
         const agingHtml = weeks === null ? '—'
           : weeks === 0 ? '<span class="age-pill">New</span>'
           : `<span class="age-pill">${weeks}w</span>`;
