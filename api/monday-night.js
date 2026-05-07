@@ -135,7 +135,7 @@ async function runPhase2(targetDate = null, force = false) {
   let oscImportResult = { success: false, message: 'skipped' };
   try {
     const result = await importOSCLeads();
-    oscImportResult = { success: true, imported: result.imported, errors: result.errors.length };
+    oscImportResult = { success: true, imported: result.imported, errors: result.errors.length, sourceTab: result.sourceTab };
   } catch (e) {
     console.error('[Phase 2] OSC lead import failed:', e.message);
     oscImportResult = { success: false, message: e.message };
@@ -169,7 +169,9 @@ async function runPhase2(targetDate = null, force = false) {
   const oscOk = oscImportResult.success && oscImportResult.imported > 0;
   const allSuccess = oscOk && oscRotateResult.success;
   const oscSummary = oscImportResult.success
-    ? (oscImportResult.imported > 0 ? `${oscImportResult.imported} leads` : 'ran but 0 leads found — sheet may be empty')
+    ? (oscImportResult.imported > 0
+        ? `${oscImportResult.imported} leads from "${oscImportResult.sourceTab}"`
+        : 'ran but 0 leads found — sheet may be empty')
     : `FAILED: ${oscImportResult.message}`;
   await logRun('monday-night-phase2',
     allSuccess ? 'success' : 'partial',
