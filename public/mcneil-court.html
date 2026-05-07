@@ -107,7 +107,8 @@ async function fetchWeek(weekEnding) {
   const r = await fetch(url);
   if (!r.ok) throw new Error('API error');
   const json = await r.json();
-  const comm = (json.communities || []).find(c => c.community === COMMUNITY);
+  const data = json.data || json;
+  const comm = (data.communities || []).find(c => c.community === COMMUNITY);
   return { weekEnding: json.meta?.week_ending || weekEnding, comm };
 }
 
@@ -117,10 +118,11 @@ async function init() {
     const currentRes = await fetch(`${API}?type=community-results`);
     if (!currentRes.ok) throw new Error('Failed to load data');
     const currentJson = await currentRes.json();
+    const currentData = currentJson.data || currentJson;
 
-    const availableWeeks = currentJson.available_weeks || [];
+    const availableWeeks = currentData.available_weeks || [];
     const currentWeek = currentJson.meta?.week_ending;
-    const currentComm = (currentJson.communities || []).find(c => c.community === COMMUNITY);
+    const currentComm = (currentData.communities || []).find(c => c.community === COMMUNITY);
 
     if (!currentComm) {
       document.getElementById('main').innerHTML = `<div class="error">No data found for ${COMMUNITY}.</div>`;
