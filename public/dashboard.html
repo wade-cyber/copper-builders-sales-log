@@ -63,6 +63,8 @@
     .alert { padding:10px 14px; border-radius:6px; margin-bottom:1rem; font-size:13px; }
     .alert-warn { background:#fff3cd; border:1px solid #ffc107; color:#856404; }
     .alert-ok { background:#d4edda; border:1px solid #28a745; color:#155724; }
+    .alert-error { background:#fde8e8; border:2px solid #e02424; color:#9b1c1c; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .alert-error-btn { background:#e02424; color:#fff; border:none; border-radius:4px; padding:5px 12px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; flex-shrink:0; }
 
     /* Non-reporters */
     .nr-list { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:1rem; }
@@ -409,7 +411,7 @@ async function loadResults(weekOverride) {
   // OSC Leads status note
   const oscNote = t.osc_leads > 0
     ? `<div class="alert alert-ok" style="margin-bottom:8px;">OSC Leads Report imported: <strong>${t.osc_leads} marketing leads</strong> across ${t.osc_communities} communities.</div>`
-    : `<div class="alert alert-warn" style="margin-bottom:8px;">OSC Leads Report: <strong>Not yet imported</strong> for this week. Go to System tab to import.</div>`;
+    : `<div class="alert alert-error" style="margin-bottom:8px;">⚠ OSC Leads NOT imported this week — data is incomplete.<button class="alert-error-btn" onclick="triggerJob('import-leads')">Import Now</button></div>`;
   document.getElementById('results-osc-note').innerHTML = oscNote;
 
   // Non-reporters section — red chips
