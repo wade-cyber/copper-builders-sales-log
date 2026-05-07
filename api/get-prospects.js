@@ -30,8 +30,8 @@ export default async function handler(req, res) {
       ranking: p.ranking,
       nextStep: p.next_step || '',
       status: p.status,
-      createdDate: p.created_at,
-      lastUpdated: p.updated_at || p.created_at,
+      createdDate: p.created_date,
+      lastUpdated: p.last_updated || p.created_date,
       lastReaffirmedAt: p.last_reaffirmed_at || null,
       lotNumber: p.lot_number || '',
     })));

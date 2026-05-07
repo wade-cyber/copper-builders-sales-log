@@ -298,7 +298,7 @@ async function communityResults(res, weekEnding) {
       ranking,
       rep: p.reps.name,
       lot: p.lot_number || '',
-      created_at: p.created_at || null,
+      created_at: p.created_date || null,
     });
   }
 
