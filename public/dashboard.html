@@ -80,6 +80,11 @@
     .muted { color:var(--slate); font-size:12px; }
     .mt { margin-top:1rem; }
     .mb { margin-bottom:1rem; }
+    .btn-remove-prospect { font-size:11px; padding:3px 10px; border:1px solid var(--red); color:var(--red); background:transparent; border-radius:4px; cursor:pointer; font-family:'Open Sans',sans-serif; }
+    .btn-remove-prospect:hover { background:#fdf0ef; }
+    .btn-remove-prospect:disabled { opacity:.5; cursor:not-allowed; }
+    .prospect-removed td { opacity:0.4; }
+    .prospect-removed .btn-remove-prospect { display:none; }
   </style>
   <style>
     #pw-gate { position:fixed; inset:0; background:var(--cream); z-index:9999; display:flex; align-items:center; justify-content:center; }
@@ -507,7 +512,7 @@ async function loadResults(weekOverride) {
     };
 
     let pHtml = '<h2>Active Prospect Pipeline</h2>';
-    pHtml += '<table><tr><th>Ranking</th><th>Prospect</th><th>Community</th><th>Rep</th><th>Lot</th><th>Prospect Aging</th></tr>';
+    pHtml += '<table><tr><th>Ranking</th><th>Prospect</th><th>Community</th><th>Rep</th><th>Lot</th><th>Prospect Aging</th><th></th></tr>';
     for (const p of allProspects) {
       const badgeClass = p.ranking === 'A' ? 'badge-green' : p.ranking === 'B' ? 'badge-gold' : 'badge-gray';
       const label = p.ranking === 'A' ? 'A — VIP' : p.ranking === 'B' ? 'B — Warm' : 'C — Cold';
@@ -520,10 +525,34 @@ async function loadResults(weekOverride) {
         <td class="muted">${p.rep}</td>
         <td class="muted">${p.lot || '—'}</td>
         <td class="muted">${aging}</td>
+        <td><button class="btn-remove-prospect" data-id="${p.id || ''}">Remove</button></td>
       </tr>`;
     }
     pHtml += '</table>';
     document.getElementById('results-prospects').innerHTML = pHtml;
+
+    document.getElementById('results-prospects').addEventListener('click', async (e) => {
+      if (!e.target.classList.contains('btn-remove-prospect')) return;
+      const id = e.target.dataset.id;
+      if (!id) return;
+      if (!confirm('Remove this prospect? They will be marked inactive and excluded from next week\'s report.')) return;
+      e.target.disabled = true;
+      e.target.textContent = 'Removing…';
+      try {
+        const r = await fetch('/api/admin?action=remove-prospect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id }),
+        });
+        if (!r.ok) throw new Error('API error');
+        e.target.closest('tr').classList.add('prospect-removed');
+        e.target.textContent = 'Removed';
+      } catch (err) {
+        e.target.disabled = false;
+        e.target.textContent = 'Remove';
+        alert('Failed to remove prospect. Please try again.');
+      }
+    });
   } else {
     document.getElementById('results-prospects').innerHTML = '';
   }

@@ -18,6 +18,7 @@ export default async function handler(req, res) {
       case 'list-assignments': return await listAssignments(req, res);
       case 'set-assignments': return await setAssignments(req, res);
       case 'remove-assignment': return await removeAssignment(req, res);
+      case 'remove-prospect': return await removeProspect(req, res);
       case 'trigger-job': return await triggerJob(req, res);
       case 'run-history': return await runHistory(res);
       case 'error-log': return await errorLog(res);
@@ -150,6 +151,19 @@ async function removeAssignment(req, res) {
   if (!id) return res.status(400).json({ error: 'id required' });
 
   const { error } = await supabase.from('assignments').delete().eq('id', id);
+  if (error) throw error;
+  return res.status(200).json({ success: true });
+}
+
+async function removeProspect(req, res) {
+  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+  const { id } = body;
+  if (!id) return res.status(400).json({ error: 'id required' });
+
+  const { error } = await supabase
+    .from('prospects')
+    .update({ status: 'removed', last_updated: new Date().toISOString() })
+    .eq('id', id);
   if (error) throw error;
   return res.status(200).json({ success: true });
 }

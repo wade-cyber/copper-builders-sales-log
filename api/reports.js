@@ -294,6 +294,7 @@ async function communityResults(res, weekEnding) {
     const ranking = (p.ranking || 'C').toUpperCase();
     if (ranking === 'A') byCommunity[comm].vip_count++;
     byCommunity[comm].prospect_details.push({
+      id: p.id,
       name: p.prospect_name || '',
       ranking,
       rep: p.reps.name,
