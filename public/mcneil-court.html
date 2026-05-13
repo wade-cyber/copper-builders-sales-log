@@ -37,9 +37,6 @@
     .td-num { text-align:right; font-variant-numeric:tabular-nums; }
     th.td-num { text-align:right; }
 
-    /* Trend table highlight */
-    .trend-current td { background:#f5f8f5; font-weight:600; }
-
     /* Ranking badges */
     .badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 9px; border-radius:10px; letter-spacing:.04em; }
     .badge-a { background:#e8f5e9; color:#1b5e20; }
@@ -197,9 +194,8 @@ async function init() {
             <th class="td-num">Sales</th>
           </tr>`;
       for (const { weekEnding: wk, comm: c } of trendWeeks) {
-        const isCurrent = wk === currentWeek;
-        html += `<tr class="${isCurrent ? 'trend-current' : ''}">
-          <td>${fmt(wk)}${isCurrent ? ' <span class="muted" style="font-size:10px;">(current)</span>' : ''}</td>
+        html += `<tr>
+          <td>${fmt(wk)}</td>
           <td class="td-num">${c.total_appts || 0}</td>
           <td class="td-num">${c.total_leads || 0}</td>
           <td class="td-num">${c.osc_leads || 0}</td>
