@@ -97,9 +97,9 @@ async function weeklySummary(res, weekEnding) {
   }
 
   const { data: assignments } = await supabase
-    .from('assignments').select('rep_id, community_id, reps(name), communities(name)');
+    .from('assignments').select('rep_id, community_id, reps(name, is_active), communities(name, is_active)');
   const submittedKeys = new Set(submissions.map(s => `${s.rep_id}||${s.community_id}`));
-  const nr = (assignments || []).filter(a => !submittedKeys.has(`${a.rep_id}||${a.community_id}`))
+  const nr = (assignments || []).filter(a => a.reps?.is_active && a.communities?.is_active && !submittedKeys.has(`${a.rep_id}||${a.community_id}`))
     .map(a => ({ rep: a.reps.name, community: a.communities.name }));
 
   return res.status(200).json({
@@ -112,10 +112,10 @@ async function weeklySummary(res, weekEnding) {
 
 async function nonReporters(res, weekEnding) {
   const { data: assignments } = await supabase
-    .from('assignments').select('rep_id, community_id, reps(name), communities(name, division)');
+    .from('assignments').select('rep_id, community_id, reps(name, is_active), communities(name, division, is_active)');
   const submissions = await fetchSubmissionsForWeek(weekEnding, 'rep_id, community_id, submitted_at');
   const keys = new Set(submissions.map(s => `${s.rep_id}||${s.community_id}`));
-  const nr = (assignments || []).filter(a => !keys.has(`${a.rep_id}||${a.community_id}`))
+  const nr = (assignments || []).filter(a => a.reps?.is_active && a.communities?.is_active && !keys.has(`${a.rep_id}||${a.community_id}`))
     .map(a => ({ rep: a.reps.name, community: a.communities.name, division: a.communities.division }));
   return res.status(200).json({ success: true, data: nr, meta: { week_ending: weekEnding, count: nr.length } });
 }
@@ -218,13 +218,13 @@ async function communityResults(res, weekEnding) {
   // If no specific week requested, use the most recent with data (or current)
   const targetWeek = availableWeeks.includes(weekEnding) ? weekEnding : (availableWeeks[0] || weekEnding);
 
-  // 0. Seed from persistent assignments so all assigned communities + reps appear
+  // 0. Seed from active assignments only — inactive reps/communities are excluded
   const { data: assignments } = await supabase
     .from('assignments')
-    .select('reps(name), communities(name, division)');
+    .select('reps(name, is_active), communities(name, division, is_active)');
 
   const byCommunity = {};
-  for (const a of (assignments || [])) {
+  for (const a of (assignments || []).filter(a => a.reps?.is_active && a.communities?.is_active)) {
     const comm = a.communities.name;
     if (!byCommunity[comm]) {
       byCommunity[comm] = {
@@ -311,7 +311,7 @@ async function communityResults(res, weekEnding) {
   }
 
   // Add division for prospect-only communities
-  const { data: allComms } = await supabase.from('communities').select('name, division');
+  const { data: allComms } = await supabase.from('communities').select('name, division').eq('is_active', true);
   const divMap = Object.fromEntries((allComms || []).map(c => [c.name, c.division]));
   for (const c of Object.values(byCommunity)) {
     if (!c.division) c.division = divMap[c.community] || '';
@@ -381,10 +381,10 @@ async function communityResults(res, weekEnding) {
   // fetchSubmissionsForWeek already includes Mon/Tue carryovers, so no extra query needed.
   const { data: nrAssignments } = await supabase
     .from('assignments')
-    .select('rep_id, reps(name)');
+    .select('rep_id, reps(name, is_active)');
 
   const repsWhoSubmitted = new Set((submissions || []).map(s => s.rep_id));
-  const assignedRepNames = [...new Map((nrAssignments || []).map(a => [a.rep_id, a.reps.name])).values()];
+  const assignedRepNames = [...new Map((nrAssignments || []).filter(a => a.reps?.is_active).map(a => [a.rep_id, a.reps.name])).values()];
   const nonReporters = assignedRepNames
     .filter(name => {
       const repId = (nrAssignments || []).find(a => a.reps.name === name)?.rep_id;

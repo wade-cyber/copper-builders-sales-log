@@ -11,14 +11,14 @@ export default async function handler(req, res) {
     // Query current week's assignments; fallback to most recent if cron hasn't run yet
     let { data: allAssignments, error } = await supabase
       .from('assignments')
-      .select('communities(name), reps(name), third_party')
+      .select('communities(name, is_active), reps(name, is_active), third_party')
       .eq('week_ending', weekEnding);
     if (error) throw error;
 
     if (!allAssignments || allAssignments.length === 0) {
       const { data: recent, error: rErr } = await supabase
         .from('assignments')
-        .select('communities(name), reps(name), third_party, week_ending')
+        .select('communities(name, is_active), reps(name, is_active), third_party, week_ending')
         .not('week_ending', 'is', null)
         .order('week_ending', { ascending: false })
         .limit(500);
@@ -30,11 +30,14 @@ export default async function handler(req, res) {
       if (allAssignments.length === 0) {
         const { data: legacy } = await supabase
           .from('assignments')
-          .select('communities(name), reps(name), third_party')
+          .select('communities(name, is_active), reps(name, is_active), third_party')
           .is('week_ending', null);
         allAssignments = legacy || [];
       }
     }
+
+    // Exclude assignments where the rep or community has been deactivated
+    allAssignments = allAssignments.filter(a => a.reps?.is_active && a.communities?.is_active);
 
     if (!allAssignments || allAssignments.length === 0) return res.status(200).json([]);
 

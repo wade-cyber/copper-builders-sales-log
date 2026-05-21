@@ -8,7 +8,7 @@ export default async function handler(req, res) {
 
     let { data, error } = await supabase
       .from('assignments')
-      .select('reps(name)')
+      .select('reps(name, is_active)')
       .eq('week_ending', weekEnding);
     if (error) throw error;
 
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     if (!data || data.length === 0) {
       const { data: recent, error: rErr } = await supabase
         .from('assignments')
-        .select('reps(name), week_ending')
+        .select('reps(name, is_active), week_ending')
         .not('week_ending', 'is', null)
         .order('week_ending', { ascending: false })
         .limit(200);
@@ -26,12 +26,12 @@ export default async function handler(req, res) {
 
       // Last resort: NULL-week legacy rows
       if (data.length === 0) {
-        const { data: legacy } = await supabase.from('assignments').select('reps(name)').is('week_ending', null);
+        const { data: legacy } = await supabase.from('assignments').select('reps(name, is_active)').is('week_ending', null);
         data = legacy || [];
       }
     }
 
-    const names = [...new Set((data || []).map(a => a.reps.name))]
+    const names = [...new Set((data || []).filter(a => a.reps?.is_active).map(a => a.reps.name))]
       .filter(n => {
         const lower = n.toLowerCase();
         return lower !== 'n/a' && lower !== 'none' && lower !== 'na';
