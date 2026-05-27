@@ -144,8 +144,11 @@ export default function App() {
   }, [directLeads]);
 
   const handleSubmit = async () => {
+    // Only check prospects in currently assigned communities — orphaned
+    // prospects from old assignments shouldn't block submission.
+    const assignedNames = new Set(allProjects.map(a => a.name || a.assignmentName));
     const staleCount = prospects.filter(p =>
-      p.status === 'active' && needsReaffirmation(p.createdDate, p.lastReaffirmedAt)
+      p.status === 'active' && assignedNames.has(p.community) && needsReaffirmation(p.createdDate, p.lastReaffirmedAt)
     ).length;
     if (staleCount > 0) {
       dispatchSubmit({ type: 'ERROR', error: `Please confirm ${staleCount} prospect${staleCount > 1 ? 's are' : ' is'} still engaged before submitting.` });
